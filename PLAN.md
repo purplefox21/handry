@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-28):** Faz 0-5 ✅ (Faz 2'deki gerçek App Store işi kullanıcı bekleniyor). Faz 6 (ses) devam ediyor.
+> **Durum (2026-09-28):** Faz 0-6 ✅ (Faz 2'deki gerçek App Store işi kullanıcı bekleniyor). Faz 7 (tarifler + menü çubuğu uygulaması) devam ediyor.
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -232,12 +232,23 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
 - Anthropic API beyninde reddedilen isteklerin sunucu tarafında yedek modele devredilmesi (fallbacks) açık.
 
 ### Faz 6 — Ses
-- [ ] Her yerden çalışan bas-konuş kısayolu
-- [ ] whisper.cpp ile yerel Türkçe konuşma tanıma (M5 Pro'da hızlı çalışır)
-- [ ] `say` ile Türkçe sesli kısa cevaplar
-- [ ] (İsteğe bağlı) "Hey Jevis" uyandırma kelimesi
+- [x] Bas-konuş: arayüzdeki mikrofon (basılı tut ya da dokun-başlat/dokun-bitir) ve `node cli.js listen [--do]`. Her yerden çalışan kısayol Faz 7'deki menü çubuğu uygulamasında.
+- [x] whisper.cpp ile yerel Türkçe konuşma tanıma: `large-v3-turbo-q5_0`, 574 MB, 3-4 sn'lik cümle 0.6-1 sn.
+- [x] `say` ile Türkçe (Yelda) sesli kısa cevaplar: markdown ve linkler atılır, en fazla 320 karakter.
+- [ ] (İsteğe bağlı, yapılmadı) "Hey Jevis" uyandırma kelimesi. Sürekli dinleme hem pil hem gizlilik maliyeti getiriyor; bas-konuş ve kısayol yeterli görüldü.
 
-**Bitince:** Sabah senaryosu sesle çalışıyor: "Günaydın, jev projesini VS Code'da aç, Claude paneline 'selam dünya' yaz, tarayıcıda sitelerimi aç, bu hafta dinlediğim tarzda müzik aç, son 20 mailimi webden okuyup özetle."
+**Bitince:** Sabah senaryosu sesle çalışıyor (tam senaryoyu kullanıcı deneyecek; mail okuma, müzik açma ve Claude paneline yazma kişisel olduğu için otomatik test edilmedi): "Günaydın, jev projesini VS Code'da aç, Claude paneline 'selam dünya' yaz, tarayıcıda sitelerimi aç, bu hafta dinlediğim tarzda müzik aç, son 20 mailimi webden okuyup özetle."
+
+**Sonuç:** `node tests/voice-e2e.mjs` **8/8**. Hoparlör kullanılmadı: konuşmalar `say -o` ile dosyaya üretildi.
+- Konuşma → yazı API'si çalışıyor. Sessizlikten yazı uydurulmuyor.
+- Sesle verilen komut hızlı yoldan yapıldı. Sesli cevap dosyaya yazıldı; uzun cevabın sadece özeti okunuyor.
+- Arayüzün kayıt kodu (44.1 kHz → 16 kHz → WAV → whisper) doğru yazıya çevirdi. Mikrofon kaydı çalışıyor, izin zaten verilmiş.
+- Sesli komut → Claude Code: "Vikipedi'yi ve Hacker News'i ayrı sekmelerde aç" 15.8 sn.
+
+**Öğrenilenler:**
+- whisper sessizlikte "www.youtube.com.au", "Altyazı M.K." gibi şeyler uyduruyor. Enerji eşiği ve bilinen kalıp filtresi eklendi.
+- Teknik isimler için whisper'a bir kelime listesi veriliyor (Jev, VS Code, Claude, Xcode…): "REV" → "Jev".
+- Tarayıcıda örnek hızını basit ortalamayla düşürmek tanımayı bozuyor ("Xcode Ağaç ve Proje İdeale"). Tarayıcının kendi dönüştürücüsü (`OfflineAudioContext`) kullanılıyor.
 
 ### Faz 7 — Tarifler ve uygulama haline getirme
 - [ ] Başarılı akışlar tarif olarak kaydedilir. Adımlar doğal dilde saklanır ("Pricing and Availability'e tıkla"), böylece sayfa düzeni değişse bile tekrar oynatırken Jev doğru öğeyi bulur.
@@ -332,6 +343,7 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
 
 - **2026-09-25:** Proje incelendi; JEVIS ve Jev'in yetenekleri araştırıldı.
 - **2026-09-26:** macOS kısımları silindi (sadece Jev kalsın denmişti). Jev konuşmaları ve deneyler yapıldı.
+- **2026-09-28:** Faz 6 bitti: whisper.cpp ile Türkçe konuşma tanıma, Yelda ile sesli cevap, bas-konuş, `do` / `listen` komutları. 8/8.
 - **2026-09-28:** Faz 5 bitti: sohbet arayüzü (app/), beyin adaptörleri, hızlı yol, DURDUR. 7/7.
 - **2026-09-28:** Faz 4 bitti: Swift erişilebilirlik yardımcısı, masaüstü elleri, mac_action, terminal/kısayol korumaları. 23/23.
 - **2026-09-28:** Faz 3 bitti: kasa, kayıt, acil durdurma, gizli talimat bekçisi, kullanıcıyı bekleme, site bazlı onay kuralları.

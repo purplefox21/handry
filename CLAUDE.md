@@ -30,7 +30,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 ## Çalıştırma
 
 - `npm start` → http://localhost:3000 — JEVIS sohbeti (beyin seçici, hızlı yol, canlı eylem akışı, DURDUR) + Karar Laboratuvarı
-- `node cli.js` → JEVIS komutları (open, read, click, type, select, check, upload, tabs, shot, verify…)
+- `node cli.js` → JEVIS komutları: `do "…"` (komut ver), `listen --do` (sesle), tarayıcı (open, read, click, type…), masaüstü (`desk …`, `app`, `mac`), `secret`, `stop`
 - `node appstore/privacy-scan.js <klasör>` → App Privacy taslağı
 - `node demo.js` → destek bileti yönlendirme örneği
 - `node macos-cli.js "komut"` → eski tek adımlı macOS komutları (Jev dispatcher)
@@ -43,4 +43,5 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/guard-e2e.mjs` → kasa, bekçi, acil durdurma (Anahtar Zinciri'ne test kaydı ekleyip siler)
 - `node tests/desktop-e2e.mjs` → masaüstü elleri (Hesap Makinesi ve TextEdit'i açıp kapatır)
 - `node tests/app-e2e.mjs` → sohbet sunucusu: hızlı yol, Claude Code beyni, DURDUR, OpenAI uyumlu adaptör, arayüz (aboneliğinden iki kısa çalışma harcar)
+- `node tests/voice-e2e.mjs` → ses: whisper, sessizlik filtresi, sesli cevap (hoparlörsüz), arayüz kayıt kodu, mikrofon
 - `node tests/dispatcher-dryrun.mjs` → eski macOS komut yönlendirici (deneme modu)

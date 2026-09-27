@@ -4,12 +4,14 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { ROOT, config } from '../core/config.js';
+import { ROOT, config, homeDir } from '../core/config.js';
 import { getApiKey } from '../core/jev.js';
-import { tryFast } from '../core/router.js';
-import { getBrain, listBrains } from '../brain/index.js';
-import { requestStop, clearStop } from '../guard/stop.js';
+import { runCommand } from '../core/runner.js';
+import { listBrains } from '../brain/index.js';
+import { requestStop } from '../guard/stop.js';
 import { recentActions } from '../guard/log.js';
+import { sttStatus, transcribe } from '../voice/stt.js';
+import { ttsStatus, speak, stopSpeaking } from '../voice/tts.js';
 
 const PORT = Number(process.env.PORT) || config().server.port || 3000;
 process.env.JEVIS_UI_PORT = String(PORT); // browser hands skip this app's own tab
@@ -79,22 +81,9 @@ async function handleRun(req, res) {
   res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
   const send = event => { if (!res.writableEnded) res.write(`${JSON.stringify(event)}\n`); };
   const controller = new AbortController();
-  activeRun = { controller, started: Date.now() };
-  clearStop(); // a new command from the user means "go on"
-
+  activeRun = { controller };
   try {
-    if (fast) {
-      const quick = await tryFast(text, send);
-      if (quick.handled) {
-        send({ type: 'done', text: quick.text, fast: true, ms: Date.now() - activeRun.started });
-        return;
-      }
-      if (quick.note) send({ type: 'status', text: quick.note });
-    }
-    const brain = getBrain(brainId);
-    send({ type: 'status', text: `${brain.label} düşünüyor…` });
-    const out = await brain.run({ text, sessionId, onEvent: send, signal: controller.signal });
-    send({ type: 'done', text: out.text, sessionId: out.sessionId, brain: brain.id, stopped: Boolean(out.stopped), ms: Date.now() - activeRun.started });
+    send(await runCommand({ text, brainId, sessionId, fast, onEvent: send, signal: controller.signal }));
   } catch (err) {
     send({ type: 'error', message: controller.signal.aborted ? 'Durduruldu.' : err.message });
   } finally {
@@ -106,7 +95,29 @@ async function handleRun(req, res) {
 function handleStop(res) {
   requestStop('arayüz');
   activeRun?.controller.abort();
+  stopSpeaking();
   sendJson(res, 200, { stopped: true });
+}
+
+// ---------------------------------------------------------------------------
+// Voice: 16 kHz WAV from the page → whisper.cpp → text; replies via `say`.
+// ---------------------------------------------------------------------------
+
+async function handleVoice(req, res) {
+  const audio = await readBody(req);
+  const file = path.join(homeDir('tmp'), `voice-${Date.now()}.wav`);
+  fs.writeFileSync(file, audio);
+  try {
+    sendJson(res, 200, { text: await transcribe(file) });
+  } finally {
+    fs.rmSync(file, { force: true });
+  }
+}
+
+async function handleSay(req, res) {
+  const { text } = JSON.parse((await readBody(req)).toString() || '{}');
+  speak(text || '');
+  sendJson(res, 200, { ok: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +150,9 @@ const ROUTES = {
   'POST /api/stop': (req, res) => handleStop(res),
   'GET /api/brains': async (req, res) => sendJson(res, 200, { default: config().brain.default, brains: await listBrains() }),
   'GET /api/log': (req, res) => sendJson(res, 200, { actions: recentActions(30) }),
+  'GET /api/voice': (req, res) => sendJson(res, 200, { stt: sttStatus(), tts: ttsStatus() }),
+  'POST /api/voice': handleVoice,
+  'POST /api/say': handleSay,
   'POST /api/evaluate': handleEvaluate
 };
 

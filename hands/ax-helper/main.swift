@@ -13,6 +13,7 @@
 // Paths: "w.3.1" = child 3, then child 1 of the focused window; "m.2.0" = menu bar.
 import Cocoa
 import ApplicationServices
+import AVFoundation
 
 // MARK: - Output and arguments
 
@@ -382,6 +383,28 @@ case "scroll":
     let dx = Int32(args.count > 1 ? args[1] : "") ?? 0
     CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0)?.post(tap: .cghidEventTap)
     emit(["ok": true])
+
+case "record":
+    // record <seconds> <out.wav>: 16 kHz mono 16-bit WAV, the format whisper.cpp reads.
+    let seconds = Double(args.first ?? "") ?? 5
+    let out = args.count > 1 ? args[1] : NSTemporaryDirectory() + "jevis-record.wav"
+    if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+        var answered = false
+        AVCaptureDevice.requestAccess(for: .audio) { _ in answered = true }
+        let until = Date().addingTimeInterval(60)
+        while !answered && Date() < until { RunLoop.current.run(until: Date().addingTimeInterval(0.1)) }
+    }
+    guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+        fail("Mikrofon izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Mikrofon bölümünden JEVIS'i çalıştıran uygulamaya izin ver.", code: "NO_PERMISSION")
+    }
+    let settings: [String: Any] = [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16000, AVNumberOfChannelsKey: 1,
+                                   AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false]
+    guard let recorder = try? AVAudioRecorder(url: URL(fileURLWithPath: out), settings: settings), recorder.record(forDuration: seconds) else {
+        fail("Kayıt başlatılamadı.", code: "MIC")
+    }
+    RunLoop.current.run(until: Date().addingTimeInterval(seconds + 0.3))
+    recorder.stop()
+    emit(["ok": true, "file": out, "seconds": seconds])
 
 case "activate":
     let app = targetApp(pid: pidOpt, name: appOpt)

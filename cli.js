@@ -6,8 +6,18 @@ import * as browser from './hands/browser.js';
 import * as vault from './guard/vault.js';
 import { requestStop, clearStop } from './guard/stop.js';
 import { recentActions } from './guard/log.js';
+import { runCommand } from './core/runner.js';
+import * as desktop from './hands/desktop.js';
+import { transcribe } from './voice/stt.js';
+import { speak } from './voice/tts.js';
+import { config, homeDir } from './core/config.js';
+import path from 'node:path';
 
 const HELP = `JEVIS komutları
+
+Komut ver (hızlı yol ya da beyin)
+  do "<komut>" [--brain=claude-code] [--no-fast] [--say]
+  listen [saniye] [--do] [--say]       Mikrofonu dinle, yazıya çevir (--do: çalıştır)
 
 Tarayıcı
   open <adres|arama> [--new]          Sayfayı aç (--new: yeni sekmede)
@@ -116,7 +126,32 @@ function printResult(res) {
   return out;
 }
 
+function printEvent(ev) {
+  if (ev.type === 'route') console.log(ev.route === 'needs_brain' ? `🧠 beyne gidiyor (Jev %${ev.confidence})` : `⚡ hızlı yol: ${ev.route} (Jev %${ev.confidence}, ${ev.ms} ms)`);
+  if (ev.type === 'status') console.log(`… ${ev.text}`);
+  if (ev.type === 'tool') console.log(`🔧 ${ev.name} ${JSON.stringify(ev.args || {}).slice(0, 100)}`);
+  if (ev.type === 'tool_result') console.log(`   ${ev.isError ? '❌' : '↳'} ${String(ev.text).split('\n')[0].slice(0, 140)}`);
+  if (ev.type === 'text') console.log(`💬 ${ev.text}`);
+}
+
+async function doCommand(text) {
+  const out = await runCommand({ text, brainId: flagValue('--brain') || config().brain.default, fast: !flags.has('--no-fast'), onEvent: printEvent });
+  if (flags.has('--say') && out.text) await speak(out.text);
+  return `✅ ${out.text || 'Bitti.'}\n(${(out.ms / 1000).toFixed(1)} sn${out.fast ? ', beyin kullanılmadı' : ''})`;
+}
+
 async function run() {
+  if (cmd === 'do') return doCommand(args.join(' '));
+  if (cmd === 'listen') {
+    const seconds = Number(args[0]) || config().voice.recordSeconds;
+    const file = path.join(homeDir('tmp'), 'listen.wav');
+    console.log(`🎙️ ${seconds} saniye dinliyorum…`);
+    await desktop.record(seconds, file);
+    const heard = await transcribe(file);
+    if (!heard) return 'Bir şey duyamadım.';
+    console.log(`🗣️ Duyulan: ${heard}`);
+    return flags.has('--do') ? doCommand(heard) : heard;
+  }
   if (cmd === 'stop') {
     requestStop('CLI');
     return '⛔ Acil durdurma açık. Kaldırmak için: node cli.js resume';

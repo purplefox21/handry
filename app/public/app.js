@@ -896,3 +896,114 @@ document.querySelectorAll('.chip-btn[data-cmd]').forEach(btn => {
 });
 
 loadBrains().catch(err => addBubble('error', `Beyinler yüklenemedi: ${err.message}`));
+
+/* =========================================================
+   Ses: bas-konuş (whisper.cpp) ve sesli cevap (say)
+   ========================================================= */
+
+const micBtn = document.getElementById('micBtn');
+const speakToggle = document.getElementById('speakToggle');
+const speakToggleWrap = document.getElementById('speakToggleWrap');
+let recording = null;
+
+function toWav(samples, rate) {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  const text = (offset, s) => [...s].forEach((ch, i) => view.setUint8(offset + i, ch.charCodeAt(0)));
+  text(0, 'RIFF');
+  view.setUint32(4, 36 + samples.length * 2, true);
+  text(8, 'WAVE');
+  text(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  text(36, 'data');
+  view.setUint32(40, samples.length * 2, true);
+  samples.forEach((s, i) => view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, s)) * 0x7fff, true));
+  return buffer;
+}
+
+// Resamples the microphone audio to the 16 kHz whisper.cpp expects, with the
+// browser's own resampler (a plain average smears speech and hurts accuracy).
+async function resample(chunks, fromRate, toRate) {
+  const input = new Float32Array(chunks.reduce((n, c) => n + c.length, 0));
+  let offset = 0;
+  for (const c of chunks) { input.set(c, offset); offset += c.length; }
+  const offline = new OfflineAudioContext(1, Math.ceil(input.length * toRate / fromRate), toRate);
+  const buffer = offline.createBuffer(1, input.length, fromRate);
+  buffer.copyToChannel(input, 0);
+  const source = offline.createBufferSource();
+  source.buffer = buffer;
+  source.connect(offline.destination);
+  source.start();
+  return (await offline.startRendering()).getChannelData(0);
+}
+
+async function startListening() {
+  if (recording || running) return;
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+  const ctx = new AudioContext();
+  const source = ctx.createMediaStreamSource(stream);
+  const node = ctx.createScriptProcessor(4096, 1, 1);
+  const chunks = [];
+  node.onaudioprocess = e => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  source.connect(node);
+  node.connect(ctx.destination);
+  recording = { stream, ctx, node, chunks, started: Date.now() };
+  micBtn.classList.add('recording');
+  runStatus.textContent = 'Dinliyorum…';
+}
+
+async function stopListening() {
+  if (!recording) return;
+  const { stream, ctx, node, chunks } = recording;
+  recording = null;
+  node.disconnect();
+  stream.getTracks().forEach(t => t.stop());
+  const rate = ctx.sampleRate;
+  await ctx.close();
+  micBtn.classList.remove('recording');
+  const samples = await resample(chunks, rate, 16000);
+  if (samples.length < 16000 * 0.4) {
+    runStatus.textContent = 'Hazır';
+    return;
+  }
+  runStatus.textContent = 'Yazıya çeviriyorum…';
+  const res = await fetch('/api/voice', { method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Jevis-Token': JEVIS_TOKEN }, body: toWav(samples, 16000) });
+  const data = await res.json().catch(() => ({}));
+  runStatus.textContent = 'Hazır';
+  if (!res.ok) return addBubble('error', `Ses çevrilemedi: ${data.error || res.status}`);
+  if (!data.text) return addBubble('error', 'Bir şey duyamadım, tekrar dener misin?');
+  sendCommand(data.text);
+}
+
+// Hold to talk; a short tap toggles instead (tap to start, tap to stop).
+let pressedAt = 0;
+micBtn.addEventListener('pointerdown', async () => {
+  if (recording) return;
+  pressedAt = Date.now();
+  try { await startListening(); } catch (err) { addBubble('error', `Mikrofon açılamadı: ${err.message}`); }
+});
+micBtn.addEventListener('pointerup', () => {
+  if (recording && Date.now() - pressedAt > 350) stopListening();
+  else if (recording && Date.now() - recording.started > 350) stopListening();
+});
+
+document.addEventListener('jevis:done', e => {
+  if (speakToggle.checked && e.detail.text) api('/api/say', { method: 'POST', body: JSON.stringify({ text: e.detail.text }) });
+});
+speakToggle.addEventListener('change', () => { try { localStorage.setItem('jevis_speak', speakToggle.checked ? '1' : ''); } catch {} });
+
+// The menu bar app's global push-to-talk key calls these.
+window.jevisVoice = { start: startListening, stop: stopListening, send: sendCommand };
+
+(async () => {
+  const v = await (await api('/api/voice')).json();
+  micBtn.hidden = !v.stt.ok;
+  speakToggleWrap.hidden = !v.tts.ok;
+  try { speakToggle.checked = localStorage.getItem('jevis_speak') === '1'; } catch {}
+})().catch(() => {});

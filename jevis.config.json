@@ -80,5 +80,12 @@
       },
       "codex": {}
     }
+  },
+  "voice": {
+    "model": "~/.jevis/models/ggml-large-v3-turbo-q5_0.bin",
+    "language": "tr",
+    "ttsVoice": "Yelda",
+    "maxSpokenChars": 320,
+    "recordSeconds": 6
   }
 }

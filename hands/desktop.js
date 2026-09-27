@@ -264,6 +264,11 @@ export async function screenshot({ app, fullScreen = false } = {}) {
   return { path: file, base64: fs.readFileSync(file).toString('base64'), mimeType: 'image/jpeg', app: f.app, window: f.window };
 }
 
+/** Records the microphone to a 16 kHz WAV (for whisper.cpp). */
+export async function record(seconds, file) {
+  return ax('record', seconds, file);
+}
+
 export function formatRead(r, { maxElements = 250 } = {}) {
   const lines = [`Uygulama: ${r.app}`, `Pencere: ${r.window || '(yok)'}`, '', `Öğeler (${r.elements.length}${r.truncated ? ', liste kısaltıldı' : ''}):`];
   for (const e of r.elements.slice(0, maxElements)) lines.push(`#${e.id} ${labelOf(e)}`);
