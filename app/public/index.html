@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jev AI (TypeSafe) - Interactive Playground & macOS Voice Assistant</title>
+  <title>JEVIS — Jev ile Mac ve tarayıcı asistanı</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -18,15 +18,15 @@
       <div class="logo-badge">
         <span class="logo-icon">⚡</span>
         <div class="logo-texts">
-          <span class="brand-title">TypeSafe <strong>Jev</strong></span>
-          <span class="brand-sub">System One Model & macOS Controller</span>
+          <span class="brand-title"><strong>JEVIS</strong> · TypeSafe Jev</span>
+          <span class="brand-sub">Jev ile hızlanan Mac ve tarayıcı asistanı</span>
         </div>
       </div>
 
       <!-- App Mode Switcher -->
       <div class="mode-switcher">
-        <button id="modePlaygroundBtn" class="mode-btn active">🧪 Karar Laboratuvarı</button>
-        <button id="modeMacosBtn" class="mode-btn">🎙️ macOS Kontrol Merkezi</button>
+        <button id="modeJevisBtn" class="mode-btn active">🤖 JEVIS</button>
+        <button id="modePlaygroundBtn" class="mode-btn">🧪 Karar Laboratuvarı</button>
       </div>
     </div>
 
@@ -41,7 +41,7 @@
   </header>
 
   <!-- MODE 1: PLAYGROUND VIEW -->
-  <div id="playgroundView" class="view-container active">
+  <div id="playgroundView" class="view-container">
     <!-- Presets bar -->
     <section class="presets-section">
       <div class="presets-label">
@@ -202,48 +202,41 @@
     </div>
   </div>
 
-  <!-- MODE 2: MACOS VOICE & SYSTEM CONTROLLER -->
-  <div id="macosView" class="view-container">
-    <div class="macos-dashboard">
-      <!-- Voice Orb Hero -->
-      <div class="voice-hero">
-        <div class="voice-orb-wrapper">
-          <button id="voiceMicBtn" class="voice-orb" title="Mikrofonu Başlat / Durdur">
-            <span class="mic-icon">🎙️</span>
-            <div class="orb-pulse"></div>
-          </button>
-          <div id="voiceStatusText" class="voice-status">Mikrofona tıklayıp Türkçe konuşun...</div>
-        </div>
+  <!-- JEVIS: sohbet + canlı eylem akışı -->
+  <div id="jevisView" class="view-container active">
+    <div class="jevis-shell">
+      <div class="jevis-toolbar">
+        <label class="toolbar-field">🧠 Beyin
+          <select id="brainSelect"></select>
+        </label>
+        <label class="toolbar-toggle" title="Basit komutları (ses, müzik, uygulama açma, açık sayfada tek tık) beyne sormadan Jev ile hemen yapar">
+          <input type="checkbox" id="fastToggle" checked> ⚡ Hızlı yol
+        </label>
+        <label class="toolbar-toggle" id="speakToggleWrap" title="Cevabın özetini sesli okur" hidden>
+          <input type="checkbox" id="speakToggle"> 🔊 Sesli cevap
+        </label>
+        <button id="newChatBtn" class="btn btn-sm btn-ghost">Yeni sohbet</button>
+        <span id="runStatus" class="run-status">Hazır</span>
+      </div>
 
-        <div class="voice-input-bar">
-          <input type="text" id="macCommandInput" placeholder="Veya buraya yazın: 'Spotify'ı aç ve sesi 40 yap', 'Ekran görüntüsü al'...">
-          <button id="macRunBtn" class="btn btn-primary">
-            <span>⚡ Gönder</span>
-          </button>
-        </div>
-
-        <!-- Quick Action Chips -->
-        <div class="quick-chips">
-          <button class="chip-btn" data-cmd="Ekran görüntüsü al">📸 Ekran Görüntüsü Al</button>
-          <button class="chip-btn" data-cmd="Karanlık modu değiştir">🌓 Karanlık Modu Değiştir</button>
-          <button class="chip-btn" data-cmd="Spotify'ı aç ve müziği başlat">🎵 Spotify'ı Başlat</button>
-          <button class="chip-btn" data-cmd="Ses seviyesini yüzde 40 yap">🔊 Sesi %40 Yap</button>
-          <button class="chip-btn" data-cmd="Hesap makinesini aç">🧮 Hesap Makinesini Aç</button>
-          <button class="chip-btn" data-cmd="Google'da Typesafe Jev AI ara">🌐 Jev AI'yı Google'da Ara</button>
+      <div id="chatLog" class="chat-log" aria-live="polite">
+        <div class="chat-welcome" id="chatWelcome">
+          <h2>Ne yapayım?</h2>
+          <p>Yaz ya da mikrofona bas. Basit işleri Jev anında yapar; gerisini seçtiğin beyin planlar, JEVIS'in elleri uygular. Riskli işlerde senden onay istenir.</p>
+          <div class="example-chips">
+            <button class="chip-btn" data-cmd="Sesi yüzde 30 yap">🔊 Sesi %30 yap</button>
+            <button class="chip-btn" data-cmd="Hesap makinesinde 12 çarpı 7'yi hesapla, sonucu söyle ve uygulamayı kapat">🧮 12 × 7</button>
+            <button class="chip-btn" data-cmd="Hacker News'i aç ve ilk 5 başlığı Türkçe özetle">📰 Haber özeti</button>
+            <button class="chip-btn" data-cmd="appstoreconnect.apple.com'u aç ve ne gördüğünü anlat">🍎 App Store Connect</button>
+          </div>
         </div>
       </div>
 
-      <!-- Live Execution Activity Stream -->
-      <div class="macos-stream-panel">
-        <div class="stream-header">
-          <h3>⚡ macOS Canlı Eylem Akışı (Jev Kararları)</h3>
-          <button id="clearStreamBtn" class="btn btn-sm btn-ghost">Temizle</button>
-        </div>
-        <div id="macosActivityList" class="stream-list">
-          <div class="stream-placeholder">
-            Henüz bir komut verilmedi. Mikrofona konuşun veya yukarıdaki hazır komut butonlarından birine tıklayın!
-          </div>
-        </div>
+      <div class="chat-input">
+        <button id="micBtn" class="mic-btn" title="Bas-konuş: basılı tut, konuş, bırak" hidden>🎙️</button>
+        <textarea id="chatInput" rows="2" placeholder="JEVIS'e ne yapmasını istediğini yaz… (Enter: gönder, Shift+Enter: yeni satır)"></textarea>
+        <button id="sendBtn" class="btn btn-primary">Gönder</button>
+        <button id="stopBtn" class="btn btn-danger" hidden>⛔ DURDUR</button>
       </div>
     </div>
   </div>

@@ -61,7 +61,15 @@ async function connect() {
 }
 
 const context = () => browser.contexts()[0];
-const openPages = () => context().pages().filter(p => !p.isClosed());
+
+// The JEVIS chat page itself is never a page to work on. The app server
+// exports its real port in JEVIS_UI_PORT (inherited by brains and MCP).
+const isJevisUi = url => {
+  const ports = new Set([String(config().server?.port || 3000), process.env.JEVIS_UI_PORT].filter(Boolean));
+  const m = String(url).match(/^http:\/\/(?:127\.0\.0\.1|localhost):(\d+)\//);
+  return Boolean(m && ports.has(m[1]));
+};
+const openPages = () => context().pages().filter(p => !p.isClosed() && !isJevisUi(p.url()));
 
 async function targetIdOf(page) {
   const session = await context().newCDPSession(page);

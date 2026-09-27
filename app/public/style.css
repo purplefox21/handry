@@ -941,110 +941,86 @@ pre {
   display: block;
 }
 
-/* macOS Voice Controller Styles */
-.macos-dashboard {
-  max-width: 1100px;
-  margin: 1.5rem auto 3rem;
-  padding: 0 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
+/* JEVIS chat */
+[hidden] {
+  display: none !important;
 }
 
-.voice-hero {
-  background: radial-gradient(circle at 50% 30%, rgba(0, 242, 254, 0.08), rgba(157, 78, 221, 0.05), var(--bg-surface) 70%);
+.jevis-shell {
+  max-width: 980px;
+  margin: 1.25rem auto 0;
+  padding: 0 1.25rem;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 90px);
+}
+
+.jevis-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 0.7rem 1rem;
+  background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 3rem 2rem 2.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.75rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-md);
 }
 
-.voice-orb-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  position: relative;
-}
-
-.voice-orb {
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #00f2fe, #4facfe);
-  border: none;
-  cursor: pointer;
+.toolbar-field, .toolbar-toggle {
   display: flex;
   align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 30px rgba(0, 242, 254, 0.4);
-  position: relative;
-  transition: all 0.3s ease;
-}
-
-.voice-orb:hover {
-  transform: scale(1.06);
-  box-shadow: 0 0 45px rgba(0, 242, 254, 0.6);
-}
-
-.voice-orb.recording {
-  background: linear-gradient(135deg, #f43f5e, #fb7185);
-  box-shadow: 0 0 40px rgba(244, 63, 94, 0.6);
-  animation: pulse-recording 1.2s infinite alternate;
-}
-
-@keyframes pulse-recording {
-  from { transform: scale(1); box-shadow: 0 0 25px rgba(244, 63, 94, 0.4); }
-  to { transform: scale(1.1); box-shadow: 0 0 50px rgba(244, 63, 94, 0.8); }
-}
-
-.mic-icon {
-  font-size: 2.2rem;
-  pointer-events: none;
-}
-
-.voice-status {
-  font-size: 0.95rem;
+  gap: 0.45rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
-  font-weight: 500;
-  min-height: 24px;
-  text-align: center;
 }
 
-.voice-input-bar {
+.toolbar-field select {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.5rem;
+  font-family: inherit;
+  max-width: 330px;
+}
+
+.run-status {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--accent-emerald);
+}
+
+.run-status.busy {
+  color: var(--accent-amber);
+}
+
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem 0.25rem;
   display: flex;
-  width: 100%;
-  max-width: 650px;
+  flex-direction: column;
   gap: 0.6rem;
 }
 
-.voice-input-bar input {
-  flex: 1;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 0.8rem 1.1rem;
+.chat-welcome {
+  margin: auto;
+  text-align: center;
+  max-width: 620px;
+  color: var(--text-secondary);
+}
+
+.chat-welcome h2 {
   color: var(--text-primary);
-  font-size: 0.95rem;
-  font-family: inherit;
+  margin-bottom: 0.5rem;
 }
 
-.voice-input-bar input:focus {
-  outline: none;
-  border-color: var(--border-focus);
-  box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
-}
-
-.quick-chips {
+.example-chips {
+  margin-top: 1.1rem;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.5rem;
-  max-width: 750px;
 }
 
 .chip-btn {
@@ -1052,8 +1028,7 @@ pre {
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
   font-family: inherit;
-  font-size: 0.8rem;
-  font-weight: 500;
+  font-size: 0.82rem;
   padding: 0.45rem 0.85rem;
   border-radius: 999px;
   cursor: pointer;
@@ -1061,90 +1036,159 @@ pre {
 }
 
 .chip-btn:hover {
-  background: rgba(0, 242, 254, 0.1);
   border-color: var(--accent-cyan);
   color: var(--accent-cyan);
-  transform: translateY(-1px);
 }
 
-/* Stream Panel */
-.macos-stream-panel {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+.chat-bubble {
+  max-width: 80%;
+  padding: 0.7rem 0.95rem;
+  border-radius: var(--radius-md);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-.stream-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.25rem;
-  background: rgba(255, 255, 255, 0.02);
-  border-bottom: 1px solid var(--border-color);
+.chat-bubble.user {
+  align-self: flex-end;
+  background: rgba(0, 242, 254, 0.12);
+  border: 1px solid rgba(0, 242, 254, 0.25);
 }
 
-.stream-header h3 {
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.stream-list {
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  min-height: 250px;
-  max-height: 450px;
-  overflow-y: auto;
-}
-
-.stream-placeholder {
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  padding: 3rem 1rem;
-}
-
-.stream-card {
+.chat-bubble.assistant {
+  align-self: flex-start;
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 1rem;
+}
+
+.chat-bubble.error {
+  align-self: flex-start;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: #fda4af;
+}
+
+.turn-steps {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  animation: slideIn 0.3s ease-out;
+  gap: 0.35rem;
+  align-self: stretch;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--border-color);
 }
 
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
+.step-pill {
+  font-size: 0.78rem;
+  color: var(--accent-cyan);
 }
 
-.stream-card-top {
+.step-pill.muted {
+  color: var(--text-muted);
+}
+
+.step-card {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.5rem;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.5rem 0.7rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
 }
 
-.stream-cmd {
-  font-size: 0.95rem;
-  font-weight: 700;
+.step-card.running {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.step-card.ok {
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.step-card.error {
+  border-color: rgba(244, 63, 94, 0.45);
+}
+
+.step-icon {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.step-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.step-title {
+  font-family: var(--font-mono);
   color: var(--text-primary);
 }
 
-.stream-badges {
-  display: flex;
-  gap: 0.4rem;
+.step-args, .step-result {
+  color: var(--text-secondary);
+  word-break: break-word;
 }
 
-.stream-outcome {
-  font-size: 0.85rem;
-  color: #34d399;
+.step-card.error .step-result {
+  color: #fda4af;
+}
+
+.step-thumb {
+  margin-top: 0.35rem;
+  max-width: 320px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.chat-input {
   display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  gap: 0.6rem;
+  align-items: flex-end;
+  padding: 0.8rem 0 1.1rem;
+}
+
+.chat-input textarea {
+  flex: 1;
+  resize: none;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.chat-input textarea:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+.mic-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.mic-btn.recording {
+  background: rgba(244, 63, 94, 0.25);
+  border-color: var(--accent-rose);
+  animation: pulse-recording 1s infinite alternate;
+}
+
+@keyframes pulse-recording {
+  from { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5); }
+  to { box-shadow: 0 0 0 10px rgba(244, 63, 94, 0); }
+}
+
+.btn-danger {
+  background: var(--accent-rose);
+  color: #fff;
+  border: none;
 }

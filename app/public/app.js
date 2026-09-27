@@ -658,198 +658,241 @@ function renderResults(data) {
 }
 
 /* =========================================================
-   MODE 2: macOS VOICE & SYSTEM CONTROLLER LOGIC
+   JEVIS: sohbet, canlı eylem akışı, beyin seçimi
    ========================================================= */
 
-// Mode Switcher Elements
+const modeJevisBtn = document.getElementById('modeJevisBtn');
 const modePlaygroundBtn = document.getElementById('modePlaygroundBtn');
-const modeMacosBtn = document.getElementById('modeMacosBtn');
+const jevisView = document.getElementById('jevisView');
 const playgroundView = document.getElementById('playgroundView');
-const macosView = document.getElementById('macosView');
 
-modePlaygroundBtn.addEventListener('click', () => {
-  modePlaygroundBtn.classList.add('active');
-  modeMacosBtn.classList.remove('active');
-  playgroundView.classList.add('active');
-  macosView.classList.remove('active');
+function showMode(mode) {
+  const isJevis = mode === 'jevis';
+  modeJevisBtn.classList.toggle('active', isJevis);
+  modePlaygroundBtn.classList.toggle('active', !isJevis);
+  jevisView.classList.toggle('active', isJevis);
+  playgroundView.classList.toggle('active', !isJevis);
+}
+modeJevisBtn.addEventListener('click', () => showMode('jevis'));
+modePlaygroundBtn.addEventListener('click', () => showMode('playground'));
+
+const api = (path, options = {}) => fetch(path, {
+  ...options,
+  headers: { 'Content-Type': 'application/json', 'X-Jevis-Token': JEVIS_TOKEN, ...(options.headers || {}) }
 });
 
-modeMacosBtn.addEventListener('click', () => {
-  modeMacosBtn.classList.add('active');
-  modePlaygroundBtn.classList.remove('active');
-  macosView.classList.add('active');
-  playgroundView.classList.remove('active');
-});
+const chatLog = document.getElementById('chatLog');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const stopBtn = document.getElementById('stopBtn');
+const brainSelect = document.getElementById('brainSelect');
+const fastToggle = document.getElementById('fastToggle');
+const runStatus = document.getElementById('runStatus');
+const newChatBtn = document.getElementById('newChatBtn');
 
-// Voice & Command Elements
-const voiceMicBtn = document.getElementById('voiceMicBtn');
-const voiceStatusText = document.getElementById('voiceStatusText');
-const macCommandInput = document.getElementById('macCommandInput');
-const macRunBtn = document.getElementById('macRunBtn');
-const macosActivityList = document.getElementById('macosActivityList');
-const clearStreamBtn = document.getElementById('clearStreamBtn');
+let sessionId = null;
+let sessionBrain = null;
+let running = false;
+let turnBox = null;
+let pendingCards = [];
+let lastText = '';
 
-// Web Speech API initialization
-let recognition = null;
-let isRecording = false;
+const ROUTE_NAMES = { system_quick: 'sistem komutu', page_click: 'sayfada tıklama' };
+const TOOL_ICONS = { browser: '🌐', desktop: '🖥️', mac: '🍎', jev: '⚡', wait: '⏳' };
 
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (SpeechRecognition) {
-  recognition = new SpeechRecognition();
-  recognition.lang = 'tr-TR';
-  recognition.continuous = false;
-  recognition.interimResults = false;
-
-  recognition.onstart = () => {
-    isRecording = true;
-    voiceMicBtn.classList.add('recording');
-    voiceStatusText.textContent = '🔴 Dinliyorum... Konuşun (örn: "Spotify\'ı aç")';
-  };
-
-  recognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
-    macCommandInput.value = transcript;
-    voiceStatusText.textContent = `Algılandı: "${transcript}"`;
-    executeMacCommand(transcript);
-  };
-
-  recognition.onerror = (event) => {
-    isRecording = false;
-    voiceMicBtn.classList.remove('recording');
-    voiceStatusText.textContent = `Mikrofon Hatası: ${event.error}`;
-  };
-
-  recognition.onend = () => {
-    isRecording = false;
-    voiceMicBtn.classList.remove('recording');
-    if (!macCommandInput.value) {
-      voiceStatusText.textContent = 'Mikrofona tıklayıp Türkçe konuşun...';
-    }
-  };
-} else {
-  voiceStatusText.textContent = '⚠️ Tarayıcınız ses tanımayı desteklemiyor. Yazarak komut verebilirsiniz.';
+// Everything shown here may come from web pages or tools: always textContent, never innerHTML.
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 
-voiceMicBtn.addEventListener('click', () => {
-  if (!recognition) {
-    alert('Tarayıcınızda mikrofon desteği bulunamadı. Lütfen komut kutusunu kullanın.');
-    return;
-  }
+const toolIcon = name => TOOL_ICONS[String(name).split(/[_:]/)[0]] || '🔧';
+const firstLines = (text, n) => String(text || '').split('\n').filter(Boolean).slice(0, n).join(' / ').slice(0, 320);
 
-  if (isRecording) {
-    recognition.stop();
-  } else {
-    try {
-      recognition.start();
-    } catch (e) {
-      recognition.stop();
+function argSummary(args) {
+  if (!args || typeof args !== 'object') return '';
+  return Object.entries(args)
+    .filter(([k, v]) => v !== undefined && v !== '' && !['state', 'questions'].includes(k))
+    .map(([, v]) => (typeof v === 'string' ? `"${v.length > 70 ? `${v.slice(0, 67)}…` : v}"` : JSON.stringify(v)))
+    .join(' · ');
+}
+
+function scrollChat() {
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function addBubble(role, text) {
+  const bubble = el('div', `chat-bubble ${role}`, text);
+  chatLog.appendChild(bubble);
+  scrollChat();
+  return bubble;
+}
+
+function toolCard(name) {
+  const card = el('div', 'step-card running');
+  card.appendChild(el('span', 'step-icon', toolIcon(name)));
+  const body = el('div', 'step-body');
+  body.appendChild(el('div', 'step-title', name));
+  card.appendChild(body);
+  turnBox.appendChild(card);
+  return card;
+}
+
+function renderEvent(ev) {
+  switch (ev.type) {
+    case 'route': {
+      const fast = ev.route !== 'needs_brain';
+      turnBox.appendChild(el('div', 'step-pill', fast
+        ? `⚡ Hızlı yol: ${ROUTE_NAMES[ev.route] || ev.route} (Jev %${ev.confidence}, ${ev.ms} ms)`
+        : `🧠 Beyne gidiyor (Jev bu işi beyin gerektiren iş saydı, %${ev.confidence})`));
+      break;
     }
+    case 'status':
+      turnBox.appendChild(el('div', 'step-pill muted', ev.text));
+      break;
+    case 'tool': {
+      const card = toolCard(ev.name);
+      card.querySelector('.step-body').appendChild(el('div', 'step-args', argSummary(ev.args)));
+      pendingCards.push({ name: ev.name, card });
+      break;
+    }
+    case 'tool_result': {
+      const i = pendingCards.findIndex(p => p.name === ev.name);
+      const card = i >= 0 ? pendingCards.splice(i, 1)[0].card : toolCard(ev.name);
+      card.classList.remove('running');
+      card.classList.add(ev.isError ? 'error' : 'ok');
+      const body = card.querySelector('.step-body');
+      body.appendChild(el('div', 'step-result', firstLines(ev.text, 3)));
+      if (ev.image?.data) {
+        const img = el('img', 'step-thumb');
+        img.src = `data:${ev.image.mimeType || 'image/jpeg'};base64,${ev.image.data}`;
+        img.alt = 'ekran görüntüsü';
+        body.appendChild(img);
+      }
+      break;
+    }
+    case 'text':
+      addBubble('assistant', ev.text);
+      lastText = ev.text;
+      break;
+    case 'done': {
+      if (ev.text && ev.text !== lastText) addBubble('assistant', ev.text);
+      if (ev.sessionId) {
+        sessionId = ev.sessionId;
+        sessionBrain = ev.brain;
+      }
+      const secs = ((ev.ms || 0) / 1000).toFixed(1);
+      turnBox.appendChild(el('div', 'step-pill muted', `${ev.stopped ? '⛔ Durduruldu' : '✅ Bitti'} · ${secs} sn${ev.fast ? ' · beyin kullanılmadı' : ''}`));
+      document.dispatchEvent(new CustomEvent('jevis:done', { detail: ev }));
+      break;
+    }
+    case 'error':
+      addBubble('error', `❌ ${ev.message}`);
+      break;
   }
-});
+  scrollChat();
+}
 
-// Execute button & Enter key
-macRunBtn.addEventListener('click', () => {
-  const cmd = macCommandInput.value.trim();
-  if (cmd) executeMacCommand(cmd);
-});
+function setRunning(on) {
+  running = on;
+  sendBtn.hidden = on;
+  stopBtn.hidden = !on;
+  chatInput.disabled = on;
+  runStatus.textContent = on ? 'Çalışıyor…' : 'Hazır';
+  runStatus.classList.toggle('busy', on);
+  if (!on) chatInput.focus();
+}
 
-macCommandInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    const cmd = macCommandInput.value.trim();
-    if (cmd) executeMacCommand(cmd);
-  }
-});
-
-// Quick Action Chips
-document.querySelectorAll('.chip-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const cmd = btn.getAttribute('data-cmd');
-    macCommandInput.value = cmd;
-    executeMacCommand(cmd);
-  });
-});
-
-clearStreamBtn.addEventListener('click', () => {
-  macosActivityList.innerHTML = `
-    <div class="stream-placeholder">
-      Akış temizlendi. Mikrofona konuşun veya komut yazın!
-    </div>
-  `;
-});
-
-// Send command to backend
-async function executeMacCommand(commandText) {
-  const apiKey = apiKeyInput.value.trim();
-  macRunBtn.disabled = true;
-  macRunBtn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin:0 4px 0 0;"></span>';
-  voiceStatusText.textContent = `⚡ Jev değerlendiriyor: "${commandText}"...`;
-
+async function sendCommand(text) {
+  text = text.trim();
+  if (running || !text) return;
+  document.getElementById('chatWelcome')?.remove();
+  addBubble('user', text);
+  turnBox = el('div', 'turn-steps');
+  chatLog.appendChild(turnBox);
+  pendingCards = [];
+  lastText = '';
+  if (sessionBrain && sessionBrain !== brainSelect.value) sessionId = null;
+  setRunning(true);
   try {
-    const res = await fetch('/api/macos/execute', {
+    const res = await api('/api/run', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'X-Jevis-Token': JEVIS_TOKEN
-      },
-      body: JSON.stringify({ command: commandText })
+      body: JSON.stringify({ text, brain: brainSelect.value, sessionId, fast: fastToggle.checked })
     });
-
-    const data = await res.json();
-    macRunBtn.disabled = false;
-    macRunBtn.innerHTML = '<span>⚡ Gönder</span>';
-
-    if (!res.ok || data.error) {
-      voiceStatusText.textContent = `❌ Hata: ${data.error || 'İşlem başarısız'}`;
-      addStreamItem(commandText, null, [{ success: false, error: data.error || 'Bilinmeyen hata' }]);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      renderEvent({ type: 'error', message: err.error || `HTTP ${res.status}` });
       return;
     }
-
-    voiceStatusText.textContent = `✅ Tamamlandı (${data.latencyMs}ms)`;
-    addStreamItem(commandText, data.jevDecisions, data.executionResults, data.latencyMs);
-
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl);
+        buffer = buffer.slice(nl + 1);
+        if (line.trim()) renderEvent(JSON.parse(line));
+      }
+    }
   } catch (err) {
-    macRunBtn.disabled = false;
-    macRunBtn.innerHTML = '<span>⚡ Gönder</span>';
-    voiceStatusText.textContent = `❌ Bağlantı hatası: ${err.message}`;
-    addStreamItem(commandText, null, [{ success: false, error: err.message }]);
+    renderEvent({ type: 'error', message: err.message });
+  } finally {
+    setRunning(false);
   }
 }
 
-function addStreamItem(cmd, decisions, results, latency = null) {
-  // Remove placeholder if present
-  const placeholder = macosActivityList.querySelector('.stream-placeholder');
-  if (placeholder) placeholder.remove();
-
-  const card = document.createElement('div');
-  card.className = 'stream-card';
-
-  const actionBadge = decisions ? `<span class="type-badge choice">${decisions.action}</span>` : '';
-  const appBadge = (decisions && decisions.targetApp !== 'none') ? `<span class="stat-pill">📱 ${decisions.targetApp}</span>` : '';
-  const latencyBadge = latency ? `<span class="stat-pill">⏱️ ${latency}ms</span>` : '';
-
-  let outcomesHtml = '';
-  results.forEach(r => {
-    if (r.success) {
-      outcomesHtml += `<div class="stream-outcome"><span>✅</span> <strong>${r.message}</strong></div>`;
-    } else {
-      outcomesHtml += `<div class="stream-outcome" style="color: var(--accent-rose);"><span>❌</span> <strong>${r.error || r.message}</strong></div>`;
-    }
-  });
-
-  card.innerHTML = `
-    <div class="stream-card-top">
-      <span class="stream-cmd">"${cmd}"</span>
-      <div class="stream-badges">
-        ${actionBadge}
-        ${appBadge}
-        ${latencyBadge}
-      </div>
-    </div>
-    <div style="display:flex; flex-direction:column; gap:0.3rem;">
-      ${outcomesHtml}
-    </div>
-  `;
-
-  macosActivityList.prepend(card);
+async function loadBrains() {
+  const data = await (await api('/api/brains')).json();
+  brainSelect.replaceChildren();
+  let saved = null;
+  try { saved = localStorage.getItem('jevis_brain'); } catch {}
+  for (const b of data.brains) {
+    const option = el('option', null, b.available ? b.label : `${b.label} — ${b.reason}`);
+    option.value = b.id;
+    option.disabled = !b.available;
+    brainSelect.appendChild(option);
+  }
+  const usable = id => data.brains.some(b => b.id === id && b.available);
+  brainSelect.value = usable(saved) ? saved : data.default;
 }
+
+brainSelect.addEventListener('change', () => {
+  try { localStorage.setItem('jevis_brain', brainSelect.value); } catch {}
+  sessionId = null;
+});
+
+sendBtn.addEventListener('click', () => {
+  const text = chatInput.value;
+  chatInput.value = '';
+  sendCommand(text);
+});
+
+chatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    sendBtn.click();
+  }
+});
+
+stopBtn.addEventListener('click', async () => {
+  runStatus.textContent = 'Durduruluyor…';
+  await api('/api/stop', { method: 'POST' });
+});
+
+newChatBtn.addEventListener('click', () => {
+  sessionId = null;
+  sessionBrain = null;
+  chatLog.replaceChildren(el('div', 'step-pill muted', 'Yeni sohbet başladı.'));
+});
+
+document.querySelectorAll('.chip-btn[data-cmd]').forEach(btn => {
+  btn.addEventListener('click', () => sendCommand(btn.dataset.cmd));
+});
+
+loadBrains().catch(err => addBubble('error', `Beyinler yüklenemedi: ${err.message}`));

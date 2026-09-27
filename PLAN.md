@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-28):** Faz 0-4 ✅ (Faz 2'deki gerçek App Store işi kullanıcı bekleniyor). Faz 5 (sohbet kutusu + beyin seçimi) devam ediyor.
+> **Durum (2026-09-28):** Faz 0-5 ✅ (Faz 2'deki gerçek App Store işi kullanıcı bekleniyor). Faz 6 (ses) devam ediyor.
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -209,15 +209,27 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
 - Uygulama adları Türkçe ("Hesap Makinesi"); paket kimliğiyle ve Jev ile eşleştiriliyor.
 
 ### Faz 5 — JEVIS sohbet kutusu ve beyin seçimi
-- [ ] `app/`: "macOS Kontrol Merkezi" ekranı JEVIS sohbetine dönüşür. İçinde: sohbet, canlı eylem akışı (Jev neyi seçti, ne kadar emin, ne kadar sürdü, küçük ekran görüntüsü), onay kartları, DURDUR butonu, beyin seçici
-- [ ] `brain/claude-code.js`: Claude Code'u arka planda (`claude -p`, abonelikle) JEVIS araçlarıyla çalıştırır ve akışı arayüze aktarır
-- [ ] `brain/codex.js`, `brain/api.js` (Anthropic / OpenAI uyumlu), `brain/ollama.js` (yerel)
-- [ ] Hızlı yol: Jev "bu tek adımlık basit bir komut mu?" diye bakar. Öyleyse beyne gitmeden hemen yapılır.
-- [ ] Sunucu sadece `127.0.0.1`'i dinler ve oturum anahtarı ister
-- [ ] Karar Laboratuvarı (Jev deney alanı) ayrı bir sekme olarak kalır
+- [x] `app/`: "macOS Kontrol Merkezi" ekranı JEVIS sohbetine dönüşür. İçinde: sohbet, canlı eylem akışı (Jev neyi seçti, ne kadar emin, ne kadar sürdü, küçük ekran görüntüsü), onay kartları, DURDUR butonu, beyin seçici
+- [x] `brain/claude-code.js`: Claude Code'u arka planda (`claude -p`, abonelikle) JEVIS araçlarıyla çalıştırır ve akışı arayüze aktarır
+- [x] `brain/codex.js` (deneysel, bu Mac'te kurulu olmadığı için test edilmedi), `brain/anthropic.js` (Anthropic SDK, anahtar gerekir), `brain/openai-compatible.js` (OpenAI, Ollama, LM Studio… sahte sunucuyla test edildi)
+- [x] Hızlı yol (`core/router.js`): Jev "bu tek adımlık basit bir komut mu?" diye bakar. Öyleyse beyne gitmeden hemen yapılır.
+- [x] Sunucu sadece `127.0.0.1`'i dinler ve oturum anahtarı ister
+- [x] Karar Laboratuvarı (Jev deney alanı) ayrı bir sekme olarak kalır
 
 **Bitince:** Tarayıcıda `localhost:3000`'i açıp yazıyorsun, beyin olarak hangi LLM'in çalışacağını seçiyorsun.
 **Test:** Aynı App Store akışı hem Claude Code hem de başka bir beyinle çalışıyor. Basit komutlar 1 saniyenin altında.
+**Sonuç:** `node tests/app-e2e.mjs` **7/7**:
+- Hızlı yol, beyin kullanmadan: "hesap makinesini aç" 1.2 sn; açık sayfada "fiyatlandırma bölümüne tıkla" 1.3 sn. Karar Jev'in 0.3-0.5 sn'lik tek sorusu; sürenin geri kalanı işin kendisi.
+- Claude Code beyni formu doldurdu: 17.5 sn.
+- İkinci iş 409 ile reddedildi; DURDUR çalışan işi 0.6 sn'de kesti.
+- OpenAI uyumlu adaptör sahte sunucuyla araç çağırıp cevap verdi.
+- JEVIS kendi sohbet arayüzünü kendi elleriyle kullandı.
+
+**Öğrenilenler:**
+- Arayüz JEVIS'in Chrome'unda açılırsa tarayıcı elleri o sekmeyi "yönetilecek sayfa" sanıyor. Sunucu kendi portunu `JEVIS_UI_PORT` ile duyuruyor, o sekme atlanıyor.
+- Acil durdurma bir sonraki kullanıcı komutuna ya da 10 dakikaya kadar geçerli. Başka Claude Code oturumlarındaki JEVIS araçlarını da durdurur.
+- Codex ve Gemini CLI bu Mac'te kurulu değil. Anthropic API anahtarı yok. OpenAI/Ollama için `jevis.config.json` › `brain.providers` altında model adı girilmeli.
+- Anthropic API beyninde reddedilen isteklerin sunucu tarafında yedek modele devredilmesi (fallbacks) açık.
 
 ### Faz 6 — Ses
 - [ ] Her yerden çalışan bas-konuş kısayolu
@@ -320,6 +332,7 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
 
 - **2026-09-25:** Proje incelendi; JEVIS ve Jev'in yetenekleri araştırıldı.
 - **2026-09-26:** macOS kısımları silindi (sadece Jev kalsın denmişti). Jev konuşmaları ve deneyler yapıldı.
+- **2026-09-28:** Faz 5 bitti: sohbet arayüzü (app/), beyin adaptörleri, hızlı yol, DURDUR. 7/7.
 - **2026-09-28:** Faz 4 bitti: Swift erişilebilirlik yardımcısı, masaüstü elleri, mac_action, terminal/kısayol korumaları. 23/23.
 - **2026-09-28:** Faz 3 bitti: kasa, kayıt, acil durdurma, gizli talimat bekçisi, kullanıcıyı bekleme, site bazlı onay kuralları.
 - **2026-09-28:** Faz 2 bitti: MCP sunucusu, Claude Code ile uçtan uca test, gizlilik tarayıcısı, bilgi kartı.
