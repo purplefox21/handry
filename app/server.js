@@ -12,6 +12,7 @@ import { requestStop } from '../guard/stop.js';
 import { recentActions } from '../guard/log.js';
 import { sttStatus, transcribe } from '../voice/stt.js';
 import { ttsStatus, speak, stopSpeaking } from '../voice/tts.js';
+import { listRecipes, loadRecipe, saveFromRun, deleteRecipe } from '../core/recipes.js';
 
 const PORT = Number(process.env.PORT) || config().server.port || 3000;
 process.env.JEVIS_UI_PORT = String(PORT); // browser hands skip this app's own tab
@@ -153,6 +154,16 @@ const ROUTES = {
   'GET /api/voice': (req, res) => sendJson(res, 200, { stt: sttStatus(), tts: ttsStatus() }),
   'POST /api/voice': handleVoice,
   'POST /api/say': handleSay,
+  'GET /api/recipes': (req, res) => sendJson(res, 200, { recipes: listRecipes() }),
+  'POST /api/recipes': async (req, res) => {
+    const { name, runId, description } = JSON.parse((await readBody(req)).toString() || '{}');
+    sendJson(res, 200, { recipe: saveFromRun(name, runId, { description }) });
+  },
+  'POST /api/recipes/show': async (req, res) => sendJson(res, 200, { recipe: loadRecipe(JSON.parse((await readBody(req)).toString()).name) }),
+  'POST /api/recipes/delete': async (req, res) => {
+    deleteRecipe(JSON.parse((await readBody(req)).toString()).name);
+    sendJson(res, 200, { ok: true });
+  },
   'POST /api/evaluate': handleEvaluate
 };
 

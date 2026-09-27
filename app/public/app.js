@@ -1007,3 +1007,54 @@ window.jevisVoice = { start: startListening, stop: stopListening, send: sendComm
   speakToggleWrap.hidden = !v.tts.ok;
   try { speakToggle.checked = localStorage.getItem('jevis_speak') === '1'; } catch {}
 })().catch(() => {});
+
+/* =========================================================
+   Tarifler: bir işi kaydet, sonra beyinsiz tekrar oynat
+   ========================================================= */
+
+const recipeWrap = document.getElementById('recipeWrap');
+const recipeSelect = document.getElementById('recipeSelect');
+const recipeRunBtn = document.getElementById('recipeRunBtn');
+
+async function loadRecipes() {
+  const { recipes } = await (await api('/api/recipes')).json();
+  recipeSelect.replaceChildren(...recipes.map(r => {
+    const option = el('option', null, `${r.name} (${r.steps} adım${r.vars.length ? `, ${r.vars.join(', ')} ister` : ''})`);
+    option.value = r.name;
+    option.dataset.vars = r.vars.join(',');
+    return option;
+  }));
+  recipeWrap.hidden = recipes.length === 0;
+}
+
+recipeRunBtn.addEventListener('click', () => {
+  const option = recipeSelect.selectedOptions[0];
+  if (!option) return;
+  const vars = option.dataset.vars ? option.dataset.vars.split(',') : [];
+  const values = [];
+  for (const v of vars) {
+    const value = prompt(`"${option.value}" tarifi için ${v}:`);
+    if (value === null) return;
+    values.push(`${v}="${value}"`);
+  }
+  sendCommand(`tarif: ${option.value} ${values.join(' ')}`.trim());
+});
+
+// After a run that used tools, offer to keep it as a recipe.
+document.addEventListener('jevis:done', e => {
+  const ev = e.detail;
+  if (ev.fast || ev.recipe || ev.stopped || !ev.runId || !turnBox?.querySelector('.step-card.ok')) return;
+  const save = el('button', 'btn btn-sm btn-ghost save-recipe', '📌 Tarif olarak kaydet');
+  save.addEventListener('click', async () => {
+    const name = prompt('Tarifin adı (ör. appstore-fiyat):');
+    if (!name) return;
+    const res = await api('/api/recipes', { method: 'POST', body: JSON.stringify({ name, runId: ev.runId }) });
+    const data = await res.json();
+    if (!res.ok) return addBubble('error', `Kaydedilemedi: ${data.error}`);
+    save.replaceWith(el('div', 'step-pill', `📌 "${data.recipe.name}" kaydedildi (${data.recipe.steps.length} adım). Tarif menüsünden ▶ ile çalıştırabilirsin.`));
+    loadRecipes();
+  });
+  turnBox.appendChild(save);
+});
+
+loadRecipes().catch(() => {});

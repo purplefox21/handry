@@ -31,7 +31,7 @@ export function findBinary(name) {
 /** MCP config that points CLI brains at this checkout's JEVIS server. */
 export function mcpConfigFile() {
   const env = {};
-  if (process.env.JEVIS_TEST_CONFIRM) env.JEVIS_TEST_CONFIRM = process.env.JEVIS_TEST_CONFIRM;
+  for (const key of ['JEVIS_TEST_CONFIRM', 'JEVIS_RUN_ID', 'JEVIS_UI_PORT']) if (process.env[key]) env[key] = process.env[key];
   const file = path.join(homeDir(), 'mcp.json');
   fs.writeFileSync(file, JSON.stringify({
     mcpServers: { jevis: { type: 'stdio', command: process.execPath, args: [path.join(ROOT, 'mcp', 'server.js')], env } }

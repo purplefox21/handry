@@ -366,7 +366,13 @@ async function resolve(page, target, purpose, { withRisk = false } = {}) {
   if (idMatch) {
     const loc = await locate(page, idMatch[1]);
     if (!loc) throw new JevisError('STALE', `#${idMatch[1]} artık sayfada yok. Önce sayfayı yeniden okuyun (read).`);
-    const name = await loc.evaluate(el => (el.getAttribute('aria-label') || el.innerText || el.value || el.getAttribute('placeholder') || el.name || '').replace(/\s+/g, ' ').trim().slice(0, 80));
+    // Same order as the element list: a field is named by its label, not by what's typed in it.
+    const name = await loc.evaluate(el => {
+      const clean = s => (s || '').replace(/\s+/g, ' ').trim();
+      return (clean(el.getAttribute('aria-label')) || clean([...(el.labels || [])].map(l => l.innerText).join(' '))
+        || clean(el.getAttribute('placeholder')) || clean(el.getAttribute('title')) || clean(el.innerText)
+        || clean(el.getAttribute('name')) || clean(el.id) || clean(el.value)).slice(0, 80);
+    });
     const item = { id: idMatch[1], name, role: 'seçilen', ctx: '', state: [] };
     const risk = withRisk ? (await jev.isRisky(PURPOSE[purpose](name), { url: page.url(), title: await page.title() })).p : null;
     return { loc, item, pick: { confidence: 1, risk, ms: 0 } };

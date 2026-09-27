@@ -1192,3 +1192,8 @@ pre {
   color: #fff;
   border: none;
 }
+
+.save-recipe {
+  align-self: flex-start;
+  margin-top: 0.2rem;
+}

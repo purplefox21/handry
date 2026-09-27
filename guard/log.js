@@ -16,6 +16,7 @@ function redact(args, result) {
 export function logAction({ tool, args, ok, summary, ms, elementRole, screenshot }) {
   const entry = {
     ts: new Date().toISOString(),
+    run: process.env.JEVIS_RUN_ID || 'manual',
     tool,
     args: redact(args, { elementRole }),
     ok,
@@ -25,6 +26,20 @@ export function logAction({ tool, args, ok, summary, ms, elementRole, screenshot
   };
   const file = path.join(homeDir('logs'), `${entry.ts.slice(0, 10)}.jsonl`);
   fs.appendFileSync(file, `${JSON.stringify(entry)}\n`);
+}
+
+/** Every logged action of one run, oldest first. */
+export function actionsOfRun(runId) {
+  const dir = homeDir('logs');
+  const out = [];
+  for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.jsonl')).sort()) {
+    for (const line of fs.readFileSync(path.join(dir, f), 'utf-8').split('\n')) {
+      if (!line.includes(runId)) continue;
+      const e = JSON.parse(line);
+      if (e.run === runId) out.push(e);
+    }
+  }
+  return out;
 }
 
 export function recentActions(limit = 20) {

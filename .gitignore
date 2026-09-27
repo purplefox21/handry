@@ -6,4 +6,7 @@
 node_modules/
 .DS_Store
 *.log
+
+# Derlenen dosyalar (kaynaktan kendiliğinden üretilir)
 bin/
+dist/

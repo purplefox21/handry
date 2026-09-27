@@ -219,16 +219,20 @@ export async function activate(app) {
   return frontmost();
 }
 
-/** Opens an app by name, English or Turkish ("Hesap Makinesi" → Calculator). */
-export async function openApp(name) {
+/**
+ * Opens an app by name, English or Turkish ("Hesap Makinesi" → Calculator),
+ * optionally with a file or folder ("Visual Studio Code" + ~/Desktop/jev).
+ */
+export async function openApp(name, target) {
+  const extra = target ? [target.startsWith('~/') ? path.join(os.homedir(), target.slice(2)) : target] : [];
   try {
-    await execFileAsync('open', ['-a', name]);
+    await execFileAsync('open', ['-a', name, ...extra]);
   } catch {
     const dirs = ['/Applications', '/System/Applications', '/System/Applications/Utilities', path.join(os.homedir(), 'Applications')];
     const installed = dirs.flatMap(d => { try { return fs.readdirSync(d).filter(f => f.endsWith('.app')).map(f => f.slice(0, -4)); } catch { return []; } });
     const pick = await jev.pickOption('application to open', name, installed);
     if (pick.index === null || !jev.isConfident(pick)) throw new JevisError('NO_APP', `"${name}" adında bir uygulama bulunamadı.`);
-    await execFileAsync('open', ['-a', installed[pick.index]]);
+    await execFileAsync('open', ['-a', installed[pick.index], ...extra]);
   }
   for (let i = 0; i < 20; i++) {
     await sleep(200);

@@ -6,7 +6,10 @@ import * as browser from './hands/browser.js';
 import * as vault from './guard/vault.js';
 import { requestStop, clearStop } from './guard/stop.js';
 import { recentActions } from './guard/log.js';
-import { runCommand } from './core/runner.js';
+import { runCommand, runRecipeWithHandoff } from './core/runner.js';
+import { listRecipes, loadRecipe, saveFromRun, deleteRecipe } from './core/recipes.js';
+import { getBrain } from './brain/index.js';
+import { loadState } from './core/config.js';
 import * as desktop from './hands/desktop.js';
 import { transcribe } from './voice/stt.js';
 import { speak } from './voice/tts.js';
@@ -34,6 +37,11 @@ Tarayıcı
   shot [--full]                       Ekran görüntüsü (~/.jevis/shots)
   verify "<beklenti>"                 Sayfa bu durumda mı? (Jev karar verir)
   wait "<metin>"                      Metin görünene kadar bekle
+
+Tarifler (bir işi kaydet, beyinsiz tekrar oynat)
+  recipe list | recipe show <isim> | recipe rm <isim>
+  recipe save <isim> [--last | --run=<id>]   Son işi (ya da verilen işi) tarif yap
+  recipe run <isim> [--var=ad=değer …]       Takılırsa beyin kaldığı yerden devam eder
 
 Mac uygulamaları
   apps                                Açık uygulamalar
@@ -140,7 +148,27 @@ async function doCommand(text) {
   return `✅ ${out.text || 'Bitti.'}\n(${(out.ms / 1000).toFixed(1)} sn${out.fast ? ', beyin kullanılmadı' : ''})`;
 }
 
+async function recipeCommand() {
+  const [sub, name] = args;
+  if (sub === 'save') {
+    const runId = flagValue('--run') || loadState().lastRunId;
+    if (!runId) return 'Kaydedilecek bir iş yok. Önce bir komut çalıştır.';
+    const r = saveFromRun(name, runId);
+    return `📌 "${r.name}" kaydedildi: ${r.steps.length} adım (recipes/${r.name}.json)`;
+  }
+  if (sub === 'show') return JSON.stringify(loadRecipe(name), null, 2);
+  if (sub === 'rm') { deleteRecipe(name); return `Silindi: ${name}`; }
+  if (sub === 'run') {
+    const vars = Object.fromEntries(rest.filter(a => a.startsWith('--var=')).map(a => a.slice(6).split(/=(.*)/s).slice(0, 2)));
+    const out = await runRecipeWithHandoff({ name, vars, brain: getBrain(flagValue('--brain') || config().brain.default), onEvent: printEvent });
+    return `✅ ${out.text}`;
+  }
+  const list = listRecipes();
+  return list.length ? list.map(r => `📌 ${r.name} — ${r.steps} adım${r.vars.length ? ` (değişkenler: ${r.vars.join(', ')})` : ''}${r.description ? ` — ${r.description}` : ''}`).join('\n') : 'Henüz tarif yok.';
+}
+
 async function run() {
+  if (cmd === 'recipe') return recipeCommand();
   if (cmd === 'do') return doCommand(args.join(' '));
   if (cmd === 'listen') {
     const seconds = Number(args[0]) || config().voice.recordSeconds;

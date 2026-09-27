@@ -1,0 +1,12 @@
+{
+  "name": "sabah-rutini",
+  "description": "Şablon: projeyi VS Code'da aç, iki siteni aç, Claude paneline selam yaz, müziği başlat, mailleri özetlet. Çalıştırırken proje, site1, site2 değerlerini ver.",
+  "steps": [
+    { "tool": "desktop_open_app", "args": { "name": "Visual Studio Code", "path": "{{proje}}" } },
+    { "ask_brain": "VS Code'da Claude sohbet panelini aç ve oraya 'selam dünya' yazıp gönder." },
+    { "tool": "browser_open", "args": { "url": "{{site1}}" } },
+    { "tool": "browser_open", "args": { "url": "{{site2}}", "new_tab": true } },
+    { "ask_brain": "Spotify uygulamasını aç, son dinlediklerime bak ve bu hafta dinlediğim tarza benzeyen bir çalma listesi ya da radyo başlat." },
+    { "ask_brain": "Tarayıcıda mail.google.com'u aç, gelen kutusundaki son 20 maili oku ve bana Türkçe kısa bir özet ver. Hiçbir maile cevap verme, hiçbir şeyi silme." }
+  ]
+}

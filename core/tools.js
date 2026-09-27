@@ -199,10 +199,10 @@ export const TOOLS = [
   },
   {
     name: 'desktop_open_app',
-    description: 'Open a Mac app or bring it to the front. English or Turkish names work ("Calculator", "Hesap Makinesi", "Xcode").',
-    inputSchema: obj({ name: { type: 'string' } }, ['name']),
-    run: async ({ name }) => {
-      const f = await desktop.openApp(name);
+    description: 'Open a Mac app or bring it to the front. English or Turkish names work ("Calculator", "Hesap Makinesi", "Xcode"). path opens a file or folder with it, e.g. Visual Studio Code + "~/Desktop/jev".',
+    inputSchema: obj({ name: { type: 'string' }, path: { type: 'string', description: 'File or folder to open with the app (optional).' } }, ['name']),
+    run: async ({ name, path: target }) => {
+      const f = await desktop.openApp(name, target);
       return text(desktop.formatOutcome(f), f);
     }
   },
