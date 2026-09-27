@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-28):** Plan hazır. Faz 0 başlamadı; kullanıcının "başla" demesi bekleniyor.
+> **Durum (2026-09-28):** Faz 0 ✅ tamam. Faz 1 (Jev çekirdeği + tarayıcı elleri) devam ediyor.
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -105,13 +105,14 @@ jev/
 ### Faz 0 — Hazırlık ve temizlik
 - [x] Git kuruldu, ilk kayıt alındı (`6b77f32`), `.env` git dışında
 - [x] PLAN.md + CLAUDE.md
-- [ ] Güvenlik açığını kapat: `server.js` sadece `127.0.0.1`'i dinlesin, `Access-Control-Allow-Origin: *` kalksın, `/api/macos/execute` yerel bir token istesin
-- [ ] `macos-controller.js`: kabuk komutlarını `exec` yerine `execFile` / argüman dizisiyle çalıştır (kesme işareti hatası ve enjeksiyon açığı)
-- [ ] `jev-dispatcher.js`: `media_control` dalını bağla ("sonraki şarkı" çalışsın)
-- [ ] Bağımlılıklar: `playwright-core`, `@modelcontextprotocol/sdk`
+- [x] Güvenlik açığını kapat: `server.js` sadece `127.0.0.1`'i dinlesin, `Access-Control-Allow-Origin: *` kalksın, `/api/macos/execute` yerel bir token istesin
+- [x] `macos-controller.js`: kabuk komutlarını `exec` yerine `execFile` / argüman dizisiyle çalıştır (kesme işareti hatası ve enjeksiyon açığı)
+- [x] `jev-dispatcher.js`: `media_control` dalını bağla ("sonraki şarkı" çalışsın)
+- [x] Bağımlılıklar: `playwright-core`, `@modelcontextprotocol/sdk`, `zod`
 
 **Bitince:** Eski özellikler güvenli ve düzgün çalışıyor, yeni fazların temeli hazır.
 **Test:** "Ali'ye süt al" notu oluşuyor. "Sonraki şarkı" çalışıyor. Başka bir sitenin localhost'a gönderdiği istek reddediliyor.
+**Sonuç:** `node tests/dispatcher-dryrun.mjs` 6/6 doğru (deneme modu, Mac'e dokunmaz). Sunucu testi: tokensiz 401, yabancı Origin 403, sahte Host 403, CORS başlığı yok, sadece 127.0.0.1. Kabuk enjeksiyonu denemesi (`$(...)`) metin olarak kaldı. Ek düzeltme: medya AppleScript'i tek satıra birleştirildiği için zaten bozuktu, düzeltildi. Ayrıca `dispatchCommand(..., { dryRun: true })` eklendi.
 
 ### Faz 1 — Jev çekirdeği ve tarayıcı elleri
 - [ ] `core/jev.js`: tek TypeSafe istemcisi. Fonksiyonlar: `pickElement(talimat, adaylar)` ("hiçbiri" seçeneği dahil), `isRisky(eylem)`, `checkState(beklenen)`
@@ -270,4 +271,5 @@ jev/
 
 - **2026-09-25:** Proje incelendi; JEVIS ve Jev'in yetenekleri araştırıldı.
 - **2026-09-26:** macOS kısımları silindi (sadece Jev kalsın denmişti). Jev konuşmaları ve deneyler yapıldı.
+- **2026-09-28:** Faz 0 bitti: güvenlik açığı kapandı, 3 hata düzeldi, bağımlılıklar kuruldu.
 - **2026-09-28:** Silinenler geri istendi ve kayıtlardan byte byte geri getirildi. Git kuruldu (`6b77f32`). Claude in Chrome reddedildi, kendi JEVIS sistemimize karar verildi. Bu plan yazıldı.

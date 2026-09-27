@@ -1,3 +1,6 @@
+// Per-start session token injected by server.js; required on every /api call.
+const JEVIS_TOKEN = document.querySelector('meta[name="jevis-token"]')?.content || '';
+
 // Presets data
 const PRESETS = {
   birds: {
@@ -474,7 +477,8 @@ async function evaluateWithJev() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
+        'X-Jevis-Token': JEVIS_TOKEN
       },
       body: JSON.stringify(payload)
     });
@@ -785,7 +789,8 @@ async function executeMacCommand(commandText) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
+        'X-Jevis-Token': JEVIS_TOKEN
       },
       body: JSON.stringify({ command: commandText })
     });

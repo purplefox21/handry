@@ -19,12 +19,24 @@ export function getApiKey() {
 }
 
 /**
+ * Quoted text in a command. The opening quote must start a word, so Turkish
+ * apostrophes inside words ("YouTube'a", "Ali'ye") are not taken as quotes.
+ */
+function extractQuoted(cmd) {
+  const strict = cmd.match(/(?:^|\s)["'“‘]([^"“”]+?)["'”’](?=[\s.,!?;:]|$)/);
+  if (strict) return strict[1].trim();
+  // Closing quote followed by a case suffix: "'Market'e ekle"
+  const withSuffix = cmd.match(/(?:^|\s)["'“‘]([^"“”]+?)["'”’](?=[a-zçğıöşü]{1,4}(?:[\s.,!?;:]|$))/i);
+  return withSuffix ? withSuffix[1].trim() : null;
+}
+
+/**
  * Smart query extractor from natural language commands
  */
 function extractSearchQuery(cmd) {
   // 1. Quoted text takes top priority: '...' or "..."
-  const quoteMatch = cmd.match(/["'“‘](.+?)["'”’]/);
-  if (quoteMatch) return quoteMatch[1].trim();
+  const quoted = extractQuoted(cmd);
+  if (quoted) return quoted;
 
   let q = cmd;
   // Strip browser and tab instructions
@@ -42,8 +54,7 @@ function extractSearchQuery(cmd) {
  */
 function extractNoteContent(cmd) {
   // e.g. "Notlara 'Market' diye not aç içine süt al yaz"
-  const titleMatch = cmd.match(/["'“‘](.+?)["'”’]/);
-  const title = titleMatch ? titleMatch[1].trim() : 'Yeni Not';
+  const title = extractQuoted(cmd) || 'Yeni Not';
 
   let body = cmd;
   const icineMatch = cmd.match(/(?:içine|içeriği|metin)\s+(?:de\s+)?["'“‘]?(.+?)["'”’]?(?:\s+yaz|\s+ekle|\s+kaydet|$)/i);
@@ -58,9 +69,14 @@ function extractNoteContent(cmd) {
 }
 
 /**
- * Dispatch natural language command to Jev and execute corresponding macOS action
+ * Dispatch natural language command to Jev and execute corresponding macOS action.
+ * With `dryRun` the decision is made but nothing runs on the Mac.
  */
-export async function dispatchCommand(userCommand, customApiKey = null) {
+export async function dispatchCommand(userCommand, customApiKey = null, { dryRun = false } = {}) {
+  const run = (name, ...args) => dryRun
+    ? { success: true, message: `(deneme) ${name}(${args.map(a => JSON.stringify(a)).join(', ')})` }
+    : controller[name](...args);
+
   const apiKey = customApiKey || getApiKey();
   if (!apiKey) {
     throw new Error('TypeSafe API Key bulunamadı! Lütfen .env dosyasına JEV_KEY ekleyin.');
@@ -143,6 +159,16 @@ export async function dispatchCommand(userCommand, customApiKey = null) {
             max: 'Maximum volume / son ses (100%)',
             none: 'Volume not mentioned'
           }
+        },
+        media_action: {
+          type: 'choice',
+          instructions: 'If `command` asks to control music playback, which control is it?',
+          criteria: {
+            play_pause: 'Play, pause, resume or stop the music / müziği başlat, durdur',
+            next: 'Skip to the next track / sonraki şarkı',
+            previous: 'Go back to the previous track / önceki şarkı',
+            none: 'Not a playback control'
+          }
         }
       }
     })
@@ -163,6 +189,7 @@ export async function dispatchCommand(userCommand, customApiKey = null) {
   const searchPlatform = answers.search_platform?.choice || 'google';
   const browser = answers.browser?.choice || 'default';
   const volumeTarget = answers.volume_target?.choice || 'none';
+  const mediaAction = answers.media_action?.choice || 'none';
 
   const executionResults = [];
 
@@ -172,60 +199,66 @@ export async function dispatchCommand(userCommand, customApiKey = null) {
     // If command mentions youtube explicitly, use youtube
     const isYoutube = /youtube/i.test(userCommand) || searchPlatform === 'youtube';
     const chosenBrowser = /safari/i.test(userCommand) ? 'safari' : browser;
-    const res = await controller.openWebSearch(query, isYoutube ? 'youtube' : 'google', chosenBrowser);
+    const res = await run('openWebSearch', query, isYoutube ? 'youtube' : 'google', chosenBrowser);
     executionResults.push(res);
   }
 
   // 2. Apple Notes Creation (e.g. "Notlara 'Toplantı' diye not aç içine 'Yarın saat 3' yaz")
   else if (action === 'create_note' || targetApp === 'notes' && /yaz|ekle|oluştur/i.test(userCommand)) {
     const { title, body } = extractNoteContent(userCommand);
-    const res = await controller.createNote(title, body);
+    const res = await run('createNote', title, body);
     executionResults.push(res);
   }
 
   // 3. Spotify Song / Artist Search & Play (e.g. "Spotify'da Daft Punk aç")
   else if (action === 'play_spotify_song') {
     const query = userCommand.replace(/(?:spotify'?da|spotify'?dan|şarkısını|parçasını|aç|çal|başlat)/gi, '').trim();
-    const res = await controller.playSpotifySearch(query);
+    const res = await run('playSpotifySearch', query);
     executionResults.push(res);
   }
 
   // 4. Open App
   else if (action === 'open_app' && targetApp !== 'none') {
-    const res = await controller.openApp(targetApp);
+    const res = await run('openApp', targetApp);
     executionResults.push(res);
   }
 
   // 5. Quit App
   else if (action === 'quit_app' && targetApp !== 'none') {
-    const res = await controller.quitApp(targetApp);
+    const res = await run('quitApp', targetApp);
     executionResults.push(res);
   }
 
   // 6. Screenshot
   else if (action === 'take_screenshot') {
-    const res = await controller.takeScreenshot();
+    const res = await run('takeScreenshot');
     executionResults.push(res);
   }
 
   // 7. Dark Mode
   else if (action === 'toggle_dark_mode') {
-    const res = await controller.toggleDarkMode();
+    const res = await run('toggleDarkMode');
     executionResults.push(res);
   }
 
   // 8. Lock Screen
   else if (action === 'lock_screen') {
-    const res = await controller.lockScreen();
+    const res = await run('lockScreen');
     executionResults.push(res);
   }
 
-  // 9. Volume Control
+  // 9. Music playback ("sonraki şarkıya geç", "müziği durdur")
+  else if (action === 'media_control' && mediaAction !== 'none') {
+    const res = await run('mediaControl', mediaAction);
+    executionResults.push(res);
+  }
+
+  // 10. Volume Control
   if (volumeTarget !== 'none' || action === 'set_volume') {
     const volMap = { mute: 0, low: 20, medium: 50, high: 80, max: 100, none: 50 };
     const numMatch = userCommand.match(/%\s*(\d+)|\b(\d+)\s*(?:yüzde|seviyesi)?\b/);
     const vol = numMatch ? parseInt(numMatch[1] || numMatch[2], 10) : (volMap[volumeTarget] ?? 50);
-    const res = await controller.setVolume(vol);
+    const res = await run('setVolume', vol);
     executionResults.push(res);
   }
 
@@ -244,6 +277,7 @@ export async function dispatchCommand(userCommand, customApiKey = null) {
       targetApp,
       searchPlatform,
       browser,
+      mediaAction,
       confidence: answers.action?.confidence
     },
     rawAnswers: answers,

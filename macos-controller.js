@@ -1,9 +1,18 @@
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import util from 'node:util';
 import path from 'node:path';
 import os from 'node:os';
 
-const execAsync = util.promisify(exec);
+// execFile passes arguments straight to the program (no shell), so user text
+// with quotes or apostrophes ("Ali'ye") can neither break nor inject commands.
+const execFileAsync = util.promisify(execFile);
+
+// Runs an AppleScript; extra values arrive in the script as `item N of argv`
+// instead of being spliced into the source text.
+function runAppleScript(lines, args = []) {
+  const script = Array.isArray(lines) ? lines.join('\n') : lines;
+  return execFileAsync('osascript', ['-e', script, ...args]);
+}
 
 // Map common app aliases to exact macOS application names
 const APP_NAMES = {
@@ -27,7 +36,7 @@ const APP_NAMES = {
 export async function openApp(appKey) {
   const appName = APP_NAMES[appKey] || appKey;
   try {
-    await execAsync(`open -a "${appName}"`);
+    await execFileAsync('open', ['-a', appName]);
     return { success: true, message: `🚀 "${appName}" açıldı.` };
   } catch (err) {
     return { success: false, error: `Uygulama açılamadı: ${err.message}` };
@@ -40,7 +49,7 @@ export async function openApp(appKey) {
 export async function quitApp(appKey) {
   const appName = APP_NAMES[appKey] || appKey;
   try {
-    await execAsync(`osascript -e 'quit app "${appName}"'`);
+    await runAppleScript(['on run argv', 'quit application (item 1 of argv)', 'end run'], [appName]);
     return { success: true, message: `🛑 "${appName}" kapatıldı.` };
   } catch (err) {
     return { success: false, error: `Uygulama kapatılamadı: ${err.message}` };
@@ -51,71 +60,63 @@ export async function quitApp(appKey) {
  * Set system output volume (0 to 100)
  */
 export async function setVolume(percent) {
-  const vol = Math.max(0, Math.min(100, Math.round(percent)));
+  const vol = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
   try {
-    await execAsync(`osascript -e "set volume output volume ${vol}"`);
+    await runAppleScript(`set volume output volume ${vol}`);
     return { success: true, message: `🔊 Ses seviyesi %${vol} yapıldı.` };
   } catch (err) {
     return { success: false, error: `Ses ayarlanamadı: ${err.message}` };
   }
 }
 
+const PLAYER_SCRIPT = (command) => [
+  'if application "Spotify" is running then',
+  `  tell application "Spotify" to ${command}`,
+  'else if application "Music" is running then',
+  `  tell application "Music" to ${command}`,
+  'else',
+  '  error "Açık bir müzik çalar (Spotify / Müzik) yok."',
+  'end if'
+];
+
 /**
  * Media player control (Spotify or Apple Music)
  */
 export async function mediaControl(action) {
-  let script = '';
+  let script;
   switch (action) {
     case 'play_pause':
     case 'toggle':
-      script = `
-        tell application "System Events"
-          if (exists process "Spotify") then
-            tell application "Spotify" to playpause
-          else if (exists process "Music") then
-            tell application "Music" to playpause
-          else
-            tell application "Spotify" to activate
-            delay 0.5
-            tell application "Spotify" to play
-          end if
-        end tell
-      `;
+      script = [
+        'if application "Spotify" is running then',
+        '  tell application "Spotify" to playpause',
+        'else if application "Music" is running then',
+        '  tell application "Music" to playpause',
+        'else',
+        '  tell application "Spotify" to activate',
+        '  delay 1',
+        '  tell application "Spotify" to play',
+        'end if'
+      ];
       break;
     case 'next':
-      script = `
-        tell application "System Events"
-          if (exists process "Spotify") then
-            tell application "Spotify" to next track
-          else if (exists process "Music") then
-            tell application "Music" to next track
-          end if
-        end tell
-      `;
+      script = PLAYER_SCRIPT('next track');
       break;
     case 'previous':
-      script = `
-        tell application "System Events"
-          if (exists process "Spotify") then
-            tell application "Spotify" to previous track
-          else if (exists process "Music") then
-            tell application "Music" to previous track
-          end if
-        end tell
-      `;
+      script = PLAYER_SCRIPT('previous track');
       break;
     case 'mute':
-      script = `set volume output muted true`;
+      script = 'set volume output muted true';
       break;
     case 'unmute':
-      script = `set volume output muted false`;
+      script = 'set volume output muted false';
       break;
     default:
       return { success: false, error: `Bilinmeyen medya aksiyonu: ${action}` };
   }
 
   try {
-    await execAsync(`osascript -e '${script.replace(/\n/g, ' ')}'`);
+    await runAppleScript(script);
     return { success: true, message: `🎵 Medya aksiyonu uygulandı (${action}).` };
   } catch (err) {
     return { success: false, error: `Medya kontrol hatası: ${err.message}` };
@@ -127,8 +128,7 @@ export async function mediaControl(action) {
  */
 export async function playSpotifySearch(query) {
   try {
-    await execAsync(`open "spotify:search:${encodeURIComponent(query)}"`);
-    // Optional delay to trigger playback
+    await execFileAsync('open', [`spotify:search:${encodeURIComponent(query)}`]);
     return { success: true, message: `🎵 Spotify'da "${query}" arandı ve açıldı.` };
   } catch (err) {
     return { success: false, error: `Spotify açılamadı: ${err.message}` };
@@ -139,12 +139,15 @@ export async function playSpotifySearch(query) {
  * Create a real note in Apple Notes
  */
 export async function createNote(title, body) {
-  const safeTitle = (title || 'Yeni Not').replace(/"/g, '\\"');
-  const safeBody = (body || '').replace(/"/g, '\\"');
+  const noteTitle = title || 'Yeni Not';
   try {
-    await execAsync(`osascript -e 'tell application "Notes" to make new note at folder "Notes" with properties {name:"${safeTitle}", body:"${safeBody}"}'`);
-    await execAsync(`open -a "Notes"`);
-    return { success: true, message: `📝 Notlar'a "${safeTitle}" notu eklendi.` };
+    await runAppleScript([
+      'on run argv',
+      'tell application "Notes" to make new note at folder "Notes" with properties {name:(item 1 of argv), body:(item 2 of argv)}',
+      'end run'
+    ], [noteTitle, body || '']);
+    await execFileAsync('open', ['-a', 'Notes']);
+    return { success: true, message: `📝 Notlar'a "${noteTitle}" notu eklendi.` };
   } catch (err) {
     return { success: false, error: `Not oluşturulamadı: ${err.message}` };
   }
@@ -167,13 +170,13 @@ export async function openWebSearch(query, platform = 'google', browser = 'defau
 
   try {
     if (browser === 'safari') {
-      await execAsync(`open -a Safari "${targetUrl}"`);
+      await execFileAsync('open', ['-a', 'Safari', targetUrl]);
       return { success: true, message: `🌐 Safari'de açıldı: ${cleanQ} (${platform.toUpperCase()})` };
     } else if (browser === 'chrome') {
-      await execAsync(`open -a "Google Chrome" "${targetUrl}"`);
+      await execFileAsync('open', ['-a', 'Google Chrome', targetUrl]);
       return { success: true, message: `🌐 Chrome'da açıldı: ${cleanQ} (${platform.toUpperCase()})` };
     } else {
-      await execAsync(`open "${targetUrl}"`);
+      await execFileAsync('open', [targetUrl]);
       return { success: true, message: `🌐 Tarayıcıda açıldı: ${cleanQ} (${platform.toUpperCase()})` };
     }
   } catch (err) {
@@ -186,7 +189,7 @@ export async function openWebSearch(query, platform = 'google', browser = 'defau
  */
 export async function toggleDarkMode() {
   try {
-    await execAsync(`osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to not dark mode'`);
+    await runAppleScript('tell application "System Events" to tell appearance preferences to set dark mode to not dark mode');
     return { success: true, message: `🌓 Görünüm modu (Açık/Koyu) değiştirildi.` };
   } catch (err) {
     if (err.message.includes('-1743') || err.message.includes('yetkisi yok')) {
@@ -208,7 +211,7 @@ export async function takeScreenshot() {
   const destPath = path.join(os.homedir(), 'Desktop', filename);
 
   try {
-    await execAsync(`screencapture -x "${destPath}"`);
+    await execFileAsync('screencapture', ['-x', destPath]);
     return { success: true, message: `📸 Ekran görüntüsü Masaüstüne kaydedildi: ${filename}`, filePath: destPath };
   } catch (err) {
     return {
@@ -223,7 +226,7 @@ export async function takeScreenshot() {
  */
 export async function lockScreen() {
   try {
-    await execAsync(`pmset displaysleepnow`);
+    await execFileAsync('pmset', ['displaysleepnow']);
     return { success: true, message: `🔒 Ekran kilitlendi / uyku moduna alındı.` };
   } catch (err) {
     return { success: false, error: `Ekran kilitlenemedi: ${err.message}` };
