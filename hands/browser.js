@@ -8,19 +8,13 @@ import { chromium } from 'playwright-core';
 import { config, expandHome, homeDir, loadState, saveState } from '../core/config.js';
 import * as jev from '../core/jev.js';
 import { needsConfirm, confirmAction } from '../guard/confirm.js';
+import { JevisError } from '../core/errors.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const withTimeout = (promise, ms, fallback) => Promise.race([promise, sleep(ms).then(() => fallback)]);
 const pct = p => Math.round((p || 0) * 100);
 
-/** Errors the brain/CLI can act on: LOW_CONFIDENCE, NOT_FOUND, STALE, DENIED, NO_CHROME */
-export class JevisError extends Error {
-  constructor(code, message, extra = {}) {
-    super(message);
-    this.code = code;
-    Object.assign(this, extra);
-  }
-}
+export { JevisError };
 
 // ---------------------------------------------------------------------------
 // Chrome connection
@@ -353,20 +347,6 @@ const PURPOSE = {
 const pickInfo = pick => ({ confidence: pct(pick.confidence), ms: pick.ms, risk: pick.risk === null ? null : pct(pick.risk) });
 const OPTION_ROLES = ['option', 'menuitem', 'menuitemradio', 'menuitemcheckbox', 'treeitem', 'listitem'];
 
-/**
- * Sure enough to act: high confidence, or a clear winner well ahead of every
- * other element. Mass on "none" is doubt, not a competing element; mixing up
- * two real elements is the mistake that matters, and risky clicks are
- * confirmed by the user anyway.
- */
-function isConfident(pick) {
-  const { autoThreshold, minTop, minMargin } = config().jev;
-  if (pick.confidence >= autoThreshold) return true;
-  const [top, ...rest] = pick.alternatives;
-  if (!top || top.index === null || top.p < minTop) return false;
-  const rival = rest.find(a => a.index !== null)?.p || 0;
-  return top.p - rival >= minMargin;
-}
 
 /**
  * Turns a target ("Save button", "fiyat alanı" or "#12" from a previous read)
@@ -400,7 +380,7 @@ async function resolve(page, target, purpose, { withRisk = false } = {}) {
   if (pick.index === null) {
     throw new JevisError('NOT_FOUND', `"${target}" ile eşleşen öğe yok (Jev "hiçbiri" dedi, %${pct(pick.confidence)}).`, { alternatives });
   }
-  if (!isConfident(pick)) {
+  if (!jev.isConfident(pick)) {
     throw new JevisError('LOW_CONFIDENCE', `Jev "${target}" için emin değil (%${pct(pick.confidence)}). Adaylardan birini #id ile seçin.`, { alternatives });
   }
   const item = items[pick.index];
@@ -560,7 +540,7 @@ export async function select(target, option) {
     let index = options.findIndex(o => o.toLowerCase() === String(option).toLowerCase());
     if (index < 0) {
       const optPick = await jev.pickOption(item.name, option, options);
-      if (optPick.index === null || !isConfident(optPick)) {
+      if (optPick.index === null || !jev.isConfident(optPick)) {
         throw new JevisError('NOT_FOUND', `"${option}" seçeneği bulunamadı. Seçenekler: ${options.slice(0, 40).join(' | ')}`);
       }
       index = optPick.index;
@@ -675,7 +655,7 @@ async function findTab(ref) {
   }
   if (index < 0) {
     const pick = await jev.pickOption('browser tab', ref, list.map(t => `${t.title} — ${t.url}`));
-    if (pick.index === null || !isConfident(pick)) throw new JevisError('NOT_FOUND', `"${ref}" sekmesi bulunamadı.`);
+    if (pick.index === null || !jev.isConfident(pick)) throw new JevisError('NOT_FOUND', `"${ref}" sekmesi bulunamadı.`);
     index = pick.index;
   }
   const page = openPages()[index];

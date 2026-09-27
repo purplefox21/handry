@@ -232,3 +232,15 @@ export async function lockScreen() {
     return { success: false, error: `Ekran kilitlenemedi: ${err.message}` };
   }
 }
+
+/**
+ * Show a macOS notification
+ */
+export async function notify(title, message) {
+  try {
+    await runAppleScript(['on run argv', 'display notification (item 2 of argv) with title (item 1 of argv)', 'end run'], [title || 'JEVIS', message || '']);
+    return { success: true, message: `🔔 Bildirim gösterildi: ${message}` };
+  } catch (err) {
+    return { success: false, error: `Bildirim gösterilemedi: ${err.message}` };
+  }
+}

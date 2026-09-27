@@ -150,3 +150,18 @@ export async function isRisky(instruction, page = {}) {
   const { answers, ms } = await ask({ page, instruction }, { risk: { type: 'noul', instructions: RISK_INSTRUCTIONS } });
   return { p: answers.risk?.noul ?? 0, ms };
 }
+
+/**
+ * Sure enough to act: high confidence, or a clear winner well ahead of every
+ * other candidate. Mass on "none" is doubt, not a competing element; mixing up
+ * two real elements is the mistake that matters, and risky actions are
+ * confirmed by the user anyway.
+ */
+export function isConfident(pick) {
+  const { autoThreshold, minTop, minMargin } = config().jev;
+  if (pick.confidence >= autoThreshold) return true;
+  const [top, ...rest] = pick.alternatives;
+  if (!top || top.index === null || top.p < minTop) return false;
+  const rival = rest.find(a => a.index !== null)?.p || 0;
+  return top.p - rival >= minMargin;
+}

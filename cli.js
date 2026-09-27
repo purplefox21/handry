@@ -25,6 +25,18 @@ Tarayıcı
   verify "<beklenti>"                 Sayfa bu durumda mı? (Jev karar verir)
   wait "<metin>"                      Metin görünene kadar bekle
 
+Mac uygulamaları
+  apps                                Açık uygulamalar
+  app <isim>                          Uygulamayı aç / öne getir ("Hesap Makinesi", "Xcode")
+  quit <isim>                         Uygulamayı kapat
+  desk read [--app=X] [--menus]       Ön penceredeki kontroller (#d1…) ve metinler
+  desk click "<hedef>" [--app=X]      Buton, menü öğesi, sekme… (menüler de aranır)
+  desk type "<hedef>" "<metin>" [--app=X] [--enter]
+  desk write "<metin>"                Odaktaki alana yaz
+  desk key <kısayol>                  Örn: cmd+s, escape, return
+  desk shot [--full]                  Ön pencerenin ekran görüntüsü
+  mac <eylem> [değer]                 volume 40, mute, next_track, dark_mode, notify "…", spotify_search "…"
+
 Şifreler (macOS Anahtar Zinciri)
   secret add <isim> --site=site1.com,site2.com   Şifreyi sorar, sadece bu sitelerde kullanılır
   secret list | secret rm <isim>
@@ -57,7 +69,25 @@ const TOOL_COMMANDS = {
   tab: () => ['browser_tabs', { action: 'switch', tab: args.join(' ') }],
   'close-tab': () => ['browser_tabs', { action: 'close', tab: args.length ? args.join(' ') : undefined }],
   verify: () => ['browser_verify', { expectation: args.join(' ') }],
-  wait: () => ['browser_wait', { text: args.join(' ') }]
+  wait: () => ['browser_wait', { text: args.join(' ') }],
+  apps: () => ['desktop_apps', {}],
+  app: () => ['desktop_open_app', { name: args.join(' ') }],
+  quit: () => ['desktop_quit_app', { name: args.join(' ') }],
+  mac: () => ['mac_action', { action: args[0], value: args.slice(1).join(' ') || undefined }],
+  desk: () => {
+    const [sub, ...params] = args;
+    const app = flagValue('--app');
+    const map = {
+      read: ['desktop_read', { app, include_menus: flags.has('--menus') }],
+      click: ['desktop_click', { target: params.join(' '), app }],
+      type: ['desktop_type', { target: params[0], text: params.slice(1).join(' '), app, press_enter: flags.has('--enter') }],
+      write: ['desktop_type', { text: params.join(' '), press_enter: flags.has('--enter') }],
+      key: ['desktop_key', { keys: params[0], app }],
+      shot: ['desktop_screenshot', { app, full_screen: flags.has('--full') }]
+    };
+    if (!map[sub]) throw new Error('desk alt komutları: read, click, type, write, key, shot');
+    return map[sub];
+  }
 };
 
 async function secretCommand() {
@@ -81,7 +111,7 @@ async function secretCommand() {
 }
 
 function printResult(res) {
-  const out = res.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
+  const out = res.content.map(c => (c.type === 'text' ? c.text : `[görüntü: ${Math.round(c.data.length * 0.75 / 1024)} KB]`)).join('\n');
   if (res.isError) throw new Error(out);
   return out;
 }

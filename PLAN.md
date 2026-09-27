@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-28):** Faz 0 ✅, Faz 1 ✅, Faz 2 ✅ (gerçek App Store işi kullanıcı bekleniyor), Faz 3 ✅. Faz 4 (masaüstü elleri) devam ediyor.
+> **Durum (2026-09-28):** Faz 0-4 ✅ (Faz 2'deki gerçek App Store işi kullanıcı bekleniyor). Faz 5 (sohbet kutusu + beyin seçimi) devam ediyor.
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -180,15 +180,33 @@ Gerçek sayfalarda (Vikipedi, Hacker News, Apple inceleme kuralları) **0 yanlı
 - CLI, MCP ve beyinler aynı `callTool` yolundan geçer; durdurma, kayıt ve bekçi her yerde geçerli.
 
 ### Faz 4 — Masaüstü elleri (her Mac uygulaması)
-- [ ] `hands/ax-helper`: küçük bir Swift programı. Öndeki uygulamanın öğe listesini çıkarır, öğeye basar, değer yazar, koordinata tıklar, klavye kısayolu gönderir, kaydırır, pencere ekran görüntüsü alır.
-- [ ] `hands/desktop.js` ve MCP araçları: `desktop_read`, `desktop_act`, `desktop_type`, `desktop_key`, `desktop_screenshot`
-- [ ] Tarayıcıdakiyle aynı Jev yöntemi: "Gönder butonuna bas" dendiğinde Jev öğe listesinden seçer
-- [ ] `hands/mac.js`: eski hızlı komutlar (uygulama aç/kapat, ses, Spotify, Notlar, karanlık mod…) MCP aracı olarak
-- [ ] Erişilebilirlik ağacı boş gelen uygulamalarda ekran görüntüsü ve beynin görsel yorumu yedek olarak kullanılır
-- [ ] İzin rehberi: Erişilebilirlik, Ekran Kaydı, Otomasyon
+- [x] `hands/ax-helper`: küçük bir Swift programı. Öndeki uygulamanın öğe listesini çıkarır, öğeye basar, değer yazar, koordinata tıklar, klavye kısayolu gönderir, kaydırır, pencere ekran görüntüsü alır.
+- [x] `hands/desktop.js` ve MCP araçları: `desktop_read`, `desktop_act`, `desktop_type`, `desktop_key`, `desktop_screenshot`
+- [x] Tarayıcıdakiyle aynı Jev yöntemi: "Gönder butonuna bas" dendiğinde Jev öğe listesinden seçer
+- [x] `hands/mac.js`: eski hızlı komutlar (uygulama aç/kapat, ses, Spotify, Notlar, karanlık mod…) MCP aracı olarak
+- [x] Erişilebilirlik ağacı boş gelen uygulamalarda ekran görüntüsü ve beynin görsel yorumu yedek olarak kullanılır
+- [x] İzin kontrolü: `jevis-ax trusted` (Erişilebilirlik ve Ekran Kaydı bu Mac'te zaten verilmiş; izin yoksa araçlar ne yapılacağını söyler)
 
 **Bitince:** "Xcode'da Release şemasını seç", "Ayarlar'da Wi-Fi'yi kapat", "Spotify'da sonraki şarkı" gibi komutlar çalışıyor.
 **Test:** 5 uygulamada (Finder, Xcode, Sistem Ayarları, Notlar, Spotify) 20 komut. Hedef: en az 17/20.
+**Sonuç:** `node tests/desktop-e2e.mjs` **23/23**. Kullanıcının açık uygulamalarına dokunmamak için Hesap Makinesi ve TextEdit ile test edildi.
+- Türkçe adla uygulama açma.
+- 12+30=42: butonlara fare yerine erişilebilirlik üzerinden basıldı, eylem başına 0.6-0.9 sn.
+- Menü öğesi ("Düz Metin Yap"): menü açılmadan basıldı.
+- Metin alanına yazma: erişilebilirlik değeri üzerinden, klavye olayı yok.
+- "Kaydedilsin mi?" dialogunu okuma ve onaylı "Sil".
+- cmd+q engeli, pencere ekran görüntüsü, VS Code (Electron) okuma: 193 öğe.
+
+Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adlarıyla hesaplayıp uygulamayı kapattı: 11 tur, 42 sn.
+
+**Öğrenilenler:**
+- Menü çubuğu başlığına basmak menüyü açık bırakıp uygulamayı kilitliyor. Başlıklar aday listesinden çıkarıldı; menü öğeleri "Dosya > Kapat" yoluyla listeleniyor.
+- Dialog butonlarının anlamı pencere metninde saklı ("bu belgeyi tutmak istiyor musunuz?"). Jev'e pencerenin metinleri de veriliyor.
+- Kaydedilmemiş belge varken `quit` cevap beklerse takılıyor. Artık cevap beklenmiyor; açık kalan "kaydedilsin mi?" sorusu beyne bildiriliyor.
+- Onay kelimeleri iki sınıf:
+  - **Kesin** (gönder, yayınla, öde, add for review…): her zaman sorulur.
+  - **Yumuşak** (sil, delete): Jev risk %30'un altındaysa sorulmaz ("Tümünü Sil" %21, belgeyi atan "Sil" %92, "Delete App" %90).
+- Uygulama adları Türkçe ("Hesap Makinesi"); paket kimliğiyle ve Jev ile eşleştiriliyor.
 
 ### Faz 5 — JEVIS sohbet kutusu ve beyin seçimi
 - [ ] `app/`: "macOS Kontrol Merkezi" ekranı JEVIS sohbetine dönüşür. İçinde: sohbet, canlı eylem akışı (Jev neyi seçti, ne kadar emin, ne kadar sürdü, küçük ekran görüntüsü), onay kartları, DURDUR butonu, beyin seçici
@@ -302,6 +320,7 @@ Gerçek sayfalarda (Vikipedi, Hacker News, Apple inceleme kuralları) **0 yanlı
 
 - **2026-09-25:** Proje incelendi; JEVIS ve Jev'in yetenekleri araştırıldı.
 - **2026-09-26:** macOS kısımları silindi (sadece Jev kalsın denmişti). Jev konuşmaları ve deneyler yapıldı.
+- **2026-09-28:** Faz 4 bitti: Swift erişilebilirlik yardımcısı, masaüstü elleri, mac_action, terminal/kısayol korumaları. 23/23.
 - **2026-09-28:** Faz 3 bitti: kasa, kayıt, acil durdurma, gizli talimat bekçisi, kullanıcıyı bekleme, site bazlı onay kuralları.
 - **2026-09-28:** Faz 2 bitti: MCP sunucusu, Claude Code ile uçtan uca test, gizlilik tarayıcısı, bilgi kartı.
 - **2026-09-28:** Faz 1 bitti: Jev çekirdeği, tarayıcı elleri, CLI, onay penceresi. Test sayfasında 27/27, gerçek sitelerde 9/9.

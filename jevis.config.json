@@ -21,7 +21,6 @@
       "submit",
       "send",
       "publish",
-      "delete",
       "pay",
       "purchase",
       "buy",
@@ -31,14 +30,25 @@
       "release this version",
       "gönder",
       "yayınla",
-      "sil",
       "öde",
       "satın al",
-      "sipariş ver"
+      "sipariş ver",
+      "delete app",
+      "delete account",
+      "empty trash",
+      "hesabı sil",
+      "çöp sepetini boşalt"
     ],
     "alwaysAsk": [],
     "neverAsk": [],
-    "sites": {}
+    "sites": {},
+    "keywordFloor": 0.3,
+    "softKeywords": [
+      "delete",
+      "remove",
+      "sil",
+      "kaldır"
+    ]
   },
   "guard": {
     "injectionScan": true,

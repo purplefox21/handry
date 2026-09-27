@@ -21,8 +21,12 @@ export function needsConfirm(element, riskP, host = '') {
   const always = alwaysAsk.find(w => hasWord(label, w));
   if (!always && neverAsk.some(w => hasWord(label, w))) return { ask: false };
   if (always) return { ask: true, reason: `her zaman sorulacaklar listesinde: "${always}"` };
+  // Strong words always ask. Soft ones ("sil", "delete") ask unless Jev is
+  // nearly sure it's harmless, like "Tümünü Sil" on a calculator.
   const keyword = c.keywords.find(w => hasWord(element.name || '', w));
   if (keyword) return { ask: true, reason: `riskli kelime: "${keyword}"` };
+  const soft = c.softKeywords.find(w => hasWord(element.name || '', w));
+  if (soft && (riskP === null || riskP === undefined || riskP >= c.keywordFloor)) return { ask: true, reason: `riskli kelime: "${soft}"` };
   if (riskP !== null && riskP !== undefined && riskP >= c.riskThreshold) {
     return { ask: true, reason: `Jev bu işlemi riskli buldu (%${Math.round(riskP * 100)})` };
   }
