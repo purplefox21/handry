@@ -1,0 +1,28 @@
+{
+  "jev": {
+    "model": "jev-latest",
+    "autoThreshold": 0.85,
+    "minTop": 0.6,
+    "minMargin": 0.4,
+    "maxChoices": 250
+  },
+  "browser": {
+    "chromePath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "cdpPort": 9333,
+    "profileDir": "~/.jevis/chrome-profile",
+    "maxElements": 400,
+    "maxTextChars": 4000
+  },
+  "confirm": {
+    "enabled": true,
+    "riskThreshold": 0.5,
+    "timeoutSec": 120,
+    "keywords": [
+      "submit", "send", "publish", "delete", "pay", "purchase", "buy", "place order",
+      "add for review", "submit for review", "release this version",
+      "gönder", "yayınla", "sil", "öde", "satın al", "sipariş ver"
+    ],
+    "alwaysAsk": [],
+    "neverAsk": []
+  }
+}

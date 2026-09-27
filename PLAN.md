@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-28):** Faz 0 ✅ tamam. Faz 1 (Jev çekirdeği + tarayıcı elleri) devam ediyor.
+> **Durum (2026-09-28):** Faz 0 ✅, Faz 1 ✅ tamam. Faz 2 (MCP + Claude Code) devam ediyor.
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -115,16 +115,27 @@ jev/
 **Sonuç:** `node tests/dispatcher-dryrun.mjs` 6/6 doğru (deneme modu, Mac'e dokunmaz). Sunucu testi: tokensiz 401, yabancı Origin 403, sahte Host 403, CORS başlığı yok, sadece 127.0.0.1. Kabuk enjeksiyonu denemesi (`$(...)`) metin olarak kaldı. Ek düzeltme: medya AppleScript'i tek satıra birleştirildiği için zaten bozuktu, düzeltildi. Ayrıca `dispatchCommand(..., { dryRun: true })` eklendi.
 
 ### Faz 1 — Jev çekirdeği ve tarayıcı elleri
-- [ ] `core/jev.js`: tek TypeSafe istemcisi. Fonksiyonlar: `pickElement(talimat, adaylar)` ("hiçbiri" seçeneği dahil), `isRisky(eylem)`, `checkState(beklenen)`
-- [ ] Büyük sayfalar: 60'tan fazla öğe varsa adaylar 50'lik gruplara bölünür, tek istekte paralel sorulur, sonra kazananlar arasında son seçim yapılır. Hız ve doğruluk ölçülecek.
-- [ ] `hands/browser.js`: Chrome'u ayrı profille aç ve bağlan. Araçlar: `open`, `tabs` (listele / geç / kapat), `read`, `act`, `type`, `select`, `check`, `upload`, `scroll`, `back`, `wait`, `screenshot`
-- [ ] Öğe listesi çıkarıcı: görünür etkileşimli öğeler (buton, bağlantı, alan, sekme, onay kutusu, açılır liste). Her öğe için etiket, placeholder ve aria adı; durumu (seçili / dolu / pasif). iframe desteği.
-- [ ] Doğrulama: Her eylemden sonra sayfa beklendiği gibi değişti mi, hata mesajı çıktı mı? (Jev `noul`)
-- [ ] Basit onay penceresi: riskli tıklamada macOS diyaloğu
-- [ ] `cli.js`: `node cli.js open appstoreconnect.apple.com`, `node cli.js "fiyatlandırmaya git"`
+- [x] `core/jev.js`: tek TypeSafe istemcisi. Fonksiyonlar: `pickElement(talimat, adaylar)` ("hiçbiri" seçeneği dahil), `isRisky(eylem)`, `checkState(beklenen)`
+- [x] Büyük sayfalar: 60'tan fazla öğe varsa adaylar 50'lik gruplara bölünür, tek istekte paralel sorulur, sonra kazananlar arasında son seçim yapılır. Hız ve doğruluk ölçülecek.
+- [x] `hands/browser.js`: Chrome'u ayrı profille aç ve bağlan. Araçlar: `open`, `tabs` (listele / geç / kapat), `read`, `act`, `type`, `select`, `check`, `upload`, `scroll`, `back`, `wait`, `screenshot`
+- [x] Öğe listesi çıkarıcı: görünür etkileşimli öğeler (buton, bağlantı, alan, sekme, onay kutusu, açılır liste). Her öğe için etiket, placeholder ve aria adı; durumu (seçili / dolu / pasif). iframe desteği.
+- [x] Doğrulama: Her eylemden sonra sayfa beklendiği gibi değişti mi, hata mesajı çıktı mı? (Jev `noul`)
+- [x] Basit onay penceresi: riskli tıklamada macOS diyaloğu
+- [x] `cli.js`: `node cli.js open appstoreconnect.apple.com`, `node cli.js click "fiyatlandırma"`
 
 **Bitince:** Terminalden adım adım komut vererek Chrome'u Jev ile yönetebiliyorsun. Henüz beyin yok, komutları sen veriyorsun.
 **Test:** App Store Connect ve 2 başka sitede 20 komutluk liste. Hedef: en az 18/20 doğru öğe, sayfa yüklemesi hariç eylem başına 1 saniyenin altında.
+**Sonuç:**
+- `node tests/browser-e2e.mjs` (App Store Connect'e benzeyen test sayfası, gerçek Chrome + Jev): **27/27**, adım başına ortalama **0.48 sn**. Kapsam: React div'leri, aynı isimli iki "Edit", gizli input'lu onay kutusu, özel açılır liste, Türkçe "ücretsiz" → "Free", modal içinde aynı isimli radyolar, gizli dosya alanı, iframe, yeni sekme, riskli butonlarda onay/ret, "hiçbiri" durumu.
+- Gerçek siteler: Vikipedi araması, Hacker News "new", sekme geçişi, ekran görüntüsü, `verify`. 9/9.
+- Gerçek App Store Connect testi, kullanıcı JEVIS Chrome profilinde bir kez giriş yapınca yapılacak.
+
+**Öğrenilenler:**
+- Jev'de tek soruda en fazla 255 seçenek olabiliyor. 250'den fazla aday gruplara bölünüp paralel sorulur (300 aday: 9/9, 0.34 sn).
+- Aday başına yaklaşık 21 token harcanıyor.
+- Çevre metni sadece etiket gibi duran, tıklanamayan yakın metinden oluşmalı. Diğer linklerin ve butonların isimleri Jev'i şaşırtıyor.
+- Sayfadaki kelimelerle yazılan hedefler %96-98 güven alıyor. Serbest Türkçe %60-80'de kalıyor. Bu yüzden beyne "hedefi sayfadaki kelimelerle tarif et" denecek.
+- Kabul kuralı: güven ≥ %85, ya da en iyi aday ≥ %60 ve en yakın rakip **öğeden** en az 40 puan önde. "Hiçbiri"ye giden pay rakip sayılmaz.
 
 ### Faz 2 — MCP, Claude Code bağlantısı ve App Store işi
 - [ ] `mcp/server.js`: tarayıcı araçları (`browser_*`) ve `jev_ask`. `jev_ask`, beynin toplu kararlar için Jev'i doğrudan kullanmasını sağlar.
@@ -271,5 +282,6 @@ jev/
 
 - **2026-09-25:** Proje incelendi; JEVIS ve Jev'in yetenekleri araştırıldı.
 - **2026-09-26:** macOS kısımları silindi (sadece Jev kalsın denmişti). Jev konuşmaları ve deneyler yapıldı.
+- **2026-09-28:** Faz 1 bitti: Jev çekirdeği, tarayıcı elleri, CLI, onay penceresi. Test sayfasında 27/27, gerçek sitelerde 9/9.
 - **2026-09-28:** Faz 0 bitti: güvenlik açığı kapandı, 3 hata düzeldi, bağımlılıklar kuruldu.
 - **2026-09-28:** Silinenler geri istendi ve kayıtlardan byte byte geri getirildi. Git kuruldu (`6b77f32`). Claude in Chrome reddedildi, kendi JEVIS sistemimize karar verildi. Bu plan yazıldı.
