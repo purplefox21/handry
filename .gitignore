@@ -1,0 +1,8 @@
+# Gizli anahtarlar
+.env
+.env.*
+
+# Bağımlılıklar ve sistem dosyaları
+node_modules/
+.DS_Store
+*.log

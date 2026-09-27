@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jev AI (TypeSafe) - Interactive Playground & macOS Voice Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="glow-bg"></div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="logo-badge">
+        <span class="logo-icon">⚡</span>
+        <div class="logo-texts">
+          <span class="brand-title">TypeSafe <strong>Jev</strong></span>
+          <span class="brand-sub">System One Model & macOS Controller</span>
+        </div>
+      </div>
+
+      <!-- App Mode Switcher -->
+      <div class="mode-switcher">
+        <button id="modePlaygroundBtn" class="mode-btn active">🧪 Karar Laboratuvarı</button>
+        <button id="modeMacosBtn" class="mode-btn">🎙️ macOS Kontrol Merkezi</button>
+      </div>
+    </div>
+
+    <div class="header-auth">
+      <div class="api-key-container">
+        <span class="key-icon">🔑</span>
+        <input type="password" id="apiKeyInput" placeholder="TypeSafe API Key (ts_...)" autocomplete="off">
+        <button id="toggleKeyVisibility" title="Anahtarı Göster/Gizle" class="icon-btn">👁️</button>
+        <button id="saveKeyBtn" class="btn btn-sm btn-ghost">Kaydet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MODE 1: PLAYGROUND VIEW -->
+  <div id="playgroundView" class="view-container active">
+    <!-- Presets bar -->
+    <section class="presets-section">
+      <div class="presets-label">
+        <span>💡 Hazır Deneyler:</span>
+      </div>
+      <div class="presets-buttons">
+        <button class="preset-btn active" data-preset="birds">
+          <span class="preset-icon">🐧</span>
+          <div class="preset-text">
+            <strong>Penguen & Tavuk</strong>
+            <small>Biyoloji, kanatlar ve istisnalar</small>
+          </div>
+        </button>
+
+        <button class="preset-btn" data-preset="iron_ship">
+          <span class="preset-icon">🚢</span>
+          <div class="preset-text">
+            <strong>Demir vs Gemi</strong>
+            <small>Fizik & Arşimet prensibi</small>
+          </div>
+        </button>
+
+        <button class="preset-btn" data-preset="giraffe_penguin">
+          <span class="preset-icon">🦒</span>
+          <div class="preset-text">
+            <strong>Zürafa Penguen (Tanımı Ezme)</strong>
+            <small>Kendi fantastik kurallarını dayatma</small>
+          </div>
+        </button>
+
+        <button class="preset-btn" data-preset="support_router">
+          <span class="preset-icon">🎯</span>
+          <div class="preset-text">
+            <strong>Yazılım Yönlendirici (Router)</strong>
+            <small>Kızgın müşteri, departman & aciliyet</small>
+          </div>
+        </button>
+      </div>
+    </section>
+
+    <!-- Workspace Grid -->
+    <div class="workspace-grid">
+      <!-- Left Column: Inputs -->
+      <div class="panel input-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="step-num">1</span>
+            <h3>State (Durum / Bağlam)</h3>
+          </div>
+          <span class="badge badge-info">Metin veya JSON</span>
+        </div>
+
+        <div class="panel-body">
+          <div class="form-group">
+            <label for="stateInput">
+              Değerlendirilecek Durum / Metin:
+              <span class="label-hint">Jev bu durumu okur ve soruları bu bağlama göre yanıtlar.</span>
+            </label>
+            <textarea id="stateInput" rows="6" placeholder="Değerlendirilecek durumu yazın..."></textarea>
+          </div>
+
+          <div class="questions-header">
+            <div class="panel-title">
+              <span class="step-num">2</span>
+              <h3>Sorular (Primitives: Noul, Choice, Score)</h3>
+            </div>
+            <div class="question-add-dropdown">
+              <button id="addQuestionBtn" class="btn btn-sm btn-outline">+ Soru Ekle</button>
+            </div>
+          </div>
+
+          <div id="questionsContainer" class="questions-list"></div>
+
+          <div class="action-bar">
+            <button id="runBtn" class="btn btn-primary btn-lg">
+              <span class="btn-icon">⚡</span> Jev'e Değerlendir (Çalıştır)
+            </button>
+            <button id="resetBtn" class="btn btn-ghost">Sıfırla</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Visualizer & Code Output -->
+      <div class="panel output-panel">
+        <div class="panel-header tabs-header">
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="visual">📊 Görsel Kararlar</button>
+            <button class="tab-btn" data-tab="code">💻 Kod Örneği</button>
+            <button class="tab-btn" data-tab="raw">🔍 Ham JSON</button>
+          </div>
+          <div class="meta-stats" id="metaStats">
+            <span id="latencyBadge" class="stat-pill" style="display: none;">⏱️ 0ms</span>
+            <span id="tokenBadge" class="stat-pill" style="display: none;">🎟️ 0 token</span>
+          </div>
+        </div>
+
+        <div class="panel-body tab-contents">
+          <!-- Visual Tab -->
+          <div class="tab-pane active" id="tab-visual">
+            <div id="loadingState" class="state-overlay" style="display: none;">
+              <div class="spinner"></div>
+              <p>Jev Sistem 1 kararlarını hesaplıyor...</p>
+            </div>
+
+            <div id="emptyState" class="state-placeholder">
+              <div class="placeholder-icon">🔮</div>
+              <h4>Henüz bir istek gönderilmedi</h4>
+              <p>Hazır senaryolardan birini seçip <strong>"Jev'e Değerlendir"</strong> butonuna basın.</p>
+            </div>
+
+            <div id="errorState" class="alert alert-danger" style="display: none;">
+              <div class="alert-icon">⚠️</div>
+              <div class="alert-content">
+                <strong id="errorTitle">İstek Başarısız Oldu</strong>
+                <p id="errorMessage"></p>
+              </div>
+            </div>
+
+            <div id="resultsContainer" class="results-list" style="display: none;"></div>
+          </div>
+
+          <!-- Code Tab -->
+          <div class="tab-pane" id="tab-code">
+            <div class="code-intro">
+              <p>Bu kararları backend'inizde normal bir <code>if/else</code> gibi doğrudan kullanabilirsiniz:</p>
+            </div>
+            <div class="code-block-wrapper">
+              <div class="code-header">
+                <span>TypeScript / JavaScript</span>
+                <button class="copy-btn" data-target="codeSnippetJs">Kopyala</button>
+              </div>
+              <pre><code id="codeSnippetJs">// Kod hazırlanıyor...</code></pre>
+            </div>
+            <div class="code-block-wrapper">
+              <div class="code-header">
+                <span>Python</span>
+                <button class="copy-btn" data-target="codeSnippetPy">Kopyala</button>
+              </div>
+              <pre><code id="codeSnippetPy"># Kod hazırlanıyor...</code></pre>
+            </div>
+          </div>
+
+          <!-- Raw JSON Tab -->
+          <div class="tab-pane" id="tab-raw">
+            <div class="raw-grid">
+              <div class="raw-col">
+                <div class="raw-title">Gönderilen İstek (Request Payload)</div>
+                <pre><code id="rawRequestJson">{}</code></pre>
+              </div>
+              <div class="raw-col">
+                <div class="raw-title">Dönen Yanıt (Response Payload)</div>
+                <pre><code id="rawResponseJson">// Henüz yanıt yok</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODE 2: MACOS VOICE & SYSTEM CONTROLLER -->
+  <div id="macosView" class="view-container">
+    <div class="macos-dashboard">
+      <!-- Voice Orb Hero -->
+      <div class="voice-hero">
+        <div class="voice-orb-wrapper">
+          <button id="voiceMicBtn" class="voice-orb" title="Mikrofonu Başlat / Durdur">
+            <span class="mic-icon">🎙️</span>
+            <div class="orb-pulse"></div>
+          </button>
+          <div id="voiceStatusText" class="voice-status">Mikrofona tıklayıp Türkçe konuşun...</div>
+        </div>
+
+        <div class="voice-input-bar">
+          <input type="text" id="macCommandInput" placeholder="Veya buraya yazın: 'Spotify'ı aç ve sesi 40 yap', 'Ekran görüntüsü al'...">
+          <button id="macRunBtn" class="btn btn-primary">
+            <span>⚡ Gönder</span>
+          </button>
+        </div>
+
+        <!-- Quick Action Chips -->
+        <div class="quick-chips">
+          <button class="chip-btn" data-cmd="Ekran görüntüsü al">📸 Ekran Görüntüsü Al</button>
+          <button class="chip-btn" data-cmd="Karanlık modu değiştir">🌓 Karanlık Modu Değiştir</button>
+          <button class="chip-btn" data-cmd="Spotify'ı aç ve müziği başlat">🎵 Spotify'ı Başlat</button>
+          <button class="chip-btn" data-cmd="Ses seviyesini yüzde 40 yap">🔊 Sesi %40 Yap</button>
+          <button class="chip-btn" data-cmd="Hesap makinesini aç">🧮 Hesap Makinesini Aç</button>
+          <button class="chip-btn" data-cmd="Google'da Typesafe Jev AI ara">🌐 Jev AI'yı Google'da Ara</button>
+        </div>
+      </div>
+
+      <!-- Live Execution Activity Stream -->
+      <div class="macos-stream-panel">
+        <div class="stream-header">
+          <h3>⚡ macOS Canlı Eylem Akışı (Jev Kararları)</h3>
+          <button id="clearStreamBtn" class="btn btn-sm btn-ghost">Temizle</button>
+        </div>
+        <div id="macosActivityList" class="stream-list">
+          <div class="stream-placeholder">
+            Henüz bir komut verilmedi. Mikrofona konuşun veya yukarıdaki hazır komut butonlarından birine tıklayın!
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "jev-typesafe-playground",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Interactive playground to test TypeSafe AI's Jev model with real scenarios",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
