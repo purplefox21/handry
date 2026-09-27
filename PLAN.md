@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-28):** Faz 0 ✅, Faz 1 ✅ tamam. Faz 2 (MCP + Claude Code) devam ediyor.
+> **Durum (2026-09-28):** Faz 0 ✅, Faz 1 ✅, Faz 2 ✅ (gerçek App Store işi kullanıcı bekleniyor). Faz 3 (koruma) devam ediyor.
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -138,15 +138,22 @@ jev/
 - Kabul kuralı: güven ≥ %85, ya da en iyi aday ≥ %60 ve en yakın rakip **öğeden** en az 40 puan önde. "Hiçbiri"ye giden pay rakip sayılmaz.
 
 ### Faz 2 — MCP, Claude Code bağlantısı ve App Store işi
-- [ ] `mcp/server.js`: tarayıcı araçları (`browser_*`) ve `jev_ask`. `jev_ask`, beynin toplu kararlar için Jev'i doğrudan kullanmasını sağlar.
-- [ ] Jev emin olmadığında ekran görüntüsü beyne resim olarak döner
-- [ ] Bağlantı: `claude mcp add jevis -- node mcp/server.js` (proje kapsamı, `.mcp.json`)
-- [ ] CLAUDE.md'ye JEVIS kullanım kuralları: önce `read` / `act`, ekran görüntüsü sadece gerektiğinde, riskli işlerde onay
-- [ ] App Store bilgi kartı: fiyat, kategori, yaş sınırı cevapları
-- [ ] Gizlilik anketinin cevaplarını uygulamanın kodundan çıkar (kullanılan SDK'lar, istenen izinler). Kullanıcı onaylar, JEVIS doldurur.
+- [x] `mcp/server.js`: tarayıcı araçları (`browser_*`) ve `jev_ask`. `jev_ask`, beynin toplu kararlar için Jev'i doğrudan kullanmasını sağlar.
+- [x] Jev emin olmadığında ekran görüntüsü beyne resim olarak döner
+- [x] Bağlantı: proje kapsamında `.mcp.json` (her yerde kullanmak için: `claude mcp add --scope user jevis -- /opt/homebrew/bin/node /Users/purplefox/Desktop/jev/mcp/server.js`)
+- [x] CLAUDE.md'ye JEVIS kullanım kuralları: önce `read` / `act`, ekran görüntüsü sadece gerektiğinde, riskli işlerde onay
+- [x] App Store bilgi kartı: fiyat, kategori, yaş sınırı cevapları (`appstore/bilgi-karti.md`)
+- [x] Gizlilik anketinin cevaplarını uygulamanın kodundan çıkar (kullanılan SDK'lar, istenen izinler). Kullanıcı onaylar, JEVIS doldurur. (`appstore/privacy-scan.js`, LLM'siz)
+- [ ] **Kullanıcı bekleniyor:** hangi uygulama? Bilgisayarda kullanıcının birkaç uygulaması var (adları burada tutulmuyor). JEVIS Chrome'unda App Store Connect'e bir kez giriş yapılacak.
 
 **Bitince:** VS Code'daki Claude Code sohbetinde "App Store'da şunu yap" diyorsun, JEVIS yapıyor.
 **Test:** Fiyat, yaş sınırı, gizlilik ve açıklama akışı baştan sona çalışıyor. Riskli adımların hepsinde onay penceresi çıktı.
+**Sonuç:**
+- `node tests/mcp-smoke.mjs`: 15 araç, 9/9.
+- Claude Code (abonelik, `claude -p` + MCP) test sayfasında Name, kategori, fiyat, onay kutusu, yaş sınırı modalı ve Done adımlarını JEVIS ile yaptı. Hedefleri kendiliğinden sayfadaki kelimelerle verdi, Jev %96-100 güvenle seçti.
+- Save'i Jev riskli buldu, onay istendi. Testte "Hayır" dedirtildi; Claude durup bildirdi, başka yol denemedi. 15 tur, 77 sn. Sürenin çoğu LLM düşünmesi, JEVIS eylemleri eylem başına 0.3-0.6 sn.
+- `verify` artık form alanlarının değerlerini de görüyor. Düz sayfa metni input değerlerini içermiyordu.
+- `privacy-scan.js` örnek uygulamada 6 SDK ve 3 izin buldu, 12 satırlık taslak çıkardı. Yanlış alarm yok.
 
 ### Faz 3 — Koruma: kasa, kayıt, acil durdurma
 - [ ] `guard/vault.js`: `node cli.js secret add appstore` şifreyi Anahtar Zinciri'ne kaydeder. `fill_secret(alan, isim)` şifreyi alana yazar ama değeri asla beyne döndürmez.
@@ -282,6 +289,7 @@ jev/
 
 - **2026-09-25:** Proje incelendi; JEVIS ve Jev'in yetenekleri araştırıldı.
 - **2026-09-26:** macOS kısımları silindi (sadece Jev kalsın denmişti). Jev konuşmaları ve deneyler yapıldı.
+- **2026-09-28:** Faz 2 bitti: MCP sunucusu, Claude Code ile uçtan uca test, gizlilik tarayıcısı, bilgi kartı.
 - **2026-09-28:** Faz 1 bitti: Jev çekirdeği, tarayıcı elleri, CLI, onay penceresi. Test sayfasında 27/27, gerçek sitelerde 9/9.
 - **2026-09-28:** Faz 0 bitti: güvenlik açığı kapandı, 3 hata düzeldi, bağımlılıklar kuruldu.
 - **2026-09-28:** Silinenler geri istendi ve kayıtlardan byte byte geri getirildi. Git kuruldu (`6b77f32`). Claude in Chrome reddedildi, kendi JEVIS sistemimize karar verildi. Bu plan yazıldı.

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "jevis": {
+      "type": "stdio",
+      "command": "/opt/homebrew/bin/node",
+      "args": ["/Users/purplefox/Desktop/jev/mcp/server.js"]
+    }
+  }
+}

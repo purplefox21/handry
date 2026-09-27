@@ -1,0 +1,5 @@
+PODS:
+  - FirebaseAnalytics (11.0.0)
+  - FirebaseCrashlytics (11.0.0)
+  - Google-Mobile-Ads-SDK (11.2.0)
+  - RevenueCat (5.0.0)

@@ -138,7 +138,7 @@ export async function checkState(expectation, page) {
   const { answers, ms } = await ask({ page, expectation }, {
     holds: {
       type: 'noul',
-      instructions: 'Based on the current `page` (its url, title, visible text and alerts), is `expectation` true right now?'
+      instructions: 'Based on the current `page` (its url, title, visible text, alerts and form controls with their values and checked states), is `expectation` true right now?'
     }
   });
   const p = answers.holds?.noul ?? 0;

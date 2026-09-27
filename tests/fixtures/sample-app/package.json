@@ -1,0 +1,1 @@
+{ "name": "sample-app", "dependencies": { "react-native": "0.79.0", "@sentry/react-native": "^6.0.0", "react-native-purchases": "^8.0.0" } }

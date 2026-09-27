@@ -683,20 +683,25 @@ export async function closeTab(ref) {
   return info;
 }
 
-export async function screenshot({ fullPage = false } = {}) {
+/** format 'jpeg' keeps images sent to an LLM small; the CLI keeps PNG. */
+export async function screenshot({ fullPage = false, format = 'png' } = {}) {
   const page = await activePage();
   await page.bringToFront().catch(() => {});
-  const buf = await page.screenshot({ fullPage, scale: 'css', type: 'png', timeout: 15000 });
-  const file = path.join(homeDir('shots'), `${new Date().toISOString().replace(/[:.]/g, '-')}.png`);
+  const type = format === 'jpeg' ? 'jpeg' : 'png';
+  const buf = await page.screenshot({ fullPage, scale: 'css', type, ...(type === 'jpeg' ? { quality: 70 } : {}), timeout: 15000 });
+  const file = path.join(homeDir('shots'), `${new Date().toISOString().replace(/[:.]/g, '-')}.${type === 'jpeg' ? 'jpg' : 'png'}`);
   fs.writeFileSync(file, buf);
-  return { path: file, base64: buf.toString('base64'), url: page.url(), title: await page.title().catch(() => '') };
+  return { path: file, base64: buf.toString('base64'), mimeType: `image/${type}`, url: page.url(), title: await page.title().catch(() => '') };
 }
 
 export async function verify(expectation) {
   const page = await activePage();
   const text = await page.mainFrame().evaluate(pageTextInFrame, 3000).catch(() => '');
   const alerts = await page.mainFrame().evaluate(alertsInFrame).catch(() => []);
-  const res = await jev.checkState(expectation, { url: page.url(), title: await page.title().catch(() => ''), text, alerts });
+  // Field values and checkbox states are not part of the page text.
+  const snap = await snapshot(page);
+  const controls = snap.items.filter(i => i.state.length).slice(0, 120).map(labelOf);
+  const res = await jev.checkState(expectation, { url: page.url(), title: snap.title, text, alerts, controls });
   return { expectation, ...res, p: pct(res.p) };
 }
 
