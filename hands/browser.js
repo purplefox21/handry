@@ -409,12 +409,20 @@ async function resolve(page, target, purpose, { withRisk = false } = {}) {
   return { loc, item, pick };
 }
 
+/**
+ * Asks the user when the action is risky. Returns null (no question needed)
+ * or { reason, screenshot } as a record of what was approved.
+ */
 async function guardRisk(page, item, riskP, actionText) {
-  const verdict = needsConfirm(item, riskP);
-  if (!verdict.ask) return;
+  const host = (() => { try { return new URL(page.url()).host; } catch { return ''; } })();
+  const verdict = needsConfirm(item, riskP, host);
+  if (!verdict.ask) return null;
   const title = await page.title().catch(() => '');
   const ok = await confirmAction(`JEVIS şunu yapmak istiyor:\n\n${actionText}\n\nSayfa: ${title}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`);
   if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
+  const shot = path.join(homeDir('logs', 'approved'), `${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`);
+  await page.screenshot({ path: shot, type: 'jpeg', quality: 60, scale: 'css', timeout: 5000 }).catch(() => {});
+  return { reason: verdict.reason, screenshot: shot };
 }
 
 async function settle(page) {
@@ -461,6 +469,11 @@ export async function open(input, { newTab = false } = {}) {
   return { url: page.url(), title: await page.title().catch(() => '') };
 }
 
+export async function pageText(maxChars = 1500) {
+  const page = await activePage();
+  return withTimeout(page.mainFrame().evaluate(pageTextInFrame, maxChars).catch(() => ''), 3000, '');
+}
+
 export async function read({ text = true } = {}) {
   const page = await activePage();
   const snap = await snapshot(page);
@@ -478,7 +491,7 @@ export async function click(target, { risk = true, purpose = 'click' } = {}) {
   if (await loc.evaluate(el => el.tagName === 'INPUT' && el.type === 'file')) {
     throw new JevisError('WRONG_TOOL', 'Bu bir dosya seçme alanı; dosya yüklemek için upload kullanın.');
   }
-  if (risk) await guardRisk(page, item, pick.risk, `"${item.name}" öğesine tıklamak`);
+  const approval = risk ? await guardRisk(page, item, pick.risk, `"${item.name}" öğesine tıklamak`) : null;
   const popup = context().waitForEvent('page', { timeout: 1500 }).catch(() => null);
   await clickLocator(loc);
   const newPage = await withTimeout(popup, 300, null);
@@ -490,16 +503,17 @@ export async function click(target, { risk = true, purpose = 'click' } = {}) {
   } else {
     await settle(page);
   }
-  return { element: item, jev: pickInfo(pick), newTab: Boolean(newPage), ...(await outcome(active, before)) };
+  return { element: item, jev: pickInfo(pick), newTab: Boolean(newPage), approval, ...(await outcome(active, before)) };
 }
 
 export async function type(target, text, { submit = false, append = false } = {}) {
   const page = await activePage();
   const before = { url: page.url() };
   const { loc, item, pick } = await resolve(page, target, 'type');
+  let approval = null;
   if (submit) {
     const risk = await jev.isRisky(`Type into "${item.name}" and press Enter to submit`, { url: page.url(), title: await page.title() });
-    await guardRisk(page, item, risk.p, `"${item.name}" alanına yazıp Enter'a basmak (form gönderilebilir)`);
+    approval = await guardRisk(page, item, risk.p, `"${item.name}" alanına yazıp Enter'a basmak (form gönderilebilir)`);
   }
   await loc.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
   if (append) {
@@ -519,7 +533,7 @@ export async function type(target, text, { submit = false, append = false } = {}
     await loc.press('Enter');
     await settle(page);
   }
-  return { element: item, jev: pickInfo(pick), typed: text.length, ...(await outcome(page, before)) };
+  return { element: item, jev: pickInfo(pick), typed: text.length, approval, ...(await outcome(page, before)) };
 }
 
 /** Fills a field with a value the caller must never see (passwords). */
@@ -605,14 +619,15 @@ export async function upload(target, filePath) {
 export async function press(keys) {
   const page = await activePage();
   const before = { url: page.url() };
+  let approval = null;
   if (/^(Enter|Return)$/i.test(keys)) {
     const focused = await page.mainFrame().evaluate(focusedInFrame).catch(() => '');
     const risk = await jev.isRisky(`Press Enter in "${focused || 'the page'}" (this may submit a form)`, { url: page.url(), title: await page.title() });
-    await guardRisk(page, { name: focused || 'Enter' }, risk.p, `"${focused || 'sayfa'}" içinde Enter'a basmak`);
+    approval = await guardRisk(page, { name: focused || 'Enter' }, risk.p, `"${focused || 'sayfa'}" içinde Enter'a basmak`);
   }
   await page.keyboard.press(keys);
   await settle(page);
-  return outcome(page, before);
+  return { approval, ...(await outcome(page, before)) };
 }
 
 export async function scroll(direction = 'down', amount = 600) {
@@ -726,6 +741,7 @@ export function formatOutcome(res) {
   if (res.checked !== undefined) parts.push(`İşaretli: ${res.checked === null ? 'bilinmiyor' : res.checked ? 'evet' : 'hayır'}`);
   if (res.file) parts.push(`Yüklendi: ${res.file}`);
   if (res.newTab) parts.push('Yeni sekme açıldı');
+  if (res.approval) parts.push(`Kullanıcı onayladı (${res.approval.reason})`);
   if (res.navigated) parts.push('Sayfa değişti');
   if (res.title !== undefined) parts.push(`Şu an: ${res.title} (${res.url})`);
   if (res.alerts?.length) parts.push(`Uyarılar: ${res.alerts.join(' | ')}`);

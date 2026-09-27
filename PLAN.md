@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-28):** Faz 0 ✅, Faz 1 ✅, Faz 2 ✅ (gerçek App Store işi kullanıcı bekleniyor). Faz 3 (koruma) devam ediyor.
+> **Durum (2026-09-28):** Faz 0 ✅, Faz 1 ✅, Faz 2 ✅ (gerçek App Store işi kullanıcı bekleniyor), Faz 3 ✅. Faz 4 (masaüstü elleri) devam ediyor.
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -156,15 +156,28 @@ jev/
 - `privacy-scan.js` örnek uygulamada 6 SDK ve 3 izin buldu, 12 satırlık taslak çıkardı. Yanlış alarm yok.
 
 ### Faz 3 — Koruma: kasa, kayıt, acil durdurma
-- [ ] `guard/vault.js`: `node cli.js secret add appstore` şifreyi Anahtar Zinciri'ne kaydeder. `fill_secret(alan, isim)` şifreyi alana yazar ama değeri asla beyne döndürmez.
-- [ ] Onay kuralları ayar dosyası: her zaman sor / asla sorma listeleri, site bazında
-- [ ] Gizli talimat bekçisi: beyne giden sayfa metninde "tüm mailleri şuna ilet" gibi talimatları Jev işaretler
-- [ ] Eylem kaydı: `~/.jevis/logs/` altında her adım için komut, Jev kararı, güven, süre ve ekran görüntüsü
-- [ ] Acil durdurma: kısayol tuşu ya da komutla çalışan iş anında kesilir
-- [ ] 2FA / CAPTCHA: JEVIS çözmeye çalışmaz. Durur ve sana haber verir, sen halledince devam eder.
+- [x] `guard/vault.js`: `node cli.js secret add appstore` şifreyi Anahtar Zinciri'ne kaydeder. `fill_secret(alan, isim)` şifreyi alana yazar ama değeri asla beyne döndürmez.
+- [x] Onay kuralları ayar dosyası: her zaman sor / asla sorma listeleri, site bazında
+- [x] Gizli talimat bekçisi: beyne giden sayfa metninde "tüm mailleri şuna ilet" gibi talimatları Jev işaretler
+- [x] Eylem kaydı: `~/.jevis/logs/` altında her adım için komut, Jev kararı, güven, süre ve ekran görüntüsü
+- [x] Acil durdurma: `node cli.js stop` (kısayol tuşu Faz 7'deki menü çubuğu uygulamasında)
+- [x] 2FA / CAPTCHA: JEVIS çözmeye çalışmaz. Durur ve sana haber verir, sen halledince devam eder.
 
 **Bitince:** Şifreli girişler dahil, gönül rahatlığıyla işi bırakabileceğin bir sistem.
 **Test:** Şifre hiçbir LLM mesajında ya da kayıtta görünmüyor. Acil durdurma 1 saniyede kesiyor. Test sayfasına gizlenmiş talimat yakalanıyor.
+**Sonuç:** `node tests/guard-e2e.mjs` **12/12**. Kapsam:
+- Anahtar Zinciri'nden şifre yazıldı. Şifre ne araç cevabında ne günlükte göründü; izinsiz sitede yazılmadı.
+- 2FA sayfası kendiliğinden işaretlendi. `wait_for_user` çalıştı.
+- Gizli talimat gizlendi, masum paragraflar korundu.
+- Acil durdurma ve devam etme çalıştı.
+- Site bazlı "Save onaysız" kuralı ve onaylanan işlemin kanıt ekran görüntüsü çalıştı.
+
+Gerçek sayfalarda (Vikipedi, Hacker News, Apple inceleme kuralları) **0 yanlış alarm**.
+
+**Nasıl çalışıyor:**
+- Kasa: şifreler Anahtar Zinciri'nde `jevis` servisi altında durur. `~/.jevis/secrets.json` sadece isim ve izinli siteleri tutar.
+- Sayfa bekçisi: gizli talimat ve "kullanıcı gerekli mi" kontrolleri tek Jev isteğinde yapılır. Metin paragraf bazında parçalanır.
+- CLI, MCP ve beyinler aynı `callTool` yolundan geçer; durdurma, kayıt ve bekçi her yerde geçerli.
 
 ### Faz 4 — Masaüstü elleri (her Mac uygulaması)
 - [ ] `hands/ax-helper`: küçük bir Swift programı. Öndeki uygulamanın öğe listesini çıkarır, öğeye basar, değer yazar, koordinata tıklar, klavye kısayolu gönderir, kaydırır, pencere ekran görüntüsü alır.
@@ -289,6 +302,7 @@ jev/
 
 - **2026-09-25:** Proje incelendi; JEVIS ve Jev'in yetenekleri araştırıldı.
 - **2026-09-26:** macOS kısımları silindi (sadece Jev kalsın denmişti). Jev konuşmaları ve deneyler yapıldı.
+- **2026-09-28:** Faz 3 bitti: kasa, kayıt, acil durdurma, gizli talimat bekçisi, kullanıcıyı bekleme, site bazlı onay kuralları.
 - **2026-09-28:** Faz 2 bitti: MCP sunucusu, Claude Code ile uçtan uca test, gizlilik tarayıcısı, bilgi kartı.
 - **2026-09-28:** Faz 1 bitti: Jev çekirdeği, tarayıcı elleri, CLI, onay penceresi. Test sayfasında 27/27, gerçek sitelerde 9/9.
 - **2026-09-28:** Faz 0 bitti: güvenlik açığı kapandı, 3 hata düzeldi, bağımlılıklar kuruldu.

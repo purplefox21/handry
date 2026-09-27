@@ -18,11 +18,31 @@
     "riskThreshold": 0.5,
     "timeoutSec": 120,
     "keywords": [
-      "submit", "send", "publish", "delete", "pay", "purchase", "buy", "place order",
-      "add for review", "submit for review", "release this version",
-      "gönder", "yayınla", "sil", "öde", "satın al", "sipariş ver"
+      "submit",
+      "send",
+      "publish",
+      "delete",
+      "pay",
+      "purchase",
+      "buy",
+      "place order",
+      "add for review",
+      "submit for review",
+      "release this version",
+      "gönder",
+      "yayınla",
+      "sil",
+      "öde",
+      "satın al",
+      "sipariş ver"
     ],
     "alwaysAsk": [],
-    "neverAsk": []
+    "neverAsk": [],
+    "sites": {}
+  },
+  "guard": {
+    "injectionScan": true,
+    "injectionThreshold": 0.7,
+    "waitForUserTimeoutSec": 900
   }
 }

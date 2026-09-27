@@ -8,14 +8,18 @@ const hasWord = (text, word) => new RegExp(`(^|[^\\p{L}])${escapeRe(word)}($|[^\
 
 /**
  * Should this element action be confirmed?
- * element: { name, role, ctx }, riskP: Jev's risk probability (or null).
+ * element: { name, role, ctx }, riskP: Jev's risk probability (or null),
+ * host: current site; confirm.sites[host] can add alwaysAsk / neverAsk words.
  */
-export function needsConfirm(element, riskP) {
+export function needsConfirm(element, riskP, host = '') {
   const c = config().confirm;
   if (!c.enabled) return { ask: false };
+  const site = Object.entries(c.sites || {}).find(([h]) => host === h || host.endsWith(`.${h}`))?.[1] || {};
+  const neverAsk = [...c.neverAsk, ...(site.neverAsk || [])];
+  const alwaysAsk = [...c.alwaysAsk, ...(site.alwaysAsk || [])];
   const label = `${element.name || ''} ${element.ctx || ''}`;
-  if (c.neverAsk.some(w => hasWord(label, w))) return { ask: false };
-  const always = c.alwaysAsk.find(w => hasWord(label, w));
+  const always = alwaysAsk.find(w => hasWord(label, w));
+  if (!always && neverAsk.some(w => hasWord(label, w))) return { ask: false };
   if (always) return { ask: true, reason: `her zaman sorulacaklar listesinde: "${always}"` };
   const keyword = c.keywords.find(w => hasWord(element.name || '', w));
   if (keyword) return { ask: true, reason: `riskli kelime: "${keyword}"` };
@@ -43,6 +47,29 @@ export function confirmAction(message, { timeoutSec = config().confirm.timeoutSe
   return new Promise(resolve => {
     execFile('osascript', ['-e', script, message, String(timeoutSec)], (err, stdout) => {
       resolve(!err && stdout.trim() === 'Evet');
+    });
+  });
+}
+
+/**
+ * Pauses until the user has done something by hand (log in, type a 2FA code,
+ * solve a CAPTCHA). Resolves 'done', 'cancel' or 'timeout'.
+ */
+export function waitForUser(message, { timeoutSec = config().guard.waitForUserTimeoutSec } = {}) {
+  if (process.env.JEVIS_TEST_CONFIRM === 'allow') return Promise.resolve('done');
+  if (process.env.JEVIS_TEST_CONFIRM === 'deny') return Promise.resolve('cancel');
+  const script = [
+    'on run argv',
+    'set r to display dialog (item 1 of argv) with title "JEVIS seni bekliyor" buttons {"Vazgeç", "Tamam"} default button "Tamam" cancel button "Vazgeç" with icon note giving up after ((item 2 of argv) as integer)',
+    'if gave up of r then return "timeout"',
+    'return button returned of r',
+    'end run'
+  ].join('\n');
+  const text = `${message}\n\nBitince "Tamam"a bas.`;
+  return new Promise(resolve => {
+    execFile('osascript', ['-e', script, text, String(timeoutSec)], (err, stdout) => {
+      if (err) return resolve('cancel');
+      resolve(stdout.trim() === 'timeout' ? 'timeout' : 'done');
     });
   });
 }

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Sign In – JEVIS test</title></head>
+<body>
+  <h1>Sign in to Test Connect</h1>
+  <form id="f">
+    <label>Email <input type="email" id="email" autocomplete="username"></label><br><br>
+    <label>Password <input type="password" id="password" autocomplete="current-password"></label><br><br>
+    <button type="submit">Sign In</button>
+  </form>
+  <p id="msg" role="alert"></p>
+<script>
+  document.getElementById('f').addEventListener('submit', e => {
+    e.preventDefault();
+    if (document.getElementById('password').value === 'test-secret-123') location.href = '2fa.html';
+    else document.getElementById('msg').textContent = 'Wrong password.';
+  });
+</script>
+</body></html>
