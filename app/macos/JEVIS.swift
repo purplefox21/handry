@@ -1,5 +1,7 @@
-// JEVIS menu bar app: starts the JEVIS server, shows the chat in a window and
-// adds global keys. Built by `node cli.js app build`.
+// JEVIS app: starts the JEVIS server, shows the chat in a window, and adds a
+// Dock icon, a normal menu (Edit menu included, so ⌘C/⌘V work in the page)
+// and global keys. The ⚡ menu bar item is extra: on notched MacBooks macOS
+// may hide it. Built by `node cli.js app build`.
 //   ⌥Space        open / close the chat window
 //   ⌥⇧Space       hold to talk (push to talk)
 //   ⌥Esc          emergency stop
@@ -23,20 +25,89 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     var webView: WKWebView!
     var server: Process?
     var hotKeys: [EventHotKeyRef?] = []
+    var quitting = false
+    var restarts: [Date] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        buildMainMenu()
         buildMenu()
         buildWindow()
         registerHotKeys()
-        startServer { [weak self] ok in
-            guard let self else { return }
-            if ok { self.webView.load(URLRequest(url: URL(string: URL_BASE)!)) }
-            else { self.webView.loadHTMLString("<body style='font:15px -apple-system;padding:2em;background:#0a0c10;color:#f8fafc'><h2>JEVIS sunucusu başlamadı</h2><p>Kayıt: ~/.jevis/logs/app-server.log</p></body>", baseURL: nil) }
-        }
+        showWindow()
+        loadWhenReady()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        quitting = true
         server?.terminate()
+    }
+
+    // Clicking the Dock icon (or opening the app again) brings the window back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showWindow()
+        return true
+    }
+
+    // Closing the window keeps JEVIS running for the global keys.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    /// Shows a waiting page, then the chat once the server answers. On first
+    /// launch macOS may be asking for folder access, so it waits patiently.
+    func loadWhenReady() {
+        webView.loadHTMLString("""
+        <meta name="color-scheme" content="light dark">
+        <body style="font:15px -apple-system;display:grid;place-items:center;height:90vh;text-align:center;color:#8e8e93">
+        <div><h2 style="color:CanvasText;font-weight:600">JEVIS başlıyor…</h2>
+        <p>macOS bir izin soruyorsa (ör. Masaüstü klasörü) <b>İzin Ver</b>'e bas.</p></div></body>
+        """, baseURL: nil)
+        startServer { [weak self] ok in
+            guard let self else { return }
+            if ok { self.webView.load(URLRequest(url: URL(string: URL_BASE)!)) }
+            else { self.webView.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:15px -apple-system;padding:2em'><h2>JEVIS sunucusu başlamadı</h2><p>Kayıt: ~/.jevis/logs/app-server.log</p><p>Menüden JEVIS › Sunucuyu Yeniden Başlat'ı dene.</p></body>", baseURL: nil) }
+        }
+    }
+
+    // MARK: Main menu (shown at the top of the screen while JEVIS is in front)
+
+    func buildMainMenu() {
+        let main = NSMenu()
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu(title: "JEVIS")
+        appMenu.addItem(NSMenuItem(title: "JEVIS Hakkında", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+        appMenu.addItem(.separator())
+        appMenu.addItem(item("İzinleri Kontrol Et…", #selector(checkPermissions)))
+        appMenu.addItem(item("Sunucuyu Yeniden Başlat", #selector(restartServer)))
+        appMenu.addItem(item("Tarayıcıda Aç", #selector(openInBrowser)))
+        appMenu.addItem(.separator())
+        appMenu.addItem(item("⛔ Acil Durdur   ⌥Esc", #selector(emergencyStop)))
+        appMenu.addItem(.separator())
+        appMenu.addItem(NSMenuItem(title: "JEVIS'i Gizle", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
+        appMenu.addItem(NSMenuItem(title: "JEVIS'ten Çık", action: #selector(quit), keyEquivalent: "q"))
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+
+        let editItem = NSMenuItem()
+        let edit = NSMenu(title: "Düzen")
+        edit.addItem(NSMenuItem(title: "Geri Al", action: Selector(("undo:")), keyEquivalent: "z"))
+        let redo = NSMenuItem(title: "Yinele", action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        edit.addItem(redo)
+        edit.addItem(.separator())
+        edit.addItem(NSMenuItem(title: "Kes", action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
+        edit.addItem(NSMenuItem(title: "Kopyala", action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
+        edit.addItem(NSMenuItem(title: "Yapıştır", action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
+        edit.addItem(NSMenuItem(title: "Tümünü Seç", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
+        editItem.submenu = edit
+        main.addItem(editItem)
+
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: "Pencere")
+        windowMenu.addItem(NSMenuItem(title: "Küçült", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m"))
+        windowMenu.addItem(NSMenuItem(title: "Kapat", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
+        windowItem.submenu = windowMenu
+        main.addItem(windowItem)
+        NSApp.mainMenu = main
+        NSApp.windowsMenu = windowMenu
     }
 
     // MARK: Menu bar
@@ -187,14 +258,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     }
 
     @objc func restartServer() {
-        server?.terminate()
-        server = nil
+        let old = server
+        server = nil // not a crash: don't let the termination handler restart it too
+        old?.terminate()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            self?.startServer { ok in if ok { self?.webView.reload() } }
+            self?.showWindow()
+            self?.loadWhenReady()
         }
     }
 
     @objc func quit() {
+        quitting = true
         NSApp.terminate(nil)
     }
 
@@ -226,9 +300,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
                 let log = FileHandle(forWritingAtPath: "\(logDir)/app-server.log")
                 p.standardOutput = log
                 p.standardError = log
+                // If the server dies on its own, start it again (at most 3 times a minute).
+                p.terminationHandler = { [weak self] proc in
+                    DispatchQueue.main.async {
+                        guard let self, !self.quitting, self.server === proc else { return }
+                        self.server = nil
+                        self.restarts = self.restarts.filter { $0.timeIntervalSinceNow > -60 } + [Date()]
+                        if self.restarts.count <= 3 { self.loadWhenReady() }
+                    }
+                }
                 do { try p.run() } catch { return completion(false) }
                 self.server = p
-                self.waitForServer(tries: 40, completion)
+                self.waitForServer(tries: 240, completion)
             }
         }
     }
@@ -245,5 +328,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-app.setActivationPolicy(.accessory)
+app.setActivationPolicy(.regular)
 app.run()

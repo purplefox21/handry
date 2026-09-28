@@ -32,7 +32,7 @@ export function buildApp() {
     CFBundleShortVersionString: '1.0',
     CFBundleVersion: '1',
     LSMinimumSystemVersion: '13.0',
-    LSUIElement: true,
+    CFBundleIconFile: 'JEVIS',
     NSMicrophoneUsageDescription: 'JEVIS sesli komutlarını dinlemek için mikrofonu kullanır.',
     NSAppleEventsUsageDescription: 'JEVIS, senin isteğinle uygulamaları kontrol etmek için Apple Events kullanır.',
     JEVISRoot: ROOT,
