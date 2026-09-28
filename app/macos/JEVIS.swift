@@ -285,16 +285,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         bar.makeKey()
         bar.makeFirstResponder(barWeb)
         barWeb.evaluateJavaScript("window.jevisBar && window.jevisBar.show('\(mode)')")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.writeBarState() }
+    }
+
+    /// ~/.jevis/bar.json: whether the bar is up and takes the keyboard (tests read it).
+    func writeBarState() {
+        let state: [String: Any] = ["visible": bar.isVisible, "key": bar.isKeyWindow, "appActive": NSApp.isActive, "busy": barBusy, "at": Date().timeIntervalSince1970]
+        if let data = try? JSONSerialization.data(withJSONObject: state) {
+            try? data.write(to: URL(fileURLWithPath: "\(HOME)/.jevis/bar.json"))
+        }
     }
 
     func hideBar() {
         guard bar.isVisible else { return }
         bar.orderOut(nil)
         barWeb.evaluateJavaScript("window.jevisBar && window.jevisBar.hidden()")
+        writeBarState()
     }
 
     @objc func toggleBar() {
-        if bar.isVisible && bar.isKeyWindow { hideBar() } else { showBar(mode: "type") }
+        if bar.isVisible { hideBar() } else { showBar(mode: "type") }
     }
 
     // Clicking elsewhere hides the bar, unless it is working or listening.

@@ -330,14 +330,20 @@ Yapılan ölçümler (2026-09-28): Apple'ın konuşma tanıması Türkçeyi ciha
   - JEVIS.app'te ekranın üst ortasında açılan, kenarsız, yüzen bir panel (Spotlight gibi, ~680×52). Tam ekran uygulamaların üstünde ve her masaüstünde görünür.
   - ⌥Space açar/kapatır, Esc ya da dışarı tıklama gizler, Enter gönderir. Çalışırken tek satır canlı durum ("Spotify'da çalınıyor: Tarkan…") ve DURDUR; bitince kısa cevap aşağı doğru açılır, birkaç saniye sonra kendiliğinden kapanır.
   - Arayüz `app/public/bar.html` (sohbet kodunun akış/adım kısmı ortak bir dosyaya alınır). Büyük pencere "ayrıntılar ve geçmiş" olarak kalır, aynı sohbeti paylaşır.
-- [x] **9.2 Canlı yazı ve sessizlikte gönderme:** Kodu yazıldı (`app/macos/Listener.swift`), izin bekleniyor.
+- [x] **9.2 Canlı yazı ve sessizlikte gönderme:** `app/macos/Listener.swift`. Kullanıcı Mikrofon ve Konuşma Tanıma izinlerini verdi.
   - Ölçüm: whisper, sesin başında "Hey Jev" kalınca cümlenin gerisini bozuyor ("Spotify'da Tarkan çal" → "Spotify, Dotar Cancel"). "Hey Jev" yokken doğru ve ~0.5 sn. Bu yüzden Apple'ın kelime zamanlarıyla "Hey Jev" sesten kesilip whisper'a sadece komut gidiyor.
   - Bluetooth kulaklık takılıyken mikrofon açılınca kulaklık düşük kaliteli "arama" moduna geçer; JEVIS dahili mikrofonu tercih ediyor.
   - Mikrofon JEVIS.app'te (Swift). Apple'ın cihaz içi Türkçe tanıması konuşurken kelimeleri anında çubuğa yazar.
   - ~1 sn sessizlik = cümle bitti. Aynı ses whisper'a da gider (JEVIS, VS Code, Claude gibi adları daha iyi tanıyor), doğru metin yerine oturur ve kendiliğinden gönderilir.
   - Göndermeden önce ~1 sn'lik ince bir geri sayım: Enter hemen gönderir, Esc iptal eder, klavyeye dokunmak düzenleme moduna geçirir.
   - Yeni izin: Konuşma Tanıma (ilk kullanımda macOS sorar).
-- [x] **9.3 "Hey Jev":** Kodu yazıldı, izin bekleniyor. Mikrofonsuz test: `node tests/listener-e2e.mjs` (macOS'un Yelda sesiyle üretilen kayıtlar JEVIS'in kendi dinleyicisinden geçiyor).
+- [x] **9.3 "Hey Jev":** `node tests/listener-e2e.mjs` **5/5** (macOS'un Yelda sesiyle üretilen kayıtlar JEVIS'in kendi dinleyicisinden geçiyor, mikrofon gerekmiyor):
+  - "Hey Jev, sesi yüzde otuz yap" → uyanıyor, 6 parça canlı yazı, "sesi %30 yap".
+  - "Hey Jev. Spotify'da Tarkan çal" → "Hey Jev" kesilmiş ses whisper'dan "Spotify'da Tarkan Çal" (0.67 sn).
+  - Uyandırma kelimesi olmayan sohbet uyandırmıyor; "Hey Jev … (duraklama) … komut" çalışıyor; mikrofon düğmesi uyandırma kelimesiz çalışıyor.
+  - Apple bazen "Hey Jev"i sonradan "Hey J" diye yeniden yazıyor: uyanırken kelime sayısı hatırlanıp atılıyor.
+- **İmza kalıcı:** Yeniden derlenen JEVIS hiç izin sormadan açıldı (Apple Development kimliği).
+- **Gerçek klavye testi (`tests/bar-live-e2e.mjs`) yarım kaldı:** ⌥Space çubuğu açıyor ve klavyeyi alıyor (JEVIS `~/.jevis/bar.json`'a yazıyor: `key: true`, öndeki uygulama yerinde kalıyor). Ama kullanıcı o sırada Godot'ta oyun test ediyordu; odak değişti, komut sunucuya ulaşmadı. Kullanıcı bilgisayarı kullanırken klavye testi çalıştırılmayacak. Test, çubuk klavyeyi almamışsa hiçbir tuş göndermiyor.
   - Açılıp kapatılabilen sürekli dinleme. Ucuz bir ses/konuşma kapısı; sadece kısa bir konuşma bitince whisper çalışır, metinde "hey jev" (ve "hey cev", "hey jeff" gibi yanlış duyulmuş hâlleri) aranır. Emin olunamayan durumda Jev karar verir ("JEVIS'e mi seslenildi?").
   - Uyanınca çubuk iner, kısa bir ses çalar, 9.2'deki akış başlar. "Hey Jev, sesi kıs" tek nefeste söylenirse komut doğrudan alınır.
   - JEVIS konuşurken ve ekran kilitliyken dinleme durur. Açıkken macOS menü çubuğunda turuncu mikrofon noktası sürekli görünür (sesin hiçbiri bilgisayardan çıkmaz).

@@ -3,6 +3,9 @@
 // bar, that the app the user was in stayed in front (the bar doesn't steal
 // it), and that Esc / ⌥Space hide it again. Needs JEVIS.app running.
 // Usage: node tests/bar-live-e2e.mjs
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import * as desktop from '../hands/desktop.js';
 
@@ -25,11 +28,10 @@ async function check(name, fn) {
 
 const token = (await (await fetch(`${BASE}/`)).text()).match(/name="jevis-token" content="([a-f0-9]+)"/)?.[1];
 const history = async () => (await (await fetch(`${BASE}/api/history`, { headers: { 'X-Jevis-Token': token } })).json()).runs;
-// Is the bar panel on screen? It is JEVIS's only window near the top, 680 pt wide.
-const barOnScreen = () => {
-  const w = helper('windows', '--app', 'JEVIS').windows || [];
-  return w.some(x => x.w === 680 && !x.minimized);
-};
+// JEVIS.app writes whether the bar is up and has the keyboard to ~/.jevis/bar.json.
+const barState = () => { try { return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.jevis', 'bar.json'), 'utf-8')); } catch { return {}; } };
+const barOnScreen = () => Boolean(barState().visible);
+const barHasKeyboard = () => { const s = barState(); return Boolean(s.visible && s.key); };
 
 // Never type while a macOS permission question is on screen: Enter would answer it.
 const SYSTEM_DIALOGS = /UserNotificationCenter|SecurityAgent|universalAccessAuthWarn|CoreServicesUIAgent|tccd|Konum|Location/i;
@@ -41,6 +43,7 @@ if (SYSTEM_DIALOGS.test(before.app || '')) {
 const command = 'şu an hangi şarkı çalıyor';
 
 await check('⌥Space çubuğu açıyor', async () => {
+  if (barOnScreen()) { helper('key', 'option+space'); await sleep(500); } // start from a closed bar
   helper('key', 'option+space');
   await sleep(600);
   return { ok: barOnScreen(), note: `önde: ${(await desktop.frontmost()).app}` };
@@ -48,10 +51,9 @@ await check('⌥Space çubuğu açıyor', async () => {
 
 await check('Yazılan komut Enter ile çubuktan gidiyor', async () => {
   const front = await desktop.frontmost();
-  const focus = helper('focused');
   // The keys must land in JEVIS's bar, never in the app the user is working in.
-  if (!barOnScreen() || SYSTEM_DIALOGS.test(front.app || '') || focus.app !== 'JEVIS') {
-    return { ok: false, note: `klavye odağı JEVIS çubuğunda değil (${focus.app || '?'}, önde ${front.app}); hiçbir şey yazılmadı` };
+  if (!barHasKeyboard() || SYSTEM_DIALOGS.test(front.app || '')) {
+    return { ok: false, note: `klavye çubukta değil (önde ${front.app}); hiçbir şey yazılmadı` };
   }
   const count = (await history()).length;
   helper('type', command);
@@ -71,6 +73,7 @@ await check('Öndeki uygulama yerinde kaldı (çubuk odağı çalmıyor)', async
 });
 
 await check('Esc çubuğu gizliyor', async () => {
+  if (!barHasKeyboard()) return { ok: false, note: 'klavye çubukta değil; Esc gönderilmedi' };
   helper('key', 'escape');
   await sleep(500);
   return !barOnScreen();
