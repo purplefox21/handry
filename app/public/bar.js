@@ -227,7 +227,7 @@ function cancelCountdown() {
   voice.pending = null;
 }
 
-async function voiceFinished({ text, file }) {
+async function voiceFinished({ text, file, wake }) {
   voice.listening = false;
   setState(run.active ? 'busy' : 'idle');
   input.placeholder = "JEVIS'e söyle…";
@@ -247,7 +247,7 @@ async function voiceFinished({ text, file }) {
   let better = null;
   if (file) {
     try {
-      const res = await api('/api/voice/file', { method: 'POST', body: JSON.stringify({ file }) });
+      const res = await api('/api/voice/file', { method: 'POST', body: JSON.stringify({ file, wake: Boolean(wake) }) });
       better = (await res.json()).text || null;
     } catch {}
   }

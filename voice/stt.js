@@ -16,6 +16,11 @@ const HALLUCINATIONS = [/^(www\.|https?:)/i, /altyaz/i, /abone ol/i, /izlediğin
 
 const FIXES = [[/\bvs\.?\s?code\b/gi, 'VS Code'], [/\bjevis\b/gi, 'JEVIS']];
 
+// "Hey Jev" (and how it gets misheard) at the start of a phrase; the same
+// pattern as Listener.swift in JEVIS.app.
+const WAKE = /^\s*(?:hey|hei|hay|hi|ey|ay|he)[\s,.!]*(?:jev|jevs|jevis|jeff|jef|jefe|cev|ceb|cef|cevs|chev|shev|j\.?e\.?v\.?|jarvis|ciyev)(?![\p{L}\p{N}])[\s,.!?:;-]*/iu;
+export const stripWake = text => String(text).replace(WAKE, '').trim();
+
 export function sttStatus() {
   const bin = findBinary('whisper-cli');
   const model = expandHome(config().voice.model);

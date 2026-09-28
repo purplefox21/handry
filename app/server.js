@@ -11,7 +11,7 @@ import { runCommand } from '../core/runner.js';
 import { listBrains } from '../brain/index.js';
 import { requestStop } from '../guard/stop.js';
 import { recentActions } from '../guard/log.js';
-import { sttStatus, transcribe } from '../voice/stt.js';
+import { sttStatus, transcribe, stripWake } from '../voice/stt.js';
 import { ttsStatus, speak, stopSpeaking } from '../voice/tts.js';
 import { listRecipes, loadRecipe, saveFromRun, deleteRecipe } from '../core/recipes.js';
 
@@ -128,14 +128,15 @@ async function handleVoice(req, res) {
 
 // JEVIS.app records the voice itself and leaves a WAV in ~/.jevis/tmp.
 async function handleVoiceFile(req, res) {
-  const { file } = JSON.parse((await readBody(req)).toString() || '{}');
+  const { file, wake } = JSON.parse((await readBody(req)).toString() || '{}');
   const dir = homeDir('tmp');
   const resolved = path.resolve(String(file || ''));
   if (path.dirname(resolved) !== dir || !/^voice-[\w-]+\.wav$/.test(path.basename(resolved)) || !fs.existsSync(resolved)) {
     return sendJson(res, 400, { error: 'Ses dosyası bulunamadı.' });
   }
   try {
-    sendJson(res, 200, { text: await transcribe(resolved) });
+    const text = await transcribe(resolved);
+    sendJson(res, 200, { text: wake ? stripWake(text) : text });
   } finally {
     fs.rmSync(resolved, { force: true });
   }

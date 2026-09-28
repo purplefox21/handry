@@ -61,13 +61,15 @@ export function buildApp() {
     LSMinimumSystemVersion: '13.0',
     CFBundleIconFile: 'JEVIS',
     NSMicrophoneUsageDescription: 'JEVIS sesli komutlarını dinlemek için mikrofonu kullanır.',
+    NSSpeechRecognitionUsageDescription: 'JEVIS konuştukça söylediklerini yazmak ve "Hey Jev"i duymak için bu Mac\'te konuşma tanıma kullanır.',
     NSAppleEventsUsageDescription: 'JEVIS, senin isteğinle uygulamaları kontrol etmek için Apple Events kullanır.',
     JEVISRoot: ROOT,
     JEVISNode: process.execPath,
     JEVISPort: String(config().server.port || 3000)
   }));
-  execFileSync('swiftc', ['-O', '-o', path.join(APP, 'Contents', 'MacOS', 'JEVIS'), path.join(ROOT, 'app', 'macos', 'JEVIS.swift'),
-    '-framework', 'AppKit', '-framework', 'WebKit', '-framework', 'Carbon'], { stdio: 'pipe' });
+  execFileSync('swiftc', ['-O', '-o', path.join(APP, 'Contents', 'MacOS', 'JEVIS'),
+    path.join(ROOT, 'app', 'macos', 'JEVIS.swift'), path.join(ROOT, 'app', 'macos', 'Listener.swift'),
+    '-framework', 'AppKit', '-framework', 'WebKit', '-framework', 'Carbon', '-framework', 'AVFoundation', '-framework', 'Speech', '-framework', 'CoreAudio'], { stdio: 'pipe' });
   execFileSync('codesign', ['--force', '--deep', '--sign', signingIdentity(), APP], { stdio: 'pipe' });
   return APP;
 }

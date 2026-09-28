@@ -1,15 +1,18 @@
-// JEVIS app: starts the JEVIS server, shows the chat in a window, and adds a
-// Dock icon, a normal menu (Edit menu included, so ⌘C/⌘V work in the page)
-// and global keys. The ⚡ menu bar item is extra: on notched MacBooks macOS
-// may hide it. Built by `node cli.js app build`.
-//   ⌥Space        open / close the chat window
+// JEVIS app: starts the JEVIS server and shows it two ways:
+//   - the bar: a compact field that drops from the top of the screen
+//     (app/public/bar.html on a floating panel), and
+//   - the big window: the full chat with details and history.
+// It also owns the microphone (Listener.swift): push to talk, the bar's mic
+// button and "Hey Jev". Built by `node cli.js app build`.
+//   ⌥Space        open / close the bar
 //   ⌥⇧Space       hold to talk (push to talk)
 //   ⌥Esc          emergency stop
 // The server runs as this app's child, so macOS permissions (Accessibility,
-// Screen Recording, Microphone) are granted once, to JEVIS.
+// Screen Recording, Microphone, Speech Recognition) are granted to JEVIS.
 import Cocoa
 import WebKit
 import Carbon
+import AVFoundation
 
 let info = Bundle.main.infoDictionary ?? [:]
 let env = ProcessInfo.processInfo.environment
@@ -18,22 +21,40 @@ let NODE = env["JEVIS_NODE"] ?? info["JEVISNode"] as? String ?? "/opt/homebrew/b
 let PORT = env["JEVIS_PORT"] ?? info["JEVISPort"] as? String ?? "3000"
 let HOME = FileManager.default.homeDirectoryForCurrentUser.path
 let URL_BASE = "http://127.0.0.1:\(PORT)/"
+let BAR_WIDTH: CGFloat = 680
+let BAR_HEIGHT: CGFloat = 58
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindowDelegate {
+/// A panel that can take typing without making JEVIS the active app, so the
+/// app the user was in stays "in front" for commands like "bunu kapat".
+final class BarPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindowDelegate, WKScriptMessageHandler {
     var statusItem: NSStatusItem!
     var window: NSWindow!
     var webView: WKWebView!
+    var bar: BarPanel!
+    var barWeb: WKWebView!
+    var barBusy = false
+    var barReady = false
+    var wakeItems: [NSMenuItem] = []
+    let listener = Listener()
     var server: Process?
     var hotKeys: [EventHotKeyRef?] = []
     var quitting = false
     var restarts: [Date] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        UserDefaults.standard.register(defaults: ["heyJev": true])
         buildMainMenu()
         buildMenu()
         buildWindow()
+        buildBar()
+        setUpListener()
         registerHotKeys()
-        showWindow()
+        showBar(mode: "type")
         loadWhenReady()
     }
 
@@ -42,18 +63,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         server?.terminate()
     }
 
-    // Clicking the Dock icon (or opening the app again) brings the window back.
+    // Clicking the Dock icon (or opening the app again) shows the big window.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showWindow()
         return true
     }
 
-    // Closing the window keeps JEVIS running for the global keys.
+    // Closing the window keeps JEVIS running for the bar and the keys.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     /// Shows a waiting page, then the chat once the server answers. On first
     /// launch macOS may be asking for folder access, so it waits patiently.
     func loadWhenReady() {
+        let waiting = """
+        <meta name="color-scheme" content="light dark">
+        <body style="font:15px -apple-system;margin:0;display:flex;align-items:center;gap:10px;height:\(Int(BAR_HEIGHT))px;padding:0 18px;color:#8e8e93;background:transparent">
+        <b style="color:CanvasText;font-weight:600">JEVIS başlıyor…</b> macOS bir izin soruyorsa <b>İzin Ver</b>'e bas.</body>
+        """
+        barReady = false
+        barWeb.loadHTMLString(waiting, baseURL: nil)
         webView.loadHTMLString("""
         <meta name="color-scheme" content="light dark">
         <body style="font:15px -apple-system;display:grid;place-items:center;height:90vh;text-align:center;color:#8e8e93">
@@ -62,8 +90,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         """, baseURL: nil)
         startServer { [weak self] ok in
             guard let self else { return }
-            if ok { self.webView.load(URLRequest(url: URL(string: URL_BASE)!)) }
-            else { self.webView.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:15px -apple-system;padding:2em'><h2>JEVIS sunucusu başlamadı</h2><p>Kayıt: ~/.jevis/logs/app-server.log</p><p>Menüden JEVIS › Sunucuyu Yeniden Başlat'ı dene.</p></body>", baseURL: nil) }
+            if ok {
+                self.webView.load(URLRequest(url: URL(string: URL_BASE)!))
+                self.barWeb.load(URLRequest(url: URL(string: URL_BASE + "bar.html")!))
+            } else {
+                self.webView.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:15px -apple-system;padding:2em'><h2>JEVIS sunucusu başlamadı</h2><p>Kayıt: ~/.jevis/logs/app-server.log</p><p>Menüden JEVIS › Sunucuyu Yeniden Başlat'ı dene.</p></body>", baseURL: nil)
+                self.barWeb.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:14px -apple-system;margin:0;padding:18px;color:#e5383b;background:transparent'>JEVIS sunucusu başlamadı. Menüden “Sunucuyu Yeniden Başlat”ı dene.</body>", baseURL: nil)
+            }
         }
     }
 
@@ -74,6 +107,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         let appItem = NSMenuItem()
         let appMenu = NSMenu(title: "JEVIS")
         appMenu.addItem(NSMenuItem(title: "JEVIS Hakkında", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+        appMenu.addItem(.separator())
+        appMenu.addItem(item("JEVIS Çubuğu   ⌥Space", #selector(toggleBar)))
+        appMenu.addItem(item("Büyük Pencere", #selector(openWindow)))
+        appMenu.addItem(wakeItem())
         appMenu.addItem(.separator())
         appMenu.addItem(item("İzinleri Kontrol Et…", #selector(checkPermissions)))
         appMenu.addItem(item("Sunucuyu Yeniden Başlat", #selector(restartServer)))
@@ -117,8 +154,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         statusItem.button?.title = "⚡"
         statusItem.button?.toolTip = "JEVIS"
         let menu = NSMenu()
-        menu.addItem(item("JEVIS'i Aç / Kapat   ⌥Space", #selector(toggleWindow)))
-        menu.addItem(item("Bas-Konuş   ⌥⇧Space (basılı tut)", #selector(toggleWindow)))
+        menu.addItem(item("JEVIS Çubuğu   ⌥Space", #selector(toggleBar)))
+        menu.addItem(item("Büyük Pencere", #selector(openWindow)))
+        menu.addItem(wakeItem())
+        menu.addItem(item("Bas-Konuş   ⌥⇧Space (basılı tut)", #selector(toggleBar)))
         menu.addItem(item("⛔ Acil Durdur   ⌥Esc", #selector(emergencyStop)))
         menu.addItem(.separator())
         menu.addItem(item("Tarayıcıda Aç", #selector(openInBrowser)))
@@ -135,7 +174,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         return i
     }
 
-    // MARK: Window
+    func wakeItem() -> NSMenuItem {
+        let i = item("“Hey Jev” ile Dinle", #selector(toggleWake))
+        i.state = UserDefaults.standard.bool(forKey: "heyJev") ? .on : .off
+        wakeItems.append(i)
+        return i
+    }
+
+    // MARK: Big window
 
     func buildWindow() {
         let config = WKWebViewConfiguration()
@@ -152,17 +198,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     }
 
     func showWindow() {
+        hideBar()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }
 
-    @objc func toggleWindow() {
-        if window.isVisible && NSApp.isActive { window.orderOut(nil) } else { showWindow() }
-    }
+    @objc func openWindow() { showWindow() }
 
     // Closing only hides: the server and the keys keep working.
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        window.orderOut(nil)
+        sender.orderOut(nil)
         return false
     }
 
@@ -194,6 +239,149 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         completionHandler()
     }
 
+    // MARK: Bar
+
+    func buildBar() {
+        let config = WKWebViewConfiguration()
+        config.userContentController.add(self, name: "bar")
+        let frame = NSRect(x: 0, y: 0, width: BAR_WIDTH, height: BAR_HEIGHT)
+        barWeb = WKWebView(frame: frame, configuration: config)
+        barWeb.setValue(false, forKey: "drawsBackground")
+        barWeb.autoresizingMask = [.width, .height]
+        barWeb.uiDelegate = self
+        let glass = NSVisualEffectView(frame: frame)
+        glass.material = .popover
+        glass.blendingMode = .behindWindow
+        glass.state = .active
+        glass.wantsLayer = true
+        glass.layer?.cornerRadius = 16
+        glass.layer?.cornerCurve = .continuous
+        glass.layer?.masksToBounds = true
+        glass.addSubview(barWeb)
+        bar = BarPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        bar.contentView = glass
+        bar.isOpaque = false
+        bar.backgroundColor = .clear
+        bar.hasShadow = true
+        bar.level = .floating
+        bar.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        bar.hidesOnDeactivate = false
+        bar.isReleasedWhenClosed = false
+        bar.isMovable = false
+        bar.delegate = self
+    }
+
+    /// Top middle of the screen the mouse is on, just under the menu bar.
+    func placeBar(height: CGFloat) {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
+        let area = screen.visibleFrame
+        bar.setFrame(NSRect(x: area.midX - BAR_WIDTH / 2, y: area.maxY - 10 - height, width: BAR_WIDTH, height: height), display: true)
+    }
+
+    func showBar(mode: String) {
+        if !bar.isVisible { placeBar(height: max(bar.frame.height, BAR_HEIGHT)) }
+        bar.orderFrontRegardless()
+        bar.makeKey()
+        bar.makeFirstResponder(barWeb)
+        barWeb.evaluateJavaScript("window.jevisBar && window.jevisBar.show('\(mode)')")
+    }
+
+    func hideBar() {
+        guard bar.isVisible else { return }
+        bar.orderOut(nil)
+        barWeb.evaluateJavaScript("window.jevisBar && window.jevisBar.hidden()")
+    }
+
+    @objc func toggleBar() {
+        if bar.isVisible && bar.isKeyWindow { hideBar() } else { showBar(mode: "type") }
+    }
+
+    // Clicking elsewhere hides the bar, unless it is working or listening.
+    func windowDidResignKey(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === bar, !barBusy, !listener.isActive else { return }
+        hideBar()
+    }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
+        switch type {
+        case "height":
+            guard let h = body["value"] as? Double, h > 20 else { return }
+            let height = min(CGFloat(h), 520)
+            let top = bar.frame.maxY
+            bar.setFrame(NSRect(x: bar.frame.minX, y: top - height, width: BAR_WIDTH, height: height), display: true)
+            bar.invalidateShadow()
+        case "hide":
+            hideBar()
+        case "openMain":
+            showWindow()
+        case "busy":
+            barBusy = body["value"] as? Bool ?? false
+        case "mic":
+            if listener.isActive { listener.finish() } else { startListening(pushToTalk: false) }
+        case "stopVoice":
+            listener.cancel()
+        default:
+            break
+        }
+    }
+
+    // MARK: Voice
+
+    func setUpListener() {
+        listener.onWake = { [weak self] in
+            NSSound(named: "Tink")?.play()
+            self?.showBar(mode: "voice")
+        }
+        listener.onStart = { [weak self] in self?.sendVoice(["type": "start"]) }
+        listener.onPartial = { [weak self] text in self?.sendVoice(["type": "partial", "text": text]) }
+        listener.onFinal = { [weak self] text, wav, woke in
+            NSSound(named: "Pop")?.play()
+            self?.sendVoice(["type": "final", "text": text, "file": wav?.path ?? "", "wake": woke])
+        }
+        listener.onCancel = { [weak self] in self?.sendVoice(["type": "cancel"]) }
+        listener.onError = { [weak self] message in self?.sendVoice(["type": "error", "message": message]) }
+        NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: nil, queue: .main) { [weak self] _ in
+            self?.listener.restartEngine()
+        }
+        if UserDefaults.standard.bool(forKey: "heyJev") { enableWake(true) }
+    }
+
+    func sendVoice(_ event: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: event), let json = String(data: data, encoding: .utf8) else { return }
+        barWeb.evaluateJavaScript("window.jevisBar && window.jevisBar.voice(\(json))")
+    }
+
+    func startListening(pushToTalk: Bool) {
+        Listener.requestPermissions { [weak self] mic, _ in
+            guard let self else { return }
+            guard mic else {
+                self.showBar(mode: "voice")
+                self.sendVoice(["type": "error", "message": "Mikrofon izni yok: Sistem Ayarları › Gizlilik ve Güvenlik › Mikrofon'da JEVIS'i aç."])
+                return
+            }
+            self.showBar(mode: "voice")
+            self.listener.startActive(pushToTalk: pushToTalk)
+        }
+    }
+
+    func enableWake(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: "heyJev")
+        wakeItems.forEach { $0.state = on ? .on : .off }
+        guard on else { listener.setWake(false); return }
+        Listener.requestPermissions { [weak self] mic, speech in
+            guard let self else { return }
+            // "Hey Jev" is found by the speech recognizer: it needs both permissions.
+            self.listener.setWake(mic && speech)
+            if !(mic && speech) { self.wakeItems.forEach { $0.state = .mixed } }
+        }
+    }
+
+    @objc func toggleWake() {
+        enableWake(!UserDefaults.standard.bool(forKey: "heyJev"))
+    }
+
     // MARK: Global keys
 
     func registerHotKeys() {
@@ -220,11 +408,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
     func hotKey(_ id: UInt32, pressed: Bool) {
         switch (id, pressed) {
-        case (1, true): toggleWindow()
-        case (2, true):
-            showWindow()
-            webView.evaluateJavaScript("window.jevisVoice && window.jevisVoice.start()")
-        case (2, false): webView.evaluateJavaScript("window.jevisVoice && window.jevisVoice.stop()")
+        case (1, true): toggleBar()
+        case (2, true): startListening(pushToTalk: true)
+        case (2, false): listener.finish()
         case (3, true): emergencyStop()
         default: break
         }
@@ -234,12 +420,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
     @objc func emergencyStop() {
         // The flag file stops every tool at once (also in other Claude Code sessions);
-        // the page's button also aborts a running brain.
+        // the pages' buttons also abort a running brain.
         let dir = "\(HOME)/.jevis"
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         let stamp = Int(Date().timeIntervalSince1970 * 1000)
         try? "{\"at\":\(stamp),\"reason\":\"kısayol\"}".write(toFile: "\(dir)/STOP", atomically: true, encoding: .utf8)
-        webView.evaluateJavaScript("(() => { const b = document.getElementById('stopBtn'); if (b && !b.hidden) b.click(); })()")
+        let click = "(() => { const b = document.getElementById('stopBtn'); if (b && !b.hidden && !b.closest('[hidden]')) b.click(); })()"
+        webView.evaluateJavaScript(click)
+        barWeb.evaluateJavaScript(click)
+        listener.cancel()
         statusItem.button?.title = "⛔"
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.statusItem.button?.title = "⚡" }
     }
@@ -251,10 +440,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     @objc func checkPermissions() {
         let trusted = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
         let screen = CGPreflightScreenCaptureAccess() || CGRequestScreenCaptureAccess()
-        let alert = NSAlert()
-        alert.messageText = "JEVIS izinleri"
-        alert.informativeText = "Erişilebilirlik: \(trusted ? "✅" : "❌ Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik")\nEkran Kaydı: \(screen ? "✅" : "❌ Sistem Ayarları › Gizlilik ve Güvenlik › Ekran Kaydı")\nMikrofon: ilk bas-konuşta sorulur."
-        alert.runModal()
+        Listener.requestPermissions { mic, speech in
+            let alert = NSAlert()
+            alert.messageText = "JEVIS izinleri"
+            alert.informativeText = """
+            Erişilebilirlik: \(trusted ? "✅" : "❌ Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik")
+            Ekran Kaydı: \(screen ? "✅" : "❌ Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi Kaydı")
+            Mikrofon: \(mic ? "✅" : "❌ Sistem Ayarları › Gizlilik ve Güvenlik › Mikrofon")
+            Konuşma Tanıma: \(speech ? "✅" : "❌ Sistem Ayarları › Gizlilik ve Güvenlik › Konuşma Tanıma")
+            """
+            alert.runModal()
+        }
     }
 
     @objc func restartServer() {
@@ -262,7 +458,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         server = nil // not a crash: don't let the termination handler restart it too
         old?.terminate()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            self?.showWindow()
+            self?.showBar(mode: "type")
             self?.loadWhenReady()
         }
     }
@@ -325,8 +521,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     }
 }
 
-let app = NSApplication.shared
-let delegate = AppDelegate()
-app.delegate = delegate
-app.setActivationPolicy(.regular)
-app.run()
+@main
+struct JEVISApp {
+    static func main() {
+        let args = CommandLine.arguments
+        // JEVIS --test-listener in.wav --out out.json [--active]: runs a recording
+        // through the listener (uses JEVIS's own speech permission), then quits.
+        if let i = args.firstIndex(of: "--test-listener"), i + 1 < args.count,
+           let o = args.firstIndex(of: "--out"), o + 1 < args.count {
+            Listener.runFileTest(input: args[i + 1], output: args[o + 1], active: args.contains("--active"))
+            RunLoop.main.run()
+            return
+        }
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.setActivationPolicy(.regular)
+        app.run()
+    }
+}
