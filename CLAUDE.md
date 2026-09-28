@@ -51,4 +51,5 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/fast-e2e.mjs` → hızlı yol uçtan uca: ses (eski seviyeye döner), Hesap Makinesi, YouTube, Google, sayfada tıklama
 - `node tests/apps-e2e.mjs` → Spotify'ı okur (dokunmaz), koordinatla tıklama, bekleme, TextEdit pencereleri arasında geçiş
 - `node tests/learn-e2e.mjs` → öğrenen tarifler (geçici bir JEVIS klasöründe; gerçek öğrenilenlere dokunmaz)
+- `node tests/files-e2e.mjs` → dosya ve proje araçları (~/Library/Caches altında geçici klasör; TextEdit'i açıp kapatır)
 - `node tests/dispatcher-dryrun.mjs` → eski macOS komut yönlendirici (deneme modu)

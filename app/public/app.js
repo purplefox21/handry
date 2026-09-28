@@ -41,6 +41,8 @@ const ROUTE_NAMES = {
 
 const ICONS = {
   zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
   check: '<polyline points="20 6 9 17 4 12"/>',
   x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
   'chevron-down': '<polyline points="6 9 12 15 18 9"/>',
@@ -146,6 +148,12 @@ const STEPS = {
   desktop_windows: [a => `${a.app || 'Öndeki uygulama'} pencerelerine bakılıyor`, 'layers'],
   desktop_focus_window: [a => `Pencereye geçiliyor: ${short(a.window, 40)} (${a.app})`, 'layers'],
   desktop_wait: [a => `${a.gone ? 'Kaybolması bekleniyor' : 'Bekleniyor'}: “${short(a.text, 40)}”`, 'clock'],
+  files_list: [a => `Klasöre bakılıyor: ${short(a.path, 50)}`, 'folder'],
+  files_search: [a => `Dosya aranıyor: “${short(a.query, 40)}”`, 'folder'],
+  files_recent: [a => ({ apps: 'Son kullanılan uygulamalara bakılıyor', projects: 'Son projelere bakılıyor' }[a.kind] || 'Son açılan dosyalara bakılıyor'), 'clock'],
+  files_read: [a => `Dosya okunuyor: ${String(a.path || '').split('/').pop()}`, 'file'],
+  files_open: [a => `Açılıyor: ${String(a.path || '').split('/').pop()}${a.app ? ` (${a.app})` : ''}`, 'folder'],
+  project_activity: [a => `Projede ne yapıldığına bakılıyor: ${String(a.path || '').split('/').filter(Boolean).pop()}`, 'layers'],
   mac_action: [a => (MAC_ACTIONS[a.action] || (() => a.action))(a), 'sliders'],
   jev_ask: [() => 'Jev\'e soruluyor', 'zap']
 };

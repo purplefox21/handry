@@ -294,7 +294,12 @@ Kullanıcının isteği: "sesi yüzde 30 yap" gibi basit işler Claude'a gitmesi
   - `node tests/learn-e2e.mjs` **7/7**. Öğrenilmiş iş **2.4 sn**; aynı iş Claude ile 7-25 sn.
   - Gerçek deneme: app-e2e'deki gerçek Sonnet 5 çalışması (7.9 sn) kendiliğinden öğrenildi, sonraki iki çalıştırmada Claude'suz **1.7 sn** sürdü. Bu yüzden o test artık `fast: false` ile çalışıyor.
   - Arayüz: cevabın altında "Bunu öğrendim" notu; Tarifler panelinde "öğrenildi" etiketi ve kaç kez Claude'suz yapıldığı.
-- [ ] **4. Dosya ve proje zekâsı:** klasör listeleme, son açılan dosyalar/uygulamalar, "bu projede ne yaptık" (git + Claude Code oturum kayıtları).
+- [x] **4. Dosya ve proje zekâsı (`hands/files.js`):** 6 yeni araç, hepsi Finder'a tıklamadan, doğrudan dosya sisteminden (~40 ms).
+  - `files_list` ("Masaüstü", "İndirilenler" gibi Türkçe adlar da), `files_search` (Spotlight), `files_recent` (son dosyalar, son uygulamalar, son projeler), `files_read` (metin, Word, RTF), `files_open`.
+  - `project_activity`: git (dal, son commitler, kaydedilmemiş değişiklikler) + o klasörde çalışan Claude Code oturumları (başlık, ilk ve son istekler, Claude'un son cevabı). Büyük kayıtların sadece başı ve son 6 MB'ı okunuyor.
+  - Son projeler: VS Code'un her klasör için tuttuğu kayıt + Claude Code oturumları; hangisinin VS Code'da açık olduğu da görünüyor.
+  - Koruma: sadece ev klasörü; `.env`, anahtar/sertifika dosyaları, `.ssh` gibi klasörler ve `~/.jevis` okunmuyor; metinlerdeki API anahtarları ve şifreler `[gizli]` oluyor; açılınca program olarak çalışacak dosyalar önce soruluyor.
+  - `node tests/files-e2e.mjs` **13/13**. Gerçek deneme: "kaptan-oyunu projesinde en son ne yaptık" → Sonnet 5 iki araçla **8.1 sn**'de doğru özetledi. Soru olduğu için öğrenilmedi.
 - [ ] **5. Uygulamaya özel hızlı komutlar:** Spotify, Müzik, Notlar, Takvim, Anımsatıcılar.
 - [ ] **6. JEVIS.app logosu**, yeniden derleme ve kurulum.
 
@@ -397,6 +402,8 @@ Kullanıcının isteği: "sesi yüzde 30 yap" gibi basit işler Claude'a gitmesi
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-09-28:** Faz 8/4: Dosya ve proje araçları; "projede ne yaptık" 8 sn. 13/13.
 
 - **2026-09-28:** Faz 8/3: Öğrenen tarifler. Claude'un yaptığı iş öğreniliyor, benzer komut Claude'suz 2.4 sn. 7/7.
 
