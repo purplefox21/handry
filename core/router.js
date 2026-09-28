@@ -1,10 +1,12 @@
 // Fast path: Jev decides in one request what kind of command this is and the
-// details it needs (volume level, music action…). Simple commands then run
-// straight through the JEVIS tools, without asking an LLM. Anything longer or
-// unclear goes to the brain.
+// details it needs (volume level, music action…), and whether it is a task
+// JEVIS learned before (core/learn.js). Simple commands then run straight
+// through the JEVIS tools and learned tasks replay, without asking an LLM.
+// Anything longer or unclear goes to the brain.
 import * as jev from './jev.js';
 import { callTool } from './tools.js';
 import { installedApps, apps as runningApps } from '../hands/desktop.js';
+import { listLearned, learnedQuestion, matchLearned } from './learn.js';
 
 const ROUTE = {
   type: 'choice',
@@ -108,17 +110,26 @@ const firstLine = text => String(text).split('\n')[0];
 // The page guard notices logins, 2FA and CAPTCHAs ("⚠️ …"): tell the user.
 const needsUserNote = text => (String(text).includes('⚠️') ? ' Sayfa giriş ya da doğrulama (CAPTCHA) istiyor; tarayıcıda senin halletmen gerekiyor.' : '');
 
-/**
- * Tries the fast path. Returns { handled: true, text } when done, or
- * { handled: false, note } so the caller hands the command to a brain.
- */
-export async function classify(command) {
-  const { answers, ms } = await jev.ask({ command }, { route: ROUTE, ...DETAILS });
+export async function classify(command, learned = listLearned()) {
+  const question = learnedQuestion(learned);
+  const { answers, ms } = await jev.ask({ command }, { route: ROUTE, ...DETAILS, ...(question ? { learned: question } : {}) });
   return { route: answers.route?.choice || 'needs_brain', confidence: answers.route?.confidence ?? 0, answers, ms };
 }
 
+/**
+ * Tries the fast path. Returns { handled: true, text } when done,
+ * { handled: false, learned: { recipe, vars } } for a learned task, or
+ * { handled: false, note } so the caller hands the command to a brain.
+ */
 export async function tryFast(command, onEvent) {
-  const { route, confidence, answers, ms } = await classify(command);
+  const learned = listLearned();
+  const { route, confidence, answers, ms } = await classify(command, learned);
+  // A learned task is more specific than any simple route ("Spotify'da X listesini çal" is not just "play").
+  const match = answers.learned ? await matchLearned(command, answers.learned, learned).catch(() => null) : null;
+  if (match) {
+    onEvent({ type: 'route', route: 'learned', confidence: Math.round((answers.learned.confidence ?? 0) * 100), ms });
+    return { handled: false, learned: match };
+  }
   onEvent({ type: 'route', route, confidence: Math.round(confidence * 100), ms });
   if (route === 'needs_brain' || confidence < MIN_CONFIDENCE) return { handled: false };
 

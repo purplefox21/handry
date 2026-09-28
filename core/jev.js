@@ -60,6 +60,12 @@ function topAlternatives(answer) {
     .map(([key, p]) => ({ index: key === 'none' ? null : Number(key.slice(1)), p }));
 }
 
+/** A raw choice answer whose options are keyed "x0", "x1"… (plus "none") as a pick. */
+export function asPick(answer) {
+  if (!answer?.choice) return { index: null, confidence: 0, alternatives: [] };
+  return { index: answer.choice === 'none' ? null : Number(answer.choice.slice(1)), confidence: answer.confidence ?? 0, alternatives: topAlternatives(answer) };
+}
+
 function choiceQuestion(entries) {
   const criteria = Object.fromEntries(entries.map(([i, label]) => [`e${i}`, label]));
   criteria.none = NONE;

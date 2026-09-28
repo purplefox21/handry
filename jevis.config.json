@@ -55,6 +55,10 @@
     "injectionThreshold": 0.7,
     "waitForUserTimeoutSec": 900
   },
+  "learn": {
+    "enabled": true,
+    "max": 60
+  },
   "server": {
     "port": 3000
   },

@@ -4,11 +4,14 @@
 // need thinking; when a step fails the caller can hand the rest to a brain.
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT } from './config.js';
+import { ROOT, HOME } from './config.js';
 import { callTool } from './tools.js';
 import { actionsOfRun } from '../guard/log.js';
 
 const DIR = path.join(ROOT, 'recipes');
+// Recipes JEVIS learned by itself (core/learn.js) hold the user's own
+// commands, so they live outside the repository.
+export const LEARNED_DIR = path.join(HOME, 'learned');
 
 // Tools that change something; reads and screenshots aren't replayed.
 const REPLAYABLE = new Set([
@@ -27,15 +30,25 @@ export function slug(name) {
   return String(name).toLowerCase().replace(/[çğıöşü]/g, c => map[c]).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-const fileOf = name => path.join(DIR, `${slug(name)}.json`);
-const varsIn = steps => [...new Set(JSON.stringify(steps).match(/\{\{(\w+)\}\}/g)?.map(v => v.slice(2, -2)) || [])];
+// A saved recipe wins over a learned one with the same name.
+const fileOf = name => [DIR, LEARNED_DIR].map(d => path.join(d, `${slug(name)}.json`)).find(f => fs.existsSync(f)) || path.join(DIR, `${slug(name)}.json`);
+// {{name}}, or {{name:url}} / {{name:plus}} inside web addresses.
+const VAR = /\{\{(\w+)(?::(url|plus))?\}\}/g;
+export const varsIn = steps => [...new Set([...JSON.stringify(steps).matchAll(VAR)].map(m => m[1]))];
+
+const readDir = dir => (fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => f.endsWith('.json')).map(f => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8'))) : []);
 
 export function listRecipes() {
-  if (!fs.existsSync(DIR)) return [];
-  return fs.readdirSync(DIR).filter(f => f.endsWith('.json')).map(f => {
-    const r = JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf-8'));
-    return { name: r.name, description: r.description || '', steps: r.steps.length, vars: varsIn(r.steps), hints: r.hints || {} };
-  });
+  const saved = readDir(DIR);
+  const names = new Set(saved.map(r => r.name));
+  return [...saved, ...readDir(LEARNED_DIR).filter(r => !names.has(r.name))].map(r => ({
+    name: r.name,
+    description: r.description || '',
+    steps: r.steps.length,
+    vars: varsIn(r.steps),
+    hints: r.hints || {},
+    ...(r.learned ? { learned: true, example: r.example, pattern: r.pattern, uses: r.uses || 0 } : {})
+  }));
 }
 
 export function loadRecipe(name) {
@@ -48,8 +61,8 @@ export function deleteRecipe(name) {
   fs.rmSync(fileOf(name), { force: true });
 }
 
-/** Turns the logged, successful actions of a run into a recipe. */
-export function saveFromRun(name, runId, { description = '' } = {}) {
+/** The logged, successful actions of a run as replayable steps. */
+export function stepsFromRun(runId) {
   const steps = [];
   for (const e of actionsOfRun(runId)) {
     if (!e.ok || !REPLAYABLE.has(e.tool)) continue;
@@ -68,15 +81,23 @@ export function saveFromRun(name, runId, { description = '' } = {}) {
     }
     steps.push({ tool: e.tool, args });
   }
+  return steps;
+}
+
+/** Turns the logged, successful actions of a run into a recipe. */
+export function saveFromRun(name, runId, { description = '' } = {}) {
+  const steps = stepsFromRun(runId);
   if (!steps.length) throw new Error('Bu işte tekrar oynatılabilecek bir adım yok.');
   const recipe = { name: slug(name), description, created: new Date().toISOString(), fromRun: runId, steps };
   fs.mkdirSync(DIR, { recursive: true });
-  fs.writeFileSync(fileOf(name), `${JSON.stringify(recipe, null, 2)}\n`);
+  fs.writeFileSync(path.join(DIR, `${slug(name)}.json`), `${JSON.stringify(recipe, null, 2)}\n`);
   return recipe;
 }
 
+const ENCODE = { url: encodeURIComponent, plus: v => encodeURIComponent(v).replace(/%20/g, '+') };
+
 function fill(value, vars) {
-  if (typeof value === 'string') return value.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in vars ? vars[k] : m));
+  if (typeof value === 'string') return value.replace(VAR, (m, k, enc) => (k in vars ? (enc ? ENCODE[enc](vars[k]) : vars[k]) : m));
   if (Array.isArray(value)) return value.map(v => fill(v, vars));
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, fill(v, vars)]));
   return value;
