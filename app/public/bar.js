@@ -93,11 +93,12 @@ function handle(ev) {
   switch (ev.type) {
     case 'route':
       if (ev.route === 'learned') nowText.textContent = 'Öğrendiğim yoldan yapıyorum…';
-      else if (ev.route === 'needs_brain') nowText.textContent = `${MODEL_NAMES[store.get('model', MODELS[0][0])] || 'Claude'} düşünüyor…`;
+      else if (ev.route === 'needs_brain') nowText.textContent = `Claude (${MODEL_NAMES[store.get('model', MODELS[0][0])] || 'Sonnet 5'}) düşünüyor…`;
       else nowText.textContent = `Hızlı yol · ${ROUTE_NAMES[ev.route] || ev.route}`;
       break;
     case 'status':
-      if (!/^📌/.test(ev.text)) nowText.textContent = ev.text.replace(/^[^\p{L}\p{N}"“]+/u, '');
+      // "… başladı" only says the brain program started; the line keeps "Claude düşünüyor".
+      if (!/^📌/.test(ev.text) && !/başladı$/.test(ev.text)) nowText.textContent = ev.text.replace(/^[^\p{L}\p{N}"“]+/u, '');
       break;
     case 'tool': {
       run.tools++;

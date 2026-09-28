@@ -78,7 +78,9 @@ export async function learnFromRun({ command, runId, answer = '' }) {
 
   const questions = {
     doing: { type: 'noul', instructions: 'Is `command` only a request to do something on the computer (the done actions are the whole result), rather than a question or a request for information, a summary, a list or a text the assistant has to come up with?' },
-    succeeded: { type: 'noul', instructions: 'Does the assistant\'s `answer` say that the task was done, without problems, open questions or missing parts?' }
+    succeeded: { type: 'noul', instructions: 'Does the assistant\'s `answer` say that the task was done, without problems, open questions or missing parts?' },
+    standalone: { type: 'noul', instructions: 'Is `command` complete on its own, without leaning on earlier messages (like "try again", "do it again", "the same for that one", "that file")?' },
+    by_position: { type: 'noul', instructions: 'Does `command` choose something by its position, order or time (the first, the second, the 15th, the last, the newest item) rather than by its name?' }
   };
   candidates.forEach((c, i) => {
     questions[`c${i}`] = { type: 'noul', instructions: `In \`command\`, is "${c}" a detail that could be different the next time the same task is asked (a name, search words, a text to write, a number, a file or folder), rather than words saying what the task is (the app, the site, the action)?` };
@@ -86,6 +88,9 @@ export async function learnFromRun({ command, runId, answer = '' }) {
   const { answers } = await jev.ask({ command, answer: String(answer).slice(0, 1500) }, questions);
   if ((answers.doing?.noul ?? 0) < 0.5) return { skipped: 'bu bir soru ya da bilgi isteği' };
   if ((answers.succeeded?.noul ?? 0) < 0.5) return { skipped: 'iş tam bitmemiş görünüyor' };
+  // "Try again" means whatever came before; "the second song" is a different song next time.
+  if ((answers.standalone?.noul ?? 0) < 0.5) return { skipped: 'komut önceki mesaja bağlı' };
+  if ((answers.by_position?.noul ?? 0) >= 0.5) return { skipped: 'komut bir şeyi sırasıyla seçiyor' };
 
   const chosen = candidates.filter((_, i) => (answers[`c${i}`]?.noul ?? 0) >= 0.5)
     .map(text => ({ text, at: lower(command).indexOf(lower(text)) }))
@@ -163,14 +168,18 @@ export async function matchLearned(command, answer, list) {
   if (pick.index === null || !jev.isConfident(pick)) return null;
   const recipe = list[pick.index];
   const names = Object.keys(recipe.hints || {});
-  if (!names.length) return { recipe, vars: {} };
   const options = spans(command).map(s => s.text).slice(0, 250);
-  const questions = Object.fromEntries(names.map(v => [v, {
+  // A second, narrower look: replaying the wrong task does real things.
+  const questions = {
+    same_task: { type: 'noul', instructions: 'Does `command` ask for exactly the same actions as the earlier command `example`, with at most the details in [brackets] of `pattern` changed? Asking for more, less, or other steps is not the same.' }
+  };
+  Object.assign(questions, Object.fromEntries(names.map(v => [v, {
     type: 'choice',
     instructions: `JEVIS learned the task \`pattern\` from the earlier command \`example\`, where [${v}] was "${recipe.hints[v]}". Which words of the new \`command\` fill [${v}] now? Pick exactly those words, nothing around them.`,
     criteria: { ...Object.fromEntries(options.map((t, i) => [`s${i}`, t])), none: `The new command does not say what [${v}] is` }
-  }]));
+  }])));
   const { answers } = await jev.ask({ command, pattern: recipe.pattern, example: recipe.example }, questions);
+  if ((answers.same_task?.noul ?? 0) < 0.75) return null;
   const vars = {};
   for (const v of names) {
     const p = jev.asPick(answers[v]);

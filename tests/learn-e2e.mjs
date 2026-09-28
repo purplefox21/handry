@@ -106,6 +106,28 @@ try {
     return { ok: res.updated === true && listLearned().length === 1, note: res.recipe?.pattern || res.skipped };
   });
 
+  await check('Önceki mesaja bağlı komut ("okey bi daha dene") öğrenilmiyor', async () => {
+    const brain = standInBrain(fillForm('Tekrar Deneme', '$0.99'));
+    const out = await run('okey bi daha dene', brain);
+    return { ok: brain.calls === 1 && !out.learned?.name && listLearned().length === 1, note: out.learned?.skipped || out.learned?.pattern };
+  });
+
+  await check('Sırayla seçen komut ("ikinci fiyatı seç") öğrenilmiyor', async () => {
+    const brain = standInBrain(async () => {
+      await callTool('browser_open', { url: FIXTURE });
+      await callTool('browser_select', { target: 'Price', option: 'Free' });
+      return { text: 'Fiyat listesindeki ikinci seçeneği (Free) seçtim.', sessionId: 's' };
+    });
+    const out = await run('Test formunda fiyat listesindeki ikinci seçeneği seç', brain);
+    return { ok: !out.learned?.name && listLearned().length === 1, note: out.learned?.skipped || out.learned?.pattern };
+  });
+
+  await check('Eksik adımlı komut öğrenilmiş işle karıştırılmıyor', async () => {
+    const brain = standInBrain(async () => ({ text: 'Tamam.', sessionId: 's' }));
+    const out = await run('Test formunda uygulama adını "Sadece Ad" yap', brain);
+    return { ok: brain.calls === 1 && !out.learnedReplay, note: out.learnedReplay ? 'yanlışlıkla öğrenilmiş yoldan yapıldı' : 'Claude\'a gitti' };
+  });
+
   await check('Öğrenilen yol takılınca Claude devralıyor; iki kez olmazsa unutuluyor', async () => {
     const [learned] = listLearned();
     const file = path.join(LEARNED_DIR, `${learned.name}.json`);

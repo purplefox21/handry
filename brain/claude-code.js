@@ -54,7 +54,7 @@ export function run({ text, sessionId, onEvent, signal, model, effort }) {
         try { ev = JSON.parse(line); } catch { continue; }
         if (ev.type === 'system' && ev.subtype === 'init') {
           session = ev.session_id;
-          onEvent({ type: 'status', text: 'Claude Code başladı' });
+          onEvent({ type: 'status', text: 'Claude başladı' });
         } else if (ev.type === 'assistant') {
           for (const block of ev.message?.content || []) {
             if (block.type === 'text' && block.text.trim()) onEvent({ type: 'text', text: block.text });

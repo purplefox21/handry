@@ -11,6 +11,14 @@ import { clearStop } from '../guard/stop.js';
 // it). It rides in the message, not the system prompt, so prompt caching holds.
 const withNow = text => `${text}\n\n[Şu an: ${new Date().toLocaleString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}]`;
 
+// "Claude (Sonnet 5)" rather than the name of the program Claude runs in.
+const MODEL_NAMES = { 'claude-sonnet-5': 'Sonnet 5', 'claude-opus-5-5': 'Opus 5.5', 'claude-haiku-4-5': 'Haiku 4.5' };
+function thinker(brain, model) {
+  if (brain.id !== 'claude-code') return brain.label;
+  const id = model || config().brain.providers['claude-code']?.model;
+  return `Claude (${MODEL_NAMES[id] || id || 'abonelik'})`;
+}
+
 // "tarif: sabah-rutini isim=Berat site=example.com"
 function recipeCall(text) {
   const m = text.trim().match(/^(?:tarif|recipe)\s*[:\-]?\s*(\S+)(.*)$/i);
@@ -69,7 +77,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
       if (quick.note) onEvent({ type: 'status', text: quick.note });
     }
     const brain = brainFor();
-    onEvent({ type: 'status', text: `${brain.label} düşünüyor…` });
+    onEvent({ type: 'status', text: `${thinker(brain, model)} düşünüyor…` });
     const out = await brain.run({ text: withNow(text), sessionId, onEvent, signal, model, effort });
     const usedModel = brain.id === 'claude-code' ? (model || config().brain.providers['claude-code']?.model) : undefined;
     // Next time the same task (with other details) runs without the brain.
