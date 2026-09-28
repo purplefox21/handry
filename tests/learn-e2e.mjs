@@ -88,8 +88,14 @@ try {
       await callTool('browser_type', { target: 'Name', text: 'Yıldız Tozu' });
       return { text: 'Uygulamaya "Yıldız Tozu" adını verdim ve yazdım.', sessionId: 's' };
     });
-    const out = await run('Test formunda uygulamaya güzel bir isim uydur ve ad alanına yaz', brain);
-    return { ok: out.learned?.skipped === 'yazılan metni Claude kendisi yazmış', note: out.learned?.skipped || out.learned?.pattern };
+    // "Make up a name" is itself a request for the assistant's own text.
+    const asked = await run('Test formunda uygulamaya güzel bir isim uydur ve ad alanına yaz', brain);
+    // "Fill in the name" is an action, but the typed name came from the brain.
+    const filled = await run('Test formunda ad alanını doldur', brain);
+    return {
+      ok: Boolean(asked.learned?.skipped) && filled.learned?.skipped === 'yazılan metni Claude kendisi yazmış' && listLearned().length === 1,
+      note: `${asked.learned?.skipped || asked.learned?.pattern} / ${filled.learned?.skipped || filled.learned?.pattern}`
+    };
   });
 
   await check('Aynı iş yeniden öğrenilince kopya oluşmuyor', async () => {

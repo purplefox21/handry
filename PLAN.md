@@ -287,7 +287,13 @@ Kullanıcının isteği: "sesi yüzde 30 yap" gibi basit işler Claude'a gitmesi
   - `desktop_wait`: bir yazı çıkana (ya da kaybolana) kadar bekleme.
   - `node tests/apps-e2e.mjs` **21/21**, `node tests/desktop-e2e.mjs` **23/23**.
   - Öğrenilen: tam ekran bir uygulamadan (Spotify) masaüstüne dönerken macOS odağı bir anlığına başka uygulamaya verebiliyor. Koordinatla tıklamadaki son kontrol bu yüzden var.
-- [ ] **3. Öğrenen tarifler:** Claude'un bir kere yaptığı iş kendiliğinden tarif oluyor; benzer komut gelince Jev değişkenleri komuttan seçip Claude'suz oynatıyor.
+- [x] **3. Öğrenen tarifler (`core/learn.js`):** Claude'un bitirdiği iş kendiliğinden tarif oluyor (`~/.jevis/learned`, repoya girmez).
+  - Komutun adımlarda geçen kelimeleri aday; hangilerinin "bir dahaki sefere değişebilecek ayrıntı" olduğuna Jev karar veriyor. Örnek: `Test formunda uygulama adını "[x1]" yap, fiyatı [x2] seç ve kaydet`.
+  - Öğrenilmeyenler: sorular ve özetler (orada sonuç cevabın kendisi), yarım kalan işler, Claude'un kendi uydurduğu metinler, görüntüye bakarak tıklamalar.
+  - Yeni komut, yönlendiricinin tek Jev isteğinde öğrenilenlerle karşılaştırılıyor (ek bekleme yok). Eşleşirse yeni ayrıntılar komutun kendi kelimelerinden seçiliyor (üretilmiyor) ve adımlar Claude'suz oynatılıyor. Takılırsa Claude devralıyor; iki kez olmazsa o yol unutuluyor.
+  - `node tests/learn-e2e.mjs` **7/7**. Öğrenilmiş iş **2.4 sn**; aynı iş Claude ile 7-25 sn.
+  - Gerçek deneme: app-e2e'deki gerçek Sonnet 5 çalışması (7.9 sn) kendiliğinden öğrenildi, sonraki iki çalıştırmada Claude'suz **1.7 sn** sürdü. Bu yüzden o test artık `fast: false` ile çalışıyor.
+  - Arayüz: cevabın altında "Bunu öğrendim" notu; Tarifler panelinde "öğrenildi" etiketi ve kaç kez Claude'suz yapıldığı.
 - [ ] **4. Dosya ve proje zekâsı:** klasör listeleme, son açılan dosyalar/uygulamalar, "bu projede ne yaptık" (git + Claude Code oturum kayıtları).
 - [ ] **5. Uygulamaya özel hızlı komutlar:** Spotify, Müzik, Notlar, Takvim, Anımsatıcılar.
 - [ ] **6. JEVIS.app logosu**, yeniden derleme ve kurulum.
@@ -391,6 +397,8 @@ Kullanıcının isteği: "sesi yüzde 30 yap" gibi basit işler Claude'a gitmesi
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-09-28:** Faz 8/3: Öğrenen tarifler. Claude'un yaptığı iş öğreniliyor, benzer komut Claude'suz 2.4 sn. 7/7.
 
 - **2026-09-28:** Faz 8/2: Chromium uygulamaları (Spotify 0 → 158 öğe), koordinatla tıklama, pencere geçişi, bekleme. 21/21 + 23/23.
 - **2026-09-28:** Faz 8/1: Hızlı yol v2, basit komutlar Claude'suz ve bir saniyenin altında. 30/30 + 9/9.

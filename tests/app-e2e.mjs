@@ -63,7 +63,7 @@ try {
     const r = await run({ text: 'hesap makinesini aç' });
     const opened = (await desktop.apps()).some(a => a.bundleId === 'com.apple.calculator');
     if (opened) await desktop.quitApp('Hesap Makinesi');
-    return r.route?.route === 'system_quick' && r.done?.fast && opened;
+    return r.route?.route === 'app_open' && r.done?.fast && opened;
   });
 
   await browser.open(FIXTURE);
@@ -74,12 +74,13 @@ try {
   });
 
   await check('Beyin (Claude Code): formu doldur', async () => {
-    const r = await run({ text: "Chrome'da açık test sayfasında Name alanına 'Sohbet Testi' yaz ve fiyatı $0.99 yap. Başka bir şeye dokunma." });
+    // fast: false, so JEVIS neither replays nor learns this task: the test is about the brain.
+    const r = await run({ text: "Chrome'da açık test sayfasında Name alanına 'Sohbet Testi' yaz ve fiyatı $0.99 yap. Başka bir şeye dokunma.", fast: false });
     const tools = r.events.filter(e => e.type === 'tool').map(e => e.name);
     const page = await browser.activePage();
     const state = await page.evaluate(() => [document.getElementById('name').value, document.getElementById('price').value]);
     console.log(`        araçlar: ${tools.join(', ')} · ${(r.done?.ms / 1000).toFixed(1)} sn`);
-    return r.route?.route === 'needs_brain' && state[0] === 'Sohbet Testi' && state[1] === '$0.99' && r.done?.sessionId;
+    return r.done?.brain === 'claude-code' && state[0] === 'Sohbet Testi' && state[1] === '$0.99' && r.done?.sessionId;
   });
 
   await check('Aynı anda ikinci iş reddediliyor, DURDUR işi kesiyor', async () => {

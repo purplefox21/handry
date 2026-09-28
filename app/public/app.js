@@ -30,7 +30,10 @@ const state = {
 
 const MODEL_NAMES = { 'claude-sonnet-5': 'Sonnet 5', 'claude-opus-5-5': 'Opus 5.5', 'claude-haiku-4-5': 'Haiku 4.5' };
 const BRAIN_NAMES = { 'claude-code': 'Claude Code', codex: 'Codex', anthropic: 'Claude API', openai: 'OpenAI uyumlu', ollama: 'Ollama' };
-const ROUTE_NAMES = { system_quick: 'sistem komutu', page_click: 'sayfada tıklama' };
+const ROUTE_NAMES = {
+  volume: 'ses', mute: 'ses', music: 'müzik', now_playing: 'çalan şarkı', app_open: 'uygulama açma', app_quit: 'uygulama kapatma',
+  web_open: 'site açma', web_search: 'arama', page_click: 'sayfada tıklama', dark_mode: 'görünüm', lock_screen: 'ekran kilidi', screenshot: 'ekran görüntüsü'
+};
 
 // ---------------------------------------------------------------------------
 // Small DOM helpers
@@ -242,7 +245,7 @@ const liveLabel = (turn, doing) => `${turn.who || 'Çalışıyor'}${turn.tools ?
 function handleEvent(turn, ev) {
   switch (ev.type) {
     case 'route':
-      turn.who = ev.route === 'needs_brain' ? currentBrainLabel() : `Hızlı yol · ${ROUTE_NAMES[ev.route] || ev.route}`;
+      turn.who = ev.route === 'needs_brain' ? currentBrainLabel() : ev.route === 'learned' ? 'Öğrenilmiş yol' : `Hızlı yol · ${ROUTE_NAMES[ev.route] || ev.route}`;
       setLabel(turn, liveLabel(turn, ev.route === 'needs_brain' ? 'düşünüyor' : ''));
       break;
     case 'status':
@@ -250,8 +253,8 @@ function handleEvent(turn, ev) {
         turn.who = currentBrainLabel();
         setLabel(turn, liveLabel(turn, 'düşünüyor'));
       } else if (ev.text.startsWith('📌')) {
-        turn.who = 'Tarif';
-        setLabel(turn, ev.text.replace(/^📌\s*/, ''));
+        if (turn.who !== 'Öğrenilmiş yol') turn.who = 'Tarif';
+        setLabel(turn, liveLabel(turn, ''));
       } else {
         addStep(turn, { title: ev.text, kind: 'note' });
       }
@@ -302,7 +305,7 @@ function finishTurn(turn, ev) {
   if (turn.lastNote && turn.texts.at(-1) === final) turn.lastNote.remove();
   for (const p of turn.pending) settleStep(p.li, { ok: false, detail: 'yarıda kaldı' });
   turn.pending = [];
-  const who = ev.fast ? 'Hızlı yol (Jev)' : ev.recipe ? `Tarif: ${pretty(ev.recipe)}` : (MODEL_NAMES[ev.model] || BRAIN_NAMES[ev.brain] || 'JEVIS');
+  const who = ev.fast ? 'Hızlı yol (Jev)' : ev.learnedReplay ? `Öğrenilmiş yol${ev.brain ? ' + Claude' : ', Claude\'suz'}` : ev.recipe ? `Tarif: ${pretty(ev.recipe)}` : (MODEL_NAMES[ev.model] || BRAIN_NAMES[ev.brain] || 'JEVIS');
   const secs = ((ev.ms || 0) / 1000).toFixed(1);
   turn.activity.classList.remove('open');
   turn.activity.classList.add(ev.stopped ? 'failed' : 'done');
@@ -310,11 +313,16 @@ function finishTurn(turn, ev) {
   turn.label.textContent = `${ev.stopped ? 'Durduruldu' : 'Bitti'} · ${who}${turn.tools ? ` · ${turn.tools} adım` : ''} · ${secs} sn`;
   if (!turn.steps.children.length) turn.activity.querySelector('.chev').remove();
   if (final) turn.body.append(el('div', 'answer', final));
+  if (ev.learned?.name) {
+    const note = el('div', 'learned-note');
+    note.append(icon('bookmark'), document.createTextNode(ev.learned.updated ? 'Bu işi zaten biliyordum; öğrendiğim yolu güncelledim.' : 'Bunu öğrendim. Benzer bir komutu bir dahaki sefere Claude\'a sormadan yaparım.'));
+    turn.body.append(note);
+  }
   if (ev.sessionId) {
     state.sessionId = ev.sessionId;
     state.sessionKey = sessionKey();
   }
-  if (!ev.fast && !ev.recipe && !ev.stopped && ev.runId && turn.steps.querySelector('.step.ok')) addSaveRecipe(turn, ev.runId);
+  if (!ev.fast && !ev.recipe && !ev.learned?.name && !ev.stopped && ev.runId && turn.steps.querySelector('.step.ok')) addSaveRecipe(turn, ev.runId);
   if (state.speak && final) api('/api/say', { method: 'POST', body: JSON.stringify({ text: final }) });
 }
 
@@ -600,9 +608,14 @@ async function loadRecipes() {
 function recipeCard(r) {
   const card = el('div', 'recipe');
   const top = el('div', 'recipe-top');
-  top.append(el('span', 'recipe-name', pretty(r.name)), el('span', 'recipe-meta', `${r.steps} adım`));
-  card.append(top);
-  if (r.description) card.append(el('div', 'recipe-desc', r.description));
+  if (r.learned) {
+    top.append(el('span', 'recipe-name', r.pattern), el('span', 'recipe-badge', 'öğrenildi'));
+    card.append(top, el('div', 'recipe-desc', `${r.steps} adım · ${r.uses ? `${r.uses} kez Claude'suz yapıldı` : 'henüz tekrar kullanılmadı'}`));
+  } else {
+    top.append(el('span', 'recipe-name', pretty(r.name)), el('span', 'recipe-meta', `${r.steps} adım`));
+    card.append(top);
+    if (r.description) card.append(el('div', 'recipe-desc', r.description));
+  }
 
   const vars = el('div', 'recipe-vars');
   const inputs = r.vars.map(v => {
