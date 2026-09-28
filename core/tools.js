@@ -267,15 +267,19 @@ export const TOOLS = [
   },
   {
     name: 'mac_action',
-    description: 'Quick system actions. action: volume (value 0-100), mute, unmute, play_pause, next_track, previous_track, dark_mode (toggle), lock_screen, notify (value = message), spotify_search (value = song/artist), note (value = note text, title optional).',
+    description: 'Quick system actions. action: volume (value 0-100), volume_up / volume_down (value = step, default 10), mute, unmute, play_pause, next_track, previous_track, now_playing, dark_mode (toggle), lock_screen, screenshot (whole screen, saved to the Desktop), notify (value = message), spotify_search (value = song/artist), note (value = note text, title optional).',
     inputSchema: obj({
-      action: { type: 'string', enum: ['volume', 'mute', 'unmute', 'play_pause', 'next_track', 'previous_track', 'dark_mode', 'lock_screen', 'notify', 'spotify_search', 'note'] },
+      action: { type: 'string', enum: ['volume', 'volume_up', 'volume_down', 'mute', 'unmute', 'play_pause', 'next_track', 'previous_track', 'now_playing', 'dark_mode', 'lock_screen', 'screenshot', 'notify', 'spotify_search', 'note'] },
       value: { type: 'string' },
       title: { type: 'string' }
     }, ['action']),
     run: async ({ action, value, title }) => {
       const actions = {
         volume: () => mac.setVolume(Number(value)),
+        volume_up: async () => mac.setVolume((await mac.getVolume()) + (Number(value) || 10)),
+        volume_down: async () => mac.setVolume((await mac.getVolume()) - (Number(value) || 10)),
+        now_playing: () => mac.nowPlaying(),
+        screenshot: () => mac.takeScreenshot(),
         mute: () => mac.mediaControl('mute'),
         unmute: () => mac.mediaControl('unmute'),
         play_pause: () => mac.mediaControl('play_pause'),

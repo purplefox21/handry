@@ -35,7 +35,7 @@ export async function runRecipeWithHandoff({ name, vars, brain, sessionId, onEve
   return { text: out.text, sessionId: out.sessionId };
 }
 
-export async function runCommand({ text, brainId = config().brain.default, sessionId, fast = true, model, effort, onEvent, signal }) {
+export async function runCommand({ text, brainId = config().brain.default, sessionId, fast = true, model, effort, onEvent, signal, brainOverride }) {
   const started = Date.now();
   const runId = `run-${Date.now().toString(36)}`;
   const previousRun = process.env.JEVIS_RUN_ID;
@@ -54,7 +54,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
       if (quick.handled) return finish({ text: quick.text }, { fast: true });
       if (quick.note) onEvent({ type: 'status', text: quick.note });
     }
-    const brain = getBrain(brainId);
+    const brain = brainOverride || getBrain(brainId);
     onEvent({ type: 'status', text: `${brain.label} düşünüyor…` });
     const out = await brain.run({ text, sessionId, onEvent, signal, model, effort });
     const usedModel = brain.id === 'claude-code' ? (model || config().brain.providers['claude-code']?.model) : undefined;

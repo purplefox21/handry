@@ -237,6 +237,13 @@ export async function activate(app) {
   return frontmost();
 }
 
+/** Names of the apps installed on this Mac ("Calculator", "Spotify", "Visual Studio Code"…). */
+export function installedApps() {
+  const dirs = ['/Applications', '/Applications/Utilities', '/System/Applications', '/System/Applications/Utilities', path.join(os.homedir(), 'Applications')];
+  const names = dirs.flatMap(d => { try { return fs.readdirSync(d).filter(f => f.endsWith('.app')).map(f => f.slice(0, -4)); } catch { return []; } });
+  return [...new Set(names)].sort();
+}
+
 /**
  * Opens an app by name, English or Turkish ("Hesap Makinesi" → Calculator),
  * optionally with a file or folder ("Visual Studio Code" + ~/Desktop/jev).
@@ -247,8 +254,7 @@ export async function openApp(name, target) {
   try {
     await execFileAsync('open', ['-a', name, ...extra]);
   } catch {
-    const dirs = ['/Applications', '/System/Applications', '/System/Applications/Utilities', path.join(os.homedir(), 'Applications')];
-    const installed = dirs.flatMap(d => { try { return fs.readdirSync(d).filter(f => f.endsWith('.app')).map(f => f.slice(0, -4)); } catch { return []; } });
+    const installed = installedApps();
     const pick = await jev.pickOption('application to open', name, installed);
     if (pick.index === null || !jev.isConfident(pick)) throw new JevisError('NO_APP', `"${name}" adında bir uygulama bulunamadı.`);
     opened = installed[pick.index];

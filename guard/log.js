@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { homeDir } from '../core/config.js';
 
-const SECRET_ARGS = new Set(['password', 'secret_value', 'value']);
+const SECRET_ARGS = new Set(['password', 'secret_value']);
 
 function redact(args, result) {
   const out = {};

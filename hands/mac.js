@@ -244,3 +244,33 @@ export async function notify(title, message) {
     return { success: false, error: `Bildirim gösterilemedi: ${err.message}` };
   }
 }
+
+/**
+ * Current output volume (0-100)
+ */
+export async function getVolume() {
+  const { stdout } = await runAppleScript('output volume of (get volume settings)');
+  return Number(stdout.trim()) || 0;
+}
+
+/**
+ * The song playing in Spotify or Music, if any
+ */
+export async function nowPlaying() {
+  const script = [
+    'if application "Spotify" is running then',
+    '  tell application "Spotify" to if player state is playing then return (name of current track) & " — " & (artist of current track)',
+    'end if',
+    'if application "Music" is running then',
+    '  tell application "Music" to if player state is playing then return (name of current track) & " — " & (artist of current track)',
+    'end if',
+    'return ""'
+  ];
+  try {
+    const { stdout } = await runAppleScript(script);
+    const song = stdout.trim();
+    return { success: true, message: song ? `🎵 Şu an çalıyor: ${song}` : '🎵 Şu an bir şey çalmıyor.' };
+  } catch (err) {
+    return { success: false, error: `Çalan şarkı okunamadı: ${err.message}` };
+  }
+}
