@@ -52,4 +52,5 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/apps-e2e.mjs` → Spotify'ı okur (dokunmaz), koordinatla tıklama, bekleme, TextEdit pencereleri arasında geçiş
 - `node tests/learn-e2e.mjs` → öğrenen tarifler (geçici bir JEVIS klasöründe; gerçek öğrenilenlere dokunmaz)
 - `node tests/files-e2e.mjs` → dosya ve proje araçları (~/Library/Caches altında geçici klasör; TextEdit'i açıp kapatır)
+- `node tests/appshortcuts-e2e.mjs` → Spotify'da gerçekten çalar ve sonra duraklatır; Müzik/Notlar/Anımsatıcılar/Takvim betiklerini sadece derler (macOS izni verilmişse okur)
 - `node tests/dispatcher-dryrun.mjs` → eski macOS komut yönlendirici (deneme modu)

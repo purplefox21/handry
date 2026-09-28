@@ -300,7 +300,14 @@ Kullanıcının isteği: "sesi yüzde 30 yap" gibi basit işler Claude'a gitmesi
   - Son projeler: VS Code'un her klasör için tuttuğu kayıt + Claude Code oturumları; hangisinin VS Code'da açık olduğu da görünüyor.
   - Koruma: sadece ev klasörü; `.env`, anahtar/sertifika dosyaları, `.ssh` gibi klasörler ve `~/.jevis` okunmuyor; metinlerdeki API anahtarları ve şifreler `[gizli]` oluyor; açılınca program olarak çalışacak dosyalar önce soruluyor.
   - `node tests/files-e2e.mjs` **13/13**. Gerçek deneme: "kaptan-oyunu projesinde en son ne yaptık" → Sonnet 5 iki araçla **8.1 sn**'de doğru özetledi. Soru olduğu için öğrenilmedi.
-- [ ] **5. Uygulamaya özel hızlı komutlar:** Spotify, Müzik, Notlar, Takvim, Anımsatıcılar.
+- [x] **5. Uygulama kısayolları (`hands/apps.js`) ve yeni hızlı yollar:**
+  - Spotify: `spotify_play` arama sonucunu ya da Beğenilen Şarkılar'ı açıp "Çal"a erişilebilirlik ağacından basıyor (Apple Events izni gerekmiyor) ve çaldığını oynatıcıdaki "Duraklat" düğmesinden doğruluyor.
+  - Müzik, Notlar, Anımsatıcılar, Takvim: AppleScript (`music_play`, `notes_add`, `notes_find`, `reminders_add`, `reminders_list`, `calendar_events`, `calendar_add`). İzin durumu soru çıkarmadan okunuyor (`jevis-ax automation`); kapalıysa ne yapılacağı Türkçe söyleniyor.
+  - Hızlı yollar: "Spotify'da X çal", "beğendiğim şarkıları çal", "not al: …", "bugün/yarın takvimimde ne var", "hatırlatıcılarımda ne var". Çalınacak şeyi ve notun metnini Jev komutun kendi kelimelerinden seçiyor (`core/spans.js`).
+  - Tarih isteyen işler ("yarın 9'da hatırlat") Claude'a gidiyor. Yalın modda Claude'un kendi sistem mesajı olmadığı için şimdiki tarih ve saat her mesajın sonuna ekleniyor (önbelleği bozmamak için sistem mesajına değil).
+  - Chromium uygulamalarında isimsiz hücreler ve aynı yerde duran kopyalar atılıyor, sınır 900: Spotify arama sayfası 579 → 217 öğe.
+  - Testler: `router-e2e` **40/40**, `appshortcuts-e2e` **10/10**. "Spotify'da Tarkan çal" Claude'suz **3.4 sn**, "beğendiğim şarkıları çal" **3.0 sn**.
+  - Bilinen sınır: Takvim'in AppleScript'i tekrarlanan etkinliklerin sonraki tekrarlarını göstermeyebilir. Notlar/Anımsatıcılar/Takvim/Müzik için macOS ilk kullanımda bir kere izin soracak.
 - [ ] **6. JEVIS.app logosu**, yeniden derleme ve kurulum.
 
 ## 7. Sınırlar ve riskler
@@ -402,6 +409,8 @@ Kullanıcının isteği: "sesi yüzde 30 yap" gibi basit işler Claude'a gitmesi
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-09-28:** Faz 8/5: Uygulama kısayolları ve 5 yeni hızlı yol; "Spotify'da Tarkan çal" Claude'suz 3.4 sn. 40/40 + 10/10.
 
 - **2026-09-28:** Faz 8/4: Dosya ve proje araçları; "projede ne yaptık" 8 sn. 13/13.
 

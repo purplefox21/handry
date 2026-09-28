@@ -66,7 +66,8 @@ if (desktop.installedApps().includes('Spotify')) {
 for (const [id, name] of [['com.apple.Notes', 'Notlar'], ['com.apple.reminders', 'Anımsatıcılar'], ['com.apple.iCal', 'Takvim']]) {
   const { state } = await desktop.automationState(id);
   if (state !== 'granted') {
-    console.log(`⏭️          ${name}: macOS izni henüz verilmemiş (${state}); ilk gerçek kullanımda macOS soracak.`);
+    const why = { ask: 'macOS izni henüz sorulmadı', denied: 'macOS izni kapalı', not_running: 'uygulama kapalı, izin durumu okunamadı' }[state] || state;
+    console.log(`⏭️          ${name}: ${why}; gerçek deneme atlandı (izin sorusunu JEVIS cevaplamaz).`);
     continue;
   }
   if (id === 'com.apple.reminders') await check('Anımsatıcılar okunuyor', async () => ({ ok: true, note: apps.formatReminders(await apps.remindersList()).split('\n')[0] }));
