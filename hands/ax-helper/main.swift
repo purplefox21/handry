@@ -9,6 +9,7 @@
 //   jevis-ax focus <path> [--app|--pid]
 //   jevis-ax type <text> | key <combo> | click <x> <y> [--right] [--double] | scroll <dy> [dx]
 //   jevis-ax activate [--app|--pid]
+//   jevis-ax windows [--app|--pid] | raise <index> [--app|--pid] | screen | hit <x> <y>
 //
 // Paths: "w.3.1" = child 3, then child 1 of the focused window; "m.2.0" = menu bar.
 import Cocoa
@@ -135,11 +136,18 @@ let ACTIONABLE: Set<String> = ["AXButton", "AXCheckBox", "AXRadioButton", "AXPop
                                "AXDisclosureTriangle", "AXIncrementor", "AXCell", "AXRow", "AXTab", "AXSegmentedControl",
                                "AXColorWell", "AXSwitch", "AXToggle", "AXDockItem"]
 
+/// Apps whose windows are Chromium web views (Electron, CEF, Chrome itself).
+func isChromium(_ app: NSRunningApplication) -> Bool {
+    guard let url = app.bundleURL?.appendingPathComponent("Contents/Frameworks"),
+          let names = try? FileManager.default.contentsOfDirectory(atPath: url.path) else { return false }
+    return names.contains { $0.contains("Electron") || $0.contains("Chromium") || $0.hasSuffix(" Framework.framework") && ($0.contains("Chrome") || $0.contains("Edge") || $0.contains("Brave")) }
+}
+
 func readTree(app: NSRunningApplication, menus: Bool, maxItems: Int, budget: Double) -> [String: Any] {
     let appEl = AXUIElementCreateApplication(app.processIdentifier)
     // Electron apps (VS Code, Slack…) only build their tree when asked to.
     AXUIElementSetAttributeValue(appEl, "AXManualAccessibility" as CFString, kCFBooleanTrue)
-    let deadline = Date().addingTimeInterval(budget)
+    let deadline = Date().addingTimeInterval(budget + 3)
     var items: [[String: Any]] = []
     var texts: [String] = []
     var visited = 0
@@ -197,15 +205,29 @@ func readTree(app: NSRunningApplication, menus: Bool, maxItems: Int, budget: Dou
     }
 
     var windowTitle = ""
-    if let window = focusedWindow(appEl) {
+    var enhanced = false
+    let window = focusedWindow(appEl)
+    if let window {
         windowTitle = text(attribute(window, "AXTitle")) ?? ""
         walk(window, "w", 0, "")
+        // Chromium-based apps (Spotify, Slack, Discord…) only expose their
+        // controls after AXEnhancedUserInterface is switched on; the tree then
+        // builds up over a moment.
+        for _ in 0..<4 where isChromium(app) && items.filter({ $0["name"] != nil }).count < 6 {
+            AXUIElementSetAttributeValue(appEl, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+            enhanced = true
+            usleep(700_000)
+            items.removeAll(); texts.removeAll(); visited = 0; truncated = false
+            walk(window, "w", 0, "")
+        }
     }
     if menus, let bar = attribute(appEl, "AXMenuBar") {
         walk(bar as! AXUIElement, "m", 0, "")
     }
+    let windowCount = (attribute(appEl, "AXWindows") as? [AXUIElement])?.count ?? 0
     return ["app": app.localizedName ?? "", "pid": app.processIdentifier, "bundleId": app.bundleIdentifier ?? "",
-            "window": windowTitle, "elements": items, "texts": texts, "visited": visited, "truncated": truncated]
+            "window": windowTitle, "windows": windowCount, "enhanced": enhanced,
+            "elements": items, "texts": texts, "visited": visited, "truncated": truncated]
 }
 
 // MARK: - Input events
@@ -313,10 +335,19 @@ case "apps":
 case "frontmost":
     let app = targetApp(pid: pidOpt, name: appOpt)
     let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-    let win = windows.first { ($0[kCGWindowOwnerPID as String] as? pid_t) == app.processIdentifier && ($0[kCGWindowLayer as String] as? Int) == 0 }
+    let mine = windows.filter { ($0[kCGWindowOwnerPID as String] as? pid_t) == app.processIdentifier && ($0[kCGWindowLayer as String] as? Int) == 0 }
+    var win = mine.first
     let appEl = AXUIElementCreateApplication(app.processIdentifier)
     var out: [String: Any] = ["app": app.localizedName ?? "", "pid": app.processIdentifier, "bundleId": app.bundleIdentifier ?? ""]
-    if let w = focusedWindow(appEl) { out["window"] = text(attribute(w, "AXTitle")) ?? "" }
+    if let w = focusedWindow(appEl) {
+        out["window"] = text(attribute(w, "AXTitle")) ?? ""
+        // The on-screen window that is the focused one (full-screen apps add strips above it).
+        let a = fetch(w)
+        if let pos = a["AXPosition"] as? CGPoint, let size = a["AXSize"] as? CGSize, let same = mine.first(where: { d in
+            guard let b = d[kCGWindowBounds as String] as? NSDictionary, let r = CGRect(dictionaryRepresentation: b as CFDictionary) else { return false }
+            return abs(r.minX - pos.x) < 2 && abs(r.minY - pos.y) < 2 && abs(r.width - size.width) < 2 && abs(r.height - size.height) < 2
+        }) { win = same }
+    }
     if let id = win?[kCGWindowNumber as String] as? Int { out["windowId"] = id }
     if let b = win?[kCGWindowBounds as String] as? [String: Any] { out["bounds"] = b }
     emit(out)
@@ -414,6 +445,59 @@ case "record":
     RunLoop.current.run(until: Date().addingTimeInterval(seconds + 0.3))
     recorder.stop()
     emit(["ok": true, "file": out, "seconds": seconds])
+
+case "windows":
+    let app = targetApp(pid: pidOpt, name: appOpt)
+    let appEl = AXUIElementCreateApplication(app.processIdentifier)
+    let windows = (attribute(appEl, "AXWindows") as? [AXUIElement]) ?? []
+    let focused = attribute(appEl, "AXFocusedWindow")
+    emit(["app": app.localizedName ?? "", "pid": app.processIdentifier, "windows": windows.enumerated().map { i, w -> [String: Any] in
+        let a = fetch(w)
+        let pos = a["AXPosition"] as? CGPoint ?? .zero
+        let size = a["AXSize"] as? CGSize ?? .zero
+        return ["index": i, "title": text(a["AXTitle"]) ?? "", "focused": focused.map { CFEqual($0, w) } ?? false,
+                "minimized": (attribute(w, "AXMinimized") as? Bool) ?? false,
+                "x": Int(pos.x), "y": Int(pos.y), "w": Int(size.width), "h": Int(size.height)]
+    }])
+
+case "raise":
+    // raise <index>: brings one window of the app to the front.
+    let app = targetApp(pid: pidOpt, name: appOpt)
+    let appEl = AXUIElementCreateApplication(app.processIdentifier)
+    let windows = (attribute(appEl, "AXWindows") as? [AXUIElement]) ?? []
+    guard let i = Int(args.first ?? ""), i >= 0, i < windows.count else { fail("Böyle bir pencere yok.", code: "NOT_FOUND") }
+    let w = windows[i]
+    AXUIElementSetAttributeValue(w, "AXMinimized" as CFString, kCFBooleanFalse)
+    AXUIElementPerformAction(w, kAXRaiseAction as CFString)
+    AXUIElementSetAttributeValue(w, "AXMain" as CFString, kCFBooleanTrue)
+    AXUIElementSetAttributeValue(appEl, "AXFrontmost" as CFString, kCFBooleanTrue)
+    app.activate(options: [.activateAllWindows])
+    emit(["ok": true, "title": text(attribute(w, "AXTitle")) ?? ""])
+
+case "hit":
+    // hit <x> <y>: what is under a screen point (points), for checking a click.
+    guard args.count >= 2, let x = Double(args[0]), let y = Double(args[1]) else { fail("Kullanım: hit <x> <y>", code: "BAD_ARGS") }
+    var found: AXUIElement?
+    guard AXUIElementCopyElementAtPosition(AXUIElementCreateSystemWide(), Float(x), Float(y), &found) == .success, var el = found else {
+        emit(["found": false]); break
+    }
+    // A text inside a button names the button: climb to the control.
+    var candidate: AXUIElement? = el
+    for _ in 0..<5 {
+        guard let c = candidate else { break }
+        if ACTIONABLE.contains(attribute(c, "AXRole") as? String ?? "") { el = c; break }
+        candidate = attribute(c, "AXParent").map { $0 as! AXUIElement }
+    }
+    var pid: pid_t = 0
+    AXUIElementGetPid(el, &pid)
+    emit(["found": true, "role": String((attribute(el, "AXRole") as? String ?? "").dropFirst(2)), "name": cut(labelOf(el), 80),
+          "pid": pid, "app": NSRunningApplication(processIdentifier: pid)?.localizedName ?? ""])
+
+case "screen":
+    // The main display in points (the unit clicks use) and its pixel scale.
+    let frame = NSScreen.screens.first?.frame ?? .zero
+    emit(["x": Int(frame.origin.x), "y": Int(frame.origin.y), "w": Int(frame.width), "h": Int(frame.height),
+          "scale": NSScreen.screens.first?.backingScaleFactor ?? 1])
 
 case "activate":
     let app = targetApp(pid: pidOpt, name: appOpt)

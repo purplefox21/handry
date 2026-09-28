@@ -14,8 +14,13 @@ const DIR = path.join(ROOT, 'recipes');
 const REPLAYABLE = new Set([
   'browser_open', 'browser_click', 'browser_type', 'browser_select', 'browser_check', 'browser_upload',
   'browser_press', 'browser_scroll', 'browser_back', 'browser_tabs', 'browser_fill_secret', 'browser_wait', 'browser_verify',
-  'wait_for_user', 'desktop_open_app', 'desktop_quit_app', 'desktop_click', 'desktop_type', 'desktop_key', 'mac_action'
+  'wait_for_user', 'desktop_open_app', 'desktop_quit_app', 'desktop_click', 'desktop_type', 'desktop_key', 'mac_action',
+  'desktop_focus_window', 'desktop_wait', 'desktop_click_at'
 ]);
+
+// Roles the desktop tools press by name (a click at a point on one of these
+// replays as a click on its name, which survives window moves and resizes).
+const PRESSABLE = new Set(['Button', 'Link', 'MenuItem', 'Cell', 'Row', 'Tab', 'CheckBox', 'RadioButton', 'PopUpButton', 'MenuButton', 'DisclosureTriangle', 'Switch', 'Toggle']);
 
 export function slug(name) {
   const map = { ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u' };
@@ -50,6 +55,12 @@ export function saveFromRun(name, runId, { description = '' } = {}) {
     if (!e.ok || !REPLAYABLE.has(e.tool)) continue;
     if (e.tool === 'browser_tabs' && e.args.action === 'list') continue;
     const args = { ...e.args };
+    if (e.tool === 'desktop_click_at') {
+      const hit = e.summary.match(/altında \[(\w+)\] (.+)$/m);
+      if (hit && PRESSABLE.has(hit[1]) && hit[2] !== '(isimsiz)') steps.push({ tool: 'desktop_click', args: { target: hit[2] } });
+      else steps.push({ ask_brain: `Ekranda şuna tıkla: ${args.description} (desktop_screenshot, sonra desktop_click_at).` });
+      continue;
+    }
     // "#12" only meant something on that page load; keep the element's name instead.
     if (typeof args.target === 'string' && /^#/.test(args.target)) {
       const named = e.summary.match(/Öğe: "([^"]+)"/);

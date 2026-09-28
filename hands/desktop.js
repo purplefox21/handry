@@ -10,6 +10,7 @@ import { ROOT, homeDir, loadState, saveState } from '../core/config.js';
 import { JevisError } from '../core/errors.js';
 import * as jev from '../core/jev.js';
 import { needsConfirm, confirmAction } from '../guard/confirm.js';
+import { isStopped } from '../guard/stop.js';
 
 const execFileAsync = promisify(execFile);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -65,6 +66,7 @@ export async function frontmost() {
 /** "--pid N" for the named app (Turkish or English name), or [] for the frontmost one. */
 async function appArgs(app) {
   if (!app) return [];
+  if (typeof app === 'number') return ['--pid', app];
   const list = await apps();
   const wanted = String(app).toLowerCase();
   let found = list.find(a => a.name.toLowerCase() === wanted || a.bundleId.toLowerCase() === wanted || a.bundleId.toLowerCase().endsWith(`.${wanted}`));
@@ -207,7 +209,8 @@ async function ensureFront(app) {
     front = await frontmost();
   }
   if (String(front.pid) !== String(target[1])) {
-    throw new JevisError('NOT_FRONT', `${app} öne getirilemedi (önde: ${front.app}); tuş gönderilmedi. Ekranda cevap bekleyen bir sistem sorusu olabilir.`);
+    const name = typeof app === 'number' ? (await apps()).find(a => a.pid === app)?.name || 'Uygulama' : app;
+    throw new JevisError('NOT_FRONT', `${name} öne getirilemedi (önde: ${front.app}); hiçbir şey gönderilmedi. Ekranda cevap bekleyen bir sistem sorusu olabilir.`);
   }
   return front;
 }
@@ -287,15 +290,108 @@ export async function quitApp(name) {
   return { quit: null, stillOpen: target.name, note: `${target.name} kapanmadı; muhtemelen "kaydedilsin mi?" sorusu açık. desktop_read ile bakıp cevapla.` };
 }
 
-/** JPEG of the front window (or the whole screen), resized for an LLM. */
+/**
+ * JPEG of the front window (or the whole screen), resized for an LLM. Where
+ * the picture lies on screen is saved, so clickAt() can take its pixels.
+ */
 export async function screenshot({ app, fullScreen = false } = {}) {
   if (app) await activate(app);
   const f = await frontmost();
+  const whole = fullScreen || !f.windowId;
   const file = path.join(homeDir('shots'), `desktop-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`);
-  const args = ['-x', '-o', '-t', 'jpg', ...(fullScreen || !f.windowId ? [] : ['-l', String(f.windowId)]), file];
-  await execFileAsync('screencapture', args);
+  await execFileAsync('screencapture', ['-x', '-o', '-t', 'jpg', ...(whole ? [] : ['-l', String(f.windowId)]), file]);
   await execFileAsync('sips', ['-Z', '1400', file]).catch(() => {});
-  return { path: file, base64: fs.readFileSync(file).toString('base64'), mimeType: 'image/jpeg', app: f.app, window: f.window };
+  const { stdout } = await execFileAsync('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', file]);
+  const image = { w: Number(stdout.match(/pixelWidth: (\d+)/)?.[1]), h: Number(stdout.match(/pixelHeight: (\d+)/)?.[1]) };
+  const area = whole ? await ax('screen') : { x: f.bounds.X, y: f.bounds.Y, w: f.bounds.Width, h: f.bounds.Height };
+  saveState({ shot: { at: Date.now(), app: f.app, pid: f.pid, windowId: whole ? null : f.windowId, area, image } });
+  return { path: file, base64: fs.readFileSync(file).toString('base64'), mimeType: 'image/jpeg', app: f.app, window: f.window, width: image.w, height: image.h };
+}
+
+const SHOT_MAX_AGE_MS = 5 * 60 * 1000;
+
+/**
+ * Clicks a point of the last screenshot (x, y in its pixels), for things the
+ * accessibility tree doesn't show (canvas, games, custom-drawn apps).
+ * `description` says what is there; it goes through the same risk check as
+ * any click, together with what the Mac reports under that point.
+ */
+export async function clickAt(x, y, { description = '', double = false, right = false } = {}) {
+  await ensureTrusted();
+  const shot = loadState().shot;
+  if (!shot || Date.now() - shot.at > SHOT_MAX_AGE_MS) throw new JevisError('NO_SHOT', 'Önce desktop_screenshot al; x ve y o görüntünün piksel koordinatları olmalı.');
+  if (!(x >= 0 && y >= 0 && x <= shot.image.w && y <= shot.image.h)) throw new JevisError('BAD_ARGS', `Nokta görüntünün dışında (görüntü ${shot.image.w}×${shot.image.h} piksel).`);
+  let area = shot.area;
+  if (shot.windowId) {
+    // The pixels belong to that window: it must be in front, the same size.
+    const front = await ensureFront(shot.pid);
+    if (front.windowId !== shot.windowId) throw new JevisError('STALE', `${shot.app} içinde önde başka bir pencere var; yeni bir desktop_screenshot al.`);
+    const b = front.bounds;
+    if (Math.abs(b.Width - area.w) > 2 || Math.abs(b.Height - area.h) > 2) throw new JevisError('STALE', 'Pencerenin boyutu değişti; yeni bir desktop_screenshot al.');
+    area = { ...area, x: b.X, y: b.Y };
+  }
+  const point = { x: Math.round(area.x + (x * area.w) / shot.image.w), y: Math.round(area.y + (y * area.h) / shot.image.h) };
+  const hit = await ax('hit', point.x, point.y).catch(() => ({ found: false }));
+  const what = [description, hit.found && hit.name ? `${hit.role} "${hit.name}"` : ''].filter(Boolean).join(' — ') || `(${point.x}, ${point.y}) noktası`;
+  const risk = await jev.isRisky(`${right ? 'Right-click' : double ? 'Double-click' : 'Click'} on: ${what}`, { app: shot.app });
+  const approval = await guard({ name: `${description} ${hit.name || ''}`, role: hit.role || '' }, risk.p, `${shot.app} içinde şuraya tıklamak: ${what}`, shot.app);
+  await ax('click', point.x, point.y, ...(double ? ['--double'] : []), ...(right ? ['--right'] : []));
+  return { point, hit: hit.found ? { role: hit.role, name: hit.name } : null, approval, ...(await after(shot.pid)) };
+}
+
+/** An app's windows: [{ index, title, focused, minimized, x, y, w, h }] (tiny helper windows left out). */
+export async function windows(app) {
+  await ensureTrusted();
+  const r = await ax('windows', ...(await appArgs(app)));
+  return { app: r.app, pid: r.pid, windows: r.windows.filter(w => w.w >= 120 && w.h >= 80) };
+}
+
+/** Brings one window of an app to the front: its number from windows(), or words from its title. */
+export async function focusWindow(app, which) {
+  const { app: name, pid, windows: list } = await windows(app);
+  if (!list.length) throw new JevisError('NOT_FOUND', `${name} uygulamasının açık penceresi yok.`);
+  const wanted = clean(which).toLocaleLowerCase('tr');
+  let win = /^\d+$/.test(wanted) ? list.find(w => w.index === Number(wanted)) : null;
+  if (!win) {
+    const matches = list.filter(w => w.title.toLocaleLowerCase('tr').includes(wanted));
+    if (matches.length === 1) win = matches[0];
+  }
+  if (!win) {
+    const pick = await jev.pickOption(`window of ${name}`, which, list.map(w => w.title || '(başlıksız)'));
+    if (pick.index === null || !jev.isConfident(pick)) {
+      throw new JevisError('NOT_FOUND', `"${which}" diye bir ${name} penceresi bulunamadı. Pencereler: ${list.map(w => `${w.index}. ${w.title || '(başlıksız)'}`).join(' | ')}`);
+    }
+    win = list[pick.index];
+  }
+  await ax('raise', win.index, '--pid', pid);
+  for (let i = 0; i < 10; i++) {
+    await sleep(150);
+    const f = await frontmost().catch(() => ({}));
+    if (f.pid === pid && f.window === win.title) break;
+  }
+  return { raised: win.title || `${win.index}. pencere`, ...(await after(pid)) };
+}
+
+/**
+ * Waits until words show up in an app's front window (a control, a text or
+ * the title), or with gone: true until they are no longer there.
+ */
+export async function waitFor(words, { app, seconds = 10, gone = false } = {}) {
+  await ensureTrusted();
+  const wanted = clean(words).toLocaleLowerCase('tr');
+  const limit = Math.min(Math.max(Number(seconds) || 10, 1), 120) * 1000;
+  const started = Date.now();
+  let r = null;
+  for (;;) {
+    r = await read({ app });
+    const seen = [r.window, ...r.texts, ...r.elements.flatMap(e => [e.name, e.value, e.ctx])]
+      .find(t => t !== undefined && t !== null && String(t).toLocaleLowerCase('tr').includes(wanted));
+    if (gone ? !seen : seen) return { waited: Date.now() - started, found: gone ? null : clean(seen).slice(0, 120), gone, app: r.app, window: r.window };
+    if (Date.now() - started > limit) break;
+    if (isStopped()) throw new JevisError('STOPPED', 'Kullanıcı acil durdurma yaptı.');
+    await sleep(500);
+  }
+  throw new JevisError('TIMEOUT', `${Math.round(limit / 1000)} sn beklendi; "${words}" ${gone ? 'hâlâ duruyor' : 'görünmedi'} (${r.app}${r.window ? ` — ${r.window}` : ''}).`);
 }
 
 /** Records the microphone to a 16 kHz WAV (for whisper.cpp). */
@@ -317,6 +413,10 @@ export function formatOutcome(res) {
   if (res.key) parts.push(`Tuş: ${res.key}`);
   if (res.approval) parts.push(`Kullanıcı onayladı (${res.approval.reason})`);
   if (res.quit) parts.push(`Kapatıldı: ${res.quit}`);
+  if (res.point) parts.push(`Tıklandı: (${res.point.x}, ${res.point.y})${res.hit ? ` — altında [${res.hit.role}] ${res.hit.name || '(isimsiz)'}` : ''}`);
+  if (res.raised) parts.push(`Pencere öne getirildi: ${res.raised}`);
+  if (res.found) parts.push(`Göründü: "${res.found}" (${(res.waited / 1000).toFixed(1)} sn)`);
+  if (res.gone) parts.push(`Kayboldu (${(res.waited / 1000).toFixed(1)} sn)`);
   if (res.note) parts.push(res.note);
   if (res.app !== undefined) parts.push(`Önde: ${res.app}${res.window ? ` — ${res.window}` : ''}`);
   return parts.join('\n');

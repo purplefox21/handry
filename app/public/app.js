@@ -139,6 +139,10 @@ const STEPS = {
   desktop_type: [a => `Yazılıyor: “${short(a.text, 40)}”${a.target ? ` → ${short(a.target, 30)}` : ''}`, 'type'],
   desktop_key: [a => `Kısayol: ${a.keys}`, 'command'],
   desktop_screenshot: [() => 'Pencerenin görüntüsü alınıyor', 'camera'],
+  desktop_click_at: [a => `Ekranda tıklanıyor: ${short(a.description)}`, 'pointer'],
+  desktop_windows: [a => `${a.app || 'Öndeki uygulama'} pencerelerine bakılıyor`, 'layers'],
+  desktop_focus_window: [a => `Pencereye geçiliyor: ${short(a.window, 40)} (${a.app})`, 'layers'],
+  desktop_wait: [a => `${a.gone ? 'Kaybolması bekleniyor' : 'Bekleniyor'}: “${short(a.text, 40)}”`, 'clock'],
   mac_action: [a => (MAC_ACTIONS[a.action] || (() => a.action))(a), 'sliders'],
   jev_ask: [() => 'Jev\'e soruluyor', 'zap']
 };
