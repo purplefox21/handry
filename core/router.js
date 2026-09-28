@@ -7,6 +7,7 @@ import * as jev from './jev.js';
 import { callTool } from './tools.js';
 import { installedApps, apps as runningApps } from '../hands/desktop.js';
 import { listLearned, learnedQuestion, matchLearned } from './learn.js';
+import { pickSpan } from './spans.js';
 
 const ROUTE = {
   type: 'choice',
@@ -14,7 +15,8 @@ const ROUTE = {
   criteria: {
     volume: 'Change the sound volume: set a level or percentage, or make it louder or quieter. In Turkish "sesi aç" means louder, not opening an app (e.g. "sesi yüzde 30 yap", "sesi kıs", "sesi biraz aç", "sesi sonuna kadar aç")',
     mute: 'Mute the sound or unmute it (e.g. "sessize al", "sesi geri aç")',
-    music: 'Control the music player: play, pause, resume, next song or previous song (e.g. "sonraki şarkı", "müziği durdur")',
+    music: 'Control the music player without naming what to play: play, pause, resume, next song or previous song (e.g. "sonraki şarkı", "müziği durdur")',
+    spotify_play: 'Play something named on Spotify: a song, an artist, an album, a playlist, or the liked songs (e.g. "Spotify\'da Tarkan çal", "beğendiğim şarkıları çal", "Space Echo listesini çal")',
     now_playing: 'Ask which song is playing right now',
     app_open: 'Open, launch or switch to one Mac application (e.g. "Spotify\'ı aç", "VS Code\'a geç", "hesap makinesini aç")',
     app_quit: 'Quit or close one Mac application',
@@ -24,7 +26,10 @@ const ROUTE = {
     dark_mode: 'Switch between dark and light mode',
     lock_screen: 'Lock the screen or put the display to sleep',
     screenshot: 'Take a screenshot of the whole screen',
-    needs_brain: 'Anything else: more than one step, writing or typing a text, sending a message, filling forms, reading or summarizing, files and folders, questions, or anything unclear'
+    note_add: 'Write down one short note in Notes (e.g. "not al: yarın kargo gelecek", "notlarıma süt almayı ekle")',
+    calendar_show: 'Ask what is on the calendar today, tomorrow or this week (only asking, not adding)',
+    reminders_show: 'Ask which reminders or to-dos are open (only asking, not adding)',
+    needs_brain: 'Anything else: more than one step, writing or typing a text, sending a message, filling forms, reading or summarizing, files and folders, adding reminders or events, questions, or anything unclear'
   }
 };
 
@@ -52,7 +57,13 @@ const DETAILS = {
       previous_track: 'Previous song, go back'
     }
   },
-  on_youtube: { type: 'noul', instructions: 'Does `command` ask to search on YouTube (videos) rather than a general web search?' }
+  on_youtube: { type: 'noul', instructions: 'Does `command` ask to search on YouTube (videos) rather than a general web search?' },
+  liked: { type: 'noul', instructions: 'Does `command` ask to play the user\'s liked or saved songs (Beğenilen Şarkılar), rather than something named?' },
+  calendar_when: {
+    type: 'choice',
+    instructions: 'If `command` asks about the calendar, for when?',
+    criteria: { today: 'Today', tomorrow: 'Tomorrow', week: 'This week or the next days' }
+  }
 };
 
 const MIN_CONFIDENCE = 0.6;
@@ -178,6 +189,25 @@ export async function tryFast(command, onEvent) {
         const text = await step(onEvent, 'browser_open', { url });
         return { handled: true, text: `${youtube ? 'YouTube' : 'Google'}'da arandı: ${query}.${needsUserNote(text)}` };
       }
+      case 'spotify_play': {
+        const liked = (answers.liked?.noul ?? 0) >= 0.5;
+        const what = liked ? null : await pickSpan(command, 'What should be played: the name of the song, artist, album or playlist?');
+        if (!liked && !what) return { handled: false };
+        return { handled: true, text: firstLine(await step(onEvent, 'spotify_play', liked ? { liked: true } : { what })) };
+      }
+      case 'note_add': {
+        // "not al: …" gives the text after the colon; otherwise Jev picks it out.
+        const body = command.match(/\bnot[^:]{0,30}:\s+(.+)$/i)?.[1]?.trim()
+          || await pickSpan(command, 'What is the text of the note to write down, without words like "not al" or "notlarıma ekle"?', { maxWords: 16 });
+        if (!body) return { handled: false };
+        return { handled: true, text: firstLine(await step(onEvent, 'notes_add', { text: body })) };
+      }
+      case 'calendar_show': {
+        const range = { today: { from: 0, days: 1 }, tomorrow: { from: 1, days: 1 }, week: { from: 0, days: 7 } }[answers.calendar_when?.choice] || { from: 0, days: 1 };
+        return { handled: true, text: await step(onEvent, 'calendar_events', range) };
+      }
+      case 'reminders_show':
+        return { handled: true, text: await step(onEvent, 'reminders_list', {}) };
       case 'page_click': {
         const text = await step(onEvent, 'browser_click', { target: command });
         const clicked = text.match(/Öğe: "([^"]+)"/)?.[1] || command;

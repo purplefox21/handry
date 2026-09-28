@@ -11,8 +11,8 @@ import path from 'node:path';
 import * as jev from './jev.js';
 import { config } from './config.js';
 import { stepsFromRun, slug, LEARNED_DIR } from './recipes.js';
+import { spans } from './spans.js';
 
-const MAX_SPAN_WORDS = 8;
 const MAX_STEPS = 25;
 const MAX_CANDIDATES = 8;
 // Step fields that may carry words of the command.
@@ -27,39 +27,6 @@ function wholeWordAt(hay, needle) {
   const out = [];
   const re = new RegExp(`(^|[^\\p{L}\\p{N}])(${escapeRe(needle)})(?=$|[^\\p{L}\\p{N}])`, 'gu');
   for (const m of hay.matchAll(re)) out.push(m.index + m[1].length);
-  return out;
-}
-
-/** The command's words with their positions; quotes and trailing punctuation left out. */
-function words(command) {
-  const out = [];
-  for (const m of command.matchAll(/\S+/g)) {
-    const lead = m[0].match(/^["“”'‘’(\[]*/)[0].length;
-    const w = m[0].slice(lead).replace(/[,.;:!?"“”'‘’)\]]+$/, '');
-    if (w) out.push({ w, start: m.index + lead, end: m.index + lead + w.length });
-  }
-  return out;
-}
-
-/** Every run of up to 8 words, plus "Tarkan" for "Tarkan'ı" (Turkish suffixes). */
-export function spans(command) {
-  const ws = words(command);
-  const out = [];
-  const seen = new Set();
-  const add = (start, end) => {
-    const text = command.slice(start, end);
-    // A detail doesn't run across punctuation or quotes ("$1.99" keeps its dot).
-    if (text.length < 2 || seen.has(text) || /[,;:!?"“”]|\.(\s|$)/.test(text)) return;
-    seen.add(text);
-    out.push({ text, start, end });
-  };
-  for (let i = 0; i < ws.length; i++) {
-    for (let j = i; j < Math.min(ws.length, i + MAX_SPAN_WORDS); j++) {
-      add(ws[i].start, ws[j].end);
-      const apostrophe = ws[j].w.search(/['’]/);
-      if (apostrophe > 0) add(ws[i].start, ws[j].start + apostrophe);
-    }
-  }
   return out;
 }
 

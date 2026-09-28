@@ -32,7 +32,8 @@ const MODEL_NAMES = { 'claude-sonnet-5': 'Sonnet 5', 'claude-opus-5-5': 'Opus 5.
 const BRAIN_NAMES = { 'claude-code': 'Claude Code', codex: 'Codex', anthropic: 'Claude API', openai: 'OpenAI uyumlu', ollama: 'Ollama' };
 const ROUTE_NAMES = {
   volume: 'ses', mute: 'ses', music: 'müzik', now_playing: 'çalan şarkı', app_open: 'uygulama açma', app_quit: 'uygulama kapatma',
-  web_open: 'site açma', web_search: 'arama', page_click: 'sayfada tıklama', dark_mode: 'görünüm', lock_screen: 'ekran kilidi', screenshot: 'ekran görüntüsü'
+  web_open: 'site açma', web_search: 'arama', page_click: 'sayfada tıklama', dark_mode: 'görünüm', lock_screen: 'ekran kilidi', screenshot: 'ekran görüntüsü',
+  spotify_play: 'Spotify', note_add: 'not', calendar_show: 'takvim', reminders_show: 'anımsatıcılar'
 };
 
 // ---------------------------------------------------------------------------
@@ -154,6 +155,14 @@ const STEPS = {
   files_read: [a => `Dosya okunuyor: ${String(a.path || '').split('/').pop()}`, 'file'],
   files_open: [a => `Açılıyor: ${String(a.path || '').split('/').pop()}${a.app ? ` (${a.app})` : ''}`, 'folder'],
   project_activity: [a => `Projede ne yapıldığına bakılıyor: ${String(a.path || '').split('/').filter(Boolean).pop()}`, 'layers'],
+  spotify_play: [a => (a.liked ? 'Spotify: Beğenilen Şarkılar çalınıyor' : `Spotify'da çalınıyor: ${short(a.what, 40)}`), 'play'],
+  music_play: [a => `Müzik'te çalınıyor: ${short(a.query, 40)}`, 'play'],
+  notes_add: [a => `Not ekleniyor: ${short(a.title || a.text, 50)}`, 'file'],
+  notes_find: [a => `Notlarda aranıyor: “${short(a.query, 40)}”`, 'file'],
+  reminders_add: [a => `Anımsatıcı ekleniyor: ${short(a.text, 50)}`, 'clock'],
+  reminders_list: [() => 'Anımsatıcılara bakılıyor', 'clock'],
+  calendar_events: [a => (a.from === 1 ? 'Yarının takvimine bakılıyor' : (a.days || 1) > 1 ? 'Haftanın takvimine bakılıyor' : 'Bugünün takvimine bakılıyor'), 'clock'],
+  calendar_add: [a => `Takvime ekleniyor: ${short(a.title, 40)}`, 'clock'],
   mac_action: [a => (MAC_ACTIONS[a.action] || (() => a.action))(a), 'sliders'],
   jev_ask: [() => 'Jev\'e soruluyor', 'zap']
 };

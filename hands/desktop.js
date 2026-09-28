@@ -396,6 +396,11 @@ export async function waitFor(words, { app, seconds = 10, gone = false } = {}) {
   throw new JevisError('TIMEOUT', `${Math.round(limit / 1000)} sn beklendi; "${words}" ${gone ? 'hâlâ duruyor' : 'görünmedi'} (${r.app}${r.window ? ` — ${r.window}` : ''}).`);
 }
 
+/** May JEVIS send Apple Events to that app? granted | denied | ask | not_running (never asks). */
+export async function automationState(bundleId) {
+  return ax('automation', bundleId);
+}
+
 /** Records the microphone to a 16 kHz WAV (for whisper.cpp). */
 export async function record(seconds, file) {
   return ax('record', seconds, file);

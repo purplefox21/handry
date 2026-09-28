@@ -7,6 +7,10 @@ import { learnFromRun, recordOutcome } from './learn.js';
 import { getBrain } from '../brain/index.js';
 import { clearStop } from '../guard/stop.js';
 
+// Brains get the local date and time with each message ("yarın 9'da" needs
+// it). It rides in the message, not the system prompt, so prompt caching holds.
+const withNow = text => `${text}\n\n[Şu an: ${new Date().toLocaleString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}]`;
+
 // "tarif: sabah-rutini isim=Berat site=example.com"
 function recipeCall(text) {
   const m = text.trim().match(/^(?:tarif|recipe)\s*[:\-]?\s*(\S+)(.*)$/i);
@@ -66,7 +70,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
     }
     const brain = brainFor();
     onEvent({ type: 'status', text: `${brain.label} düşünüyor…` });
-    const out = await brain.run({ text, sessionId, onEvent, signal, model, effort });
+    const out = await brain.run({ text: withNow(text), sessionId, onEvent, signal, model, effort });
     const usedModel = brain.id === 'claude-code' ? (model || config().brain.providers['claude-code']?.model) : undefined;
     // Next time the same task (with other details) runs without the brain.
     let learned;

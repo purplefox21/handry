@@ -10,6 +10,7 @@
 //   jevis-ax type <text> | key <combo> | click <x> <y> [--right] [--double] | scroll <dy> [dx]
 //   jevis-ax activate [--app|--pid]
 //   jevis-ax windows [--app|--pid] | raise <index> [--app|--pid] | screen | hit <x> <y>
+//   jevis-ax automation <bundleId>
 //
 // Paths: "w.3.1" = child 3, then child 1 of the focused window; "m.2.0" = menu bar.
 import Cocoa
@@ -147,8 +148,11 @@ func readTree(app: NSRunningApplication, menus: Bool, maxItems: Int, budget: Dou
     let appEl = AXUIElementCreateApplication(app.processIdentifier)
     // Electron apps (VS Code, Slack…) only build their tree when asked to.
     AXUIElementSetAttributeValue(appEl, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    let chromium = isChromium(app)
     let deadline = Date().addingTimeInterval(budget + 3)
     var items: [[String: Any]] = []
+    // The same control drawn twice at the same spot (virtualized lists) is listed once.
+    var seen = Set<String>()
     var texts: [String] = []
     var visited = 0
     var truncated = false
@@ -173,9 +177,13 @@ func readTree(app: NSRunningApplication, menus: Bool, maxItems: Int, budget: Dou
         let disabledMenuItem = role == "AXMenuItem" && (a["AXEnabled"] as? Bool) == false
         let isMenuItem = role == "AXMenuItem" && label != nil && !disabledMenuItem
         let sized = (a["AXSize"] as? CGSize).map { $0.width > 1 && $0.height > 1 } ?? false
-        if ACTIONABLE.contains(role), !disabledMenuItem, (sized || isMenuItem) {
-            let pos = a["AXPosition"] as? CGPoint ?? .zero
-            let size = a["AXSize"] as? CGSize ?? .zero
+        // Web views wrap everything in nameless cells and rows; their contents carry the names.
+        let namelessWebCell = chromium && (role == "AXCell" || role == "AXRow") && label == nil && text(a["AXValue"]) == nil
+        let pos = a["AXPosition"] as? CGPoint ?? .zero
+        let size = a["AXSize"] as? CGSize ?? .zero
+        let key = "\(role)|\(label ?? "")|\(Int(pos.x)),\(Int(pos.y)),\(Int(size.width)),\(Int(size.height))"
+        if ACTIONABLE.contains(role), !disabledMenuItem, !namelessWebCell, (sized || isMenuItem), !(sized && seen.contains(key)) {
+            if sized { seen.insert(key) }
             var item: [String: Any] = ["path": path, "role": String(role.dropFirst(2)), "x": Int(pos.x), "y": Int(pos.y), "w": Int(size.width), "h": Int(size.height)]
             if let label { item["name"] = cut(label, 80) }
             if let sub = a["AXSubrole"] as? String { item["subrole"] = String(sub.dropFirst(2)) }
@@ -217,7 +225,7 @@ func readTree(app: NSRunningApplication, menus: Bool, maxItems: Int, budget: Dou
             AXUIElementSetAttributeValue(appEl, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
             enhanced = true
             usleep(700_000)
-            items.removeAll(); texts.removeAll(); visited = 0; truncated = false
+            items.removeAll(); texts.removeAll(); seen.removeAll(); visited = 0; truncated = false
             walk(window, "w", 0, "")
         }
     }
@@ -354,9 +362,11 @@ case "frontmost":
 
 case "tree":
     let menus = flag("--menus")
-    let maxItems = Int(option("--max") ?? "") ?? 400
+    let app = targetApp(pid: pidOpt, name: appOpt)
+    // Web-view apps list their whole library in a sidebar before the page itself.
+    let maxItems = Int(option("--max") ?? "") ?? (isChromium(app) ? 900 : 400)
     let budget = Double(option("--budget") ?? "") ?? 2.5
-    emit(readTree(app: targetApp(pid: pidOpt, name: appOpt), menus: menus, maxItems: maxItems, budget: budget))
+    emit(readTree(app: app, menus: menus, maxItems: maxItems, budget: budget))
 
 case "press":
     let expect = option("--expect")
@@ -505,6 +515,18 @@ case "hit":
     AXUIElementGetPid(el, &pid)
     emit(["found": true, "role": String((attribute(el, "AXRole") as? String ?? "").dropFirst(2)), "name": cut(labelOf(el), 80),
           "pid": pid, "app": NSRunningApplication(processIdentifier: pid)?.localizedName ?? ""])
+
+case "automation":
+    // automation <bundleId>: may the app running JEVIS send that app Apple
+    // Events? Only looks; never shows the permission question.
+    guard let bundle = args.first else { fail("Kullanım: automation <bundleId>", code: "BAD_ARGS") }
+    var target = AEAddressDesc()
+    let bytes = Array(bundle.utf8)
+    AECreateDesc(DescType(typeApplicationBundleID), bytes, bytes.count, &target)
+    let status = AEDeterminePermissionToAutomateTarget(&target, AEEventClass(typeWildCard), AEEventID(typeWildCard), false)
+    AEDisposeDesc(&target)
+    let states: [OSStatus: String] = [noErr: "granted", -1743: "denied", -1744: "ask", -600: "not_running"]
+    emit(["bundleId": bundle, "state": states[status] ?? "unknown", "status": Int(status)])
 
 case "screen":
     // The main display in points (the unit clicks use) and its pixel scale.
