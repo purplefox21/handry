@@ -325,16 +325,19 @@ Bugünkü durum: sesli kullanım bas-konuş. ⌥⇧Space basılı tutulur, bıra
 
 Yapılan ölçümler (2026-09-28): Apple'ın konuşma tanıması Türkçeyi cihaz içinde (internetsiz) destekliyor (`SFSpeechRecognizer tr-TR`, on-device: evet). macOS 26'nın yeni `SpeechTranscriber`'ı 30 dil destekliyor ama Türkçe yok. whisper.cpp'nin `whisper-stream`, `whisper-command` ve VAD araçları kurulu.
 
-- [ ] **9.1 Kompakt çubuk (klavye):**
+- [x] **9.1 Kompakt çubuk (klavye):** Yapıldı. `app/public/bar.html` + `bar.js`, ortak kod `common.js`'e taşındı. JEVIS.app'te etkinleştirmeyen panel (`BarPanel`): yazarken öndeki uygulama önde kalıyor, "bunu kapat" gibi komutlar doğru uygulamaya gidiyor. Çubuktaki işler büyük pencerenin geçmişinde "Çubuktan" diye görünüyor, Claude oturumu iki arayüz arasında paylaşılıyor. `app-e2e` **8/8** (çubuk adımı dahil).
+  - JEVIS.app artık Xcode'un kurduğu "Apple Development" kimliğiyle imzalanıyor: kimliği derlemeden derlemeye aynı, macOS izinleri bir kere verilince kalıyor.
   - JEVIS.app'te ekranın üst ortasında açılan, kenarsız, yüzen bir panel (Spotlight gibi, ~680×52). Tam ekran uygulamaların üstünde ve her masaüstünde görünür.
   - ⌥Space açar/kapatır, Esc ya da dışarı tıklama gizler, Enter gönderir. Çalışırken tek satır canlı durum ("Spotify'da çalınıyor: Tarkan…") ve DURDUR; bitince kısa cevap aşağı doğru açılır, birkaç saniye sonra kendiliğinden kapanır.
   - Arayüz `app/public/bar.html` (sohbet kodunun akış/adım kısmı ortak bir dosyaya alınır). Büyük pencere "ayrıntılar ve geçmiş" olarak kalır, aynı sohbeti paylaşır.
-- [ ] **9.2 Canlı yazı ve sessizlikte gönderme:**
+- [x] **9.2 Canlı yazı ve sessizlikte gönderme:** Kodu yazıldı (`app/macos/Listener.swift`), izin bekleniyor.
+  - Ölçüm: whisper, sesin başında "Hey Jev" kalınca cümlenin gerisini bozuyor ("Spotify'da Tarkan çal" → "Spotify, Dotar Cancel"). "Hey Jev" yokken doğru ve ~0.5 sn. Bu yüzden Apple'ın kelime zamanlarıyla "Hey Jev" sesten kesilip whisper'a sadece komut gidiyor.
+  - Bluetooth kulaklık takılıyken mikrofon açılınca kulaklık düşük kaliteli "arama" moduna geçer; JEVIS dahili mikrofonu tercih ediyor.
   - Mikrofon JEVIS.app'te (Swift). Apple'ın cihaz içi Türkçe tanıması konuşurken kelimeleri anında çubuğa yazar.
   - ~1 sn sessizlik = cümle bitti. Aynı ses whisper'a da gider (JEVIS, VS Code, Claude gibi adları daha iyi tanıyor), doğru metin yerine oturur ve kendiliğinden gönderilir.
   - Göndermeden önce ~1 sn'lik ince bir geri sayım: Enter hemen gönderir, Esc iptal eder, klavyeye dokunmak düzenleme moduna geçirir.
   - Yeni izin: Konuşma Tanıma (ilk kullanımda macOS sorar).
-- [ ] **9.3 "Hey Jev":**
+- [x] **9.3 "Hey Jev":** Kodu yazıldı, izin bekleniyor. Mikrofonsuz test: `node tests/listener-e2e.mjs` (macOS'un Yelda sesiyle üretilen kayıtlar JEVIS'in kendi dinleyicisinden geçiyor).
   - Açılıp kapatılabilen sürekli dinleme. Ucuz bir ses/konuşma kapısı; sadece kısa bir konuşma bitince whisper çalışır, metinde "hey jev" (ve "hey cev", "hey jeff" gibi yanlış duyulmuş hâlleri) aranır. Emin olunamayan durumda Jev karar verir ("JEVIS'e mi seslenildi?").
   - Uyanınca çubuk iner, kısa bir ses çalar, 9.2'deki akış başlar. "Hey Jev, sesi kıs" tek nefeste söylenirse komut doğrudan alınır.
   - JEVIS konuşurken ve ekran kilitliyken dinleme durur. Açıkken macOS menü çubuğunda turuncu mikrofon noktası sürekli görünür (sesin hiçbiri bilgisayardan çıkmaz).

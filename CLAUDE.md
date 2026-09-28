@@ -32,7 +32,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 
 - `npm start` → http://localhost:3000 — JEVIS sohbeti: Hızlı (Sonnet 5) / Güçlü (Opus 5.5) model düğmesi, katlanan adım listesi, tarifler ve ayarlar paneli, bas-konuş, DURDUR
 - `node cli.js` → JEVIS komutları: `do "…"` (komut ver), `listen --do` (sesle), tarayıcı (open, read, click, type…), masaüstü (`desk …`, `app`, `mac`), `recipe …`, `secret`, `stop`, `doctor`
-- `node cli.js app install && node cli.js app open` → menü çubuğu uygulaması JEVIS.app (⌥Space sohbet, ⌥⇧Space bas-konuş, ⌥Esc acil durdur)
+- `node cli.js app install && node cli.js app open` → JEVIS.app: ⌥Space üstten inen kompakt çubuk, ⌥⇧Space bas-konuş, "Hey Jev" ile sesli uyandırma, ⌥Esc acil durdur; Dock simgesi büyük pencereyi açar
 - `node appstore/privacy-scan.js <klasör>` → App Privacy taslağı
 - `node demo.js` → destek bileti yönlendirme örneği
 - `node macos-cli.js "komut"` → eski tek adımlı macOS komutları (Jev dispatcher)
@@ -53,4 +53,5 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/learn-e2e.mjs` → öğrenen tarifler (geçici bir JEVIS klasöründe; gerçek öğrenilenlere dokunmaz)
 - `node tests/files-e2e.mjs` → dosya ve proje araçları (~/Library/Caches altında geçici klasör; TextEdit'i açıp kapatır)
 - `node tests/appshortcuts-e2e.mjs` → Spotify'da gerçekten çalar ve sonra duraklatır; Müzik/Notlar/Anımsatıcılar/Takvim betiklerini sadece derler (macOS izni verilmişse okur)
+- `node tests/listener-e2e.mjs` → "Hey Jev" ve canlı yazı: Yelda sesiyle üretilen kayıtlar JEVIS.app'in dinleyicisinden geçer (mikrofon gerekmez; JEVIS'in Konuşma Tanıma izni gerekir)
 - `node tests/dispatcher-dryrun.mjs` → eski macOS komut yönlendirici (deneme modu)
