@@ -105,6 +105,9 @@ async function step(onEvent, name, args) {
 
 const firstLine = text => String(text).split('\n')[0];
 
+// The page guard notices logins, 2FA and CAPTCHAs ("⚠️ …"): tell the user.
+const needsUserNote = text => (String(text).includes('⚠️') ? ' Sayfa giriş ya da doğrulama (CAPTCHA) istiyor; tarayıcıda senin halletmen gerekiyor.' : '');
+
 /**
  * Tries the fast path. Returns { handled: true, text } when done, or
  * { handled: false, note } so the caller hands the command to a brain.
@@ -152,7 +155,7 @@ export async function tryFast(command, onEvent) {
         const site = siteIn(command);
         if (!site) return { handled: false };
         const text = await step(onEvent, 'browser_open', { url: site });
-        return { handled: true, text: `Açıldı: ${text.match(/Şu an: (.+?) \(/)?.[1] || site}` };
+        return { handled: true, text: `Açıldı: ${text.match(/Şu an: (.+?) \(/)?.[1] || site}.${needsUserNote(text)}` };
       }
       case 'web_search': {
         const query = searchQuery(command);
@@ -161,8 +164,8 @@ export async function tryFast(command, onEvent) {
         const url = youtube
           ? `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
           : `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-        await step(onEvent, 'browser_open', { url });
-        return { handled: true, text: `${youtube ? 'YouTube' : 'Google'}'da arandı: ${query}` };
+        const text = await step(onEvent, 'browser_open', { url });
+        return { handled: true, text: `${youtube ? 'YouTube' : 'Google'}'da arandı: ${query}.${needsUserNote(text)}` };
       }
       case 'page_click': {
         const text = await step(onEvent, 'browser_click', { target: command });

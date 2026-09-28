@@ -37,7 +37,8 @@ try {
   await sleep(500);
   await fast('hesap makinesini kapat', async () => { await sleep(800); return !(await desktop.apps()).some(a => a.bundleId === 'com.apple.calculator'); });
   await fast("YouTube'u aç", async () => (await browser.activePage()).url().includes('youtube.com'));
-  await fast("Google'da mac mini fiyatları ara", async () => decodeURIComponent((await browser.activePage()).url()).replace(/\+/g, ' ').includes('mac mini fiyatları'));
+  // Google may answer repeated test searches with its CAPTCHA page; the query is then in its "continue" link.
+  await fast("Google'da mac mini fiyatları ara", async () => decodeURIComponent(decodeURIComponent((await browser.activePage()).url())).replace(/\+/g, ' ').includes('mac mini fiyatları'));
   await browser.open(FIXTURE);
   await fast('fiyatlandırma bölümüne tıkla', async () => (await (await browser.activePage()).evaluate(() => window.__log)).includes('nav:pricing'));
 } finally {
