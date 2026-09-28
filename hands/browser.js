@@ -52,10 +52,22 @@ export async function ensureChrome() {
   throw new JevisError('NO_CHROME', 'Chrome açıldı ama bağlantı noktası hazır olmadı.');
 }
 
+// On macOS Chrome keeps running after its last window is closed, and with no
+// window there is no browser context to attach to: open an empty one first.
+async function ensureWindow(port) {
+  const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json().catch(() => []);
+  if (!targets.some(t => t.type === 'page')) {
+    await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: 'PUT' });
+    await sleep(300);
+  }
+}
+
 async function connect() {
   if (browser?.isConnected()) return browser;
   await ensureChrome();
-  browser = await chromium.connectOverCDP(`http://127.0.0.1:${config().browser.cdpPort}`);
+  const { cdpPort } = config().browser;
+  await ensureWindow(cdpPort);
+  browser = await chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`);
   browser.on('disconnected', () => { browser = null; current = null; });
   return browser;
 }
