@@ -48,7 +48,11 @@ await check('⌥Space çubuğu açıyor', async () => {
 
 await check('Yazılan komut Enter ile çubuktan gidiyor', async () => {
   const front = await desktop.frontmost();
-  if (!barOnScreen() || SYSTEM_DIALOGS.test(front.app || '')) return { ok: false, note: `çubuk açık değil ya da önde bir sistem sorusu var (${front.app}); yazılmadı` };
+  const focus = helper('focused');
+  // The keys must land in JEVIS's bar, never in the app the user is working in.
+  if (!barOnScreen() || SYSTEM_DIALOGS.test(front.app || '') || focus.app !== 'JEVIS') {
+    return { ok: false, note: `klavye odağı JEVIS çubuğunda değil (${focus.app || '?'}, önde ${front.app}); hiçbir şey yazılmadı` };
+  }
   const count = (await history()).length;
   helper('type', command);
   await sleep(200);

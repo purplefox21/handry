@@ -559,6 +559,16 @@ case "automation":
     let states: [OSStatus: String] = [noErr: "granted", -1743: "denied", -1744: "ask", -600: "not_running"]
     emit(["bundleId": bundle, "state": states[status] ?? "unknown", "status": Int(status)])
 
+case "focused":
+    // Which app has the keyboard focus (a non-activating panel can have it
+    // while another app is "in front").
+    guard let raw = attribute(AXUIElementCreateSystemWide(), "AXFocusedUIElement") else { emit(["found": false]); break }
+    let el = raw as! AXUIElement
+    var owner: pid_t = 0
+    AXUIElementGetPid(el, &owner)
+    emit(["found": true, "pid": owner, "app": NSRunningApplication(processIdentifier: owner)?.localizedName ?? "",
+          "role": String((attribute(el, "AXRole") as? String ?? "").dropFirst(2))])
+
 case "screen":
     // The main display in points (the unit clicks use) and its pixel scale.
     let frame = NSScreen.screens.first?.frame ?? .zero

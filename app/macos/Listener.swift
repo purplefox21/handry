@@ -52,6 +52,7 @@ final class Listener {
     private var pushToTalk = false
     private var finishing = false
     private var wakeEnd: Double?       // where "Hey Jev" ends in the phrase audio (seconds)
+    private var wakeWords = 2          // how many words "Hey Jev" took in the text
 
     static let wakePattern = try! NSRegularExpression(
         pattern: "^\\s*(?:hey|hei|hay|hi|ey|ay|he)[\\s,.!]*(?:jev|jevs|jevis|jeff|jef|jefe|cev|ceb|cef|cevs|chev|shev|j\\.?e\\.?v\\.?|jarvis|ciyev)(?![\\p{L}\\p{N}])[\\s,.!?:;-]*",
@@ -348,6 +349,8 @@ final class Listener {
         switch mode {
         case .candidate:
             if let command = Listener.afterWake(full) {
+                let prefix = String(full.prefix(max(0, full.count - command.count)))
+                wakeWords = max(1, prefix.split(whereSeparator: { $0.isWhitespace }).count)
                 mode = .active
                 woke = true
                 pushToTalk = false
@@ -355,7 +358,8 @@ final class Listener {
                 update(command)
             }
         case .active:
-            update(woke ? (Listener.afterWake(full) ?? full) : full)
+            // The recognizer sometimes rewrites "Hey Jev" later ("Hey J"): drop as many words.
+            update(woke ? (Listener.afterWake(full) ?? full.split(separator: " ").dropFirst(wakeWords).joined(separator: " ")) : full)
         default:
             break
         }
