@@ -1,5 +1,6 @@
 // `node cli.js doctor`: checks every part of JEVIS and says what to fix.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ROOT, config, expandHome } from './config.js';
@@ -46,6 +47,16 @@ export async function doctor() {
     lines.push(p.screenRecording ? ok('Ekran Kaydı izni', 'var') : warn('Ekran Kaydı izni', 'Sistem Ayarları › Gizlilik ve Güvenlik › Ekran Kaydı'));
   } catch (err) {
     lines.push(warn('Masaüstü yardımcısı', `derlenemedi: ${err.message.slice(0, 100)}`));
+  }
+
+  // Reading VS Code switches on its accessibility tree; with the default
+  // setting VS Code then turns its editor into "Screen Reader Optimized".
+  const vscodeSettings = path.join(os.homedir(), 'Library', 'Application Support', 'Code', 'User', 'settings.json');
+  if (fs.existsSync(vscodeSettings)) {
+    const text = fs.readFileSync(vscodeSettings, 'utf-8');
+    lines.push(/"editor\.accessibilitySupport"\s*:\s*"off"/.test(text)
+      ? ok('VS Code ekran okuyucu modu', 'kapalı (JEVIS VS Code\'u okuyunca editör değişmez)')
+      : warn('VS Code ekran okuyucu modu', 'JEVIS VS Code\'u okuyunca editör "Screen Reader Optimized" olur. Önlemek için VS Code ayarlarına "editor.accessibilitySupport": "off" ekle.'));
   }
 
   const stt = sttStatus();

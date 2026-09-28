@@ -1,5 +1,5 @@
-// Builds the JEVIS menu bar app into dist/JEVIS.app (ad-hoc signed), and
-// installs it into ~/Applications. Used by `node cli.js app build|install`.
+// Builds the JEVIS app into dist/JEVIS.app (with its icon, ad-hoc signed),
+// and installs it into ~/Applications. Used by `node cli.js app build|install`.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,10 +19,37 @@ ${Object.entries(values).map(([k, v]) => `  <key>${k}</key>\n  ${typeof v === 'b
 </plist>
 `;
 
+const ICON_SIZES = [16, 32, 128, 256, 512];
+
+/**
+ * Draws the icon (app/macos/icon.swift) and turns it into JEVIS.icns in
+ * every size macOS wants; also leaves a 256 px PNG for the chat page's tab.
+ */
+export function buildIcon(resources) {
+  const work = path.join(ROOT, 'dist', 'icon');
+  fs.rmSync(work, { recursive: true, force: true });
+  const iconset = path.join(work, 'JEVIS.iconset');
+  fs.mkdirSync(iconset, { recursive: true });
+  const drawer = path.join(work, 'draw-icon');
+  const master = path.join(work, 'JEVIS-1024.png');
+  execFileSync('swiftc', ['-O', '-o', drawer, path.join(ROOT, 'app', 'macos', 'icon.swift'), '-framework', 'AppKit'], { stdio: 'pipe' });
+  execFileSync(drawer, [master], { stdio: 'pipe' });
+  for (const size of ICON_SIZES) {
+    for (const scale of [1, 2]) {
+      const name = `icon_${size}x${size}${scale === 2 ? '@2x' : ''}.png`;
+      execFileSync('sips', ['-z', String(size * scale), String(size * scale), master, '--out', path.join(iconset, name)], { stdio: 'pipe' });
+    }
+  }
+  execFileSync('iconutil', ['-c', 'icns', iconset, '-o', path.join(resources, 'JEVIS.icns')], { stdio: 'pipe' });
+  fs.copyFileSync(path.join(iconset, 'icon_128x128@2x.png'), path.join(ROOT, 'app', 'public', 'icon.png'));
+  return path.join(resources, 'JEVIS.icns');
+}
+
 export function buildApp() {
   fs.rmSync(APP, { recursive: true, force: true });
   fs.mkdirSync(path.join(APP, 'Contents', 'MacOS'), { recursive: true });
   fs.mkdirSync(path.join(APP, 'Contents', 'Resources'), { recursive: true });
+  buildIcon(path.join(APP, 'Contents', 'Resources'));
   fs.writeFileSync(path.join(APP, 'Contents', 'Info.plist'), plist({
     CFBundleIdentifier: BUNDLE_ID,
     CFBundleName: 'JEVIS',

@@ -117,17 +117,46 @@ func root(_ kind: Substring, _ appEl: AXUIElement) -> AXUIElement? {
     kind == "m" ? (attribute(appEl, "AXMenuBar").map { $0 as! AXUIElement }) : focusedWindow(appEl)
 }
 
+func frameworks(_ app: NSRunningApplication) -> [String] {
+    guard let url = app.bundleURL?.appendingPathComponent("Contents/Frameworks") else { return [] }
+    return (try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? []
+}
+
+/// Apps whose windows are Chromium web views (Electron, CEF, Chrome itself).
+func isChromium(_ app: NSRunningApplication) -> Bool {
+    frameworks(app).contains { $0.contains("Electron") || $0.contains("Chromium") || $0.hasSuffix(" Framework.framework") && ($0.contains("Chrome") || $0.contains("Edge") || $0.contains("Brave")) }
+}
+
+func isElectron(_ app: NSRunningApplication) -> Bool {
+    frameworks(app).contains { $0.hasPrefix("Electron Framework") }
+}
+
+/// Electron apps (VS Code, Slack, Discord) build their accessibility tree
+/// only when asked to. The switch stays on for the app's lifetime: switched
+/// off, the tree takes seconds to come back. (VS Code would then show
+/// "Screen Reader Optimized" unless editor.accessibilitySupport is "off";
+/// `node cli.js doctor` checks that.)
+func openAccess(_ app: NSRunningApplication) {
+    AXUIElementSetAttributeValue(AXUIElementCreateApplication(app.processIdentifier), "AXManualAccessibility" as CFString, kCFBooleanTrue)
+}
+
 func resolve(_ path: String, _ app: NSRunningApplication) -> AXUIElement {
+    openAccess(app)
     let appEl = AXUIElementCreateApplication(app.processIdentifier)
-    var parts = path.split(separator: ".")
-    guard !parts.isEmpty, var el = root(parts.removeFirst(), appEl) else { fail("Pencere bulunamadı.", code: "STALE") }
-    for part in parts {
-        guard let i = Int(part), let kids = attribute(el, "AXChildren") as? [AXUIElement], i < kids.count else {
-            fail("Öğe artık yok (\(path)). Pencereyi yeniden oku.", code: "STALE")
+    // A freshly switched-on Electron tree takes a moment to fill in.
+    for attempt in 0..<4 {
+        var parts = path.split(separator: ".")
+        if !parts.isEmpty, var el = root(parts.removeFirst(), appEl) {
+            var found = true
+            for part in parts {
+                guard let i = Int(part), let kids = attribute(el, "AXChildren") as? [AXUIElement], i < kids.count else { found = false; break }
+                el = kids[i]
+            }
+            if found { return el }
         }
-        el = kids[i]
+        if attempt < 3 && isChromium(app) { usleep(300_000) } else { break }
     }
-    return el
+    fail("Öğe artık yok (\(path)). Pencereyi yeniden oku.", code: "STALE")
 }
 
 // MARK: - Reading the tree
@@ -137,18 +166,12 @@ let ACTIONABLE: Set<String> = ["AXButton", "AXCheckBox", "AXRadioButton", "AXPop
                                "AXDisclosureTriangle", "AXIncrementor", "AXCell", "AXRow", "AXTab", "AXSegmentedControl",
                                "AXColorWell", "AXSwitch", "AXToggle", "AXDockItem"]
 
-/// Apps whose windows are Chromium web views (Electron, CEF, Chrome itself).
-func isChromium(_ app: NSRunningApplication) -> Bool {
-    guard let url = app.bundleURL?.appendingPathComponent("Contents/Frameworks"),
-          let names = try? FileManager.default.contentsOfDirectory(atPath: url.path) else { return false }
-    return names.contains { $0.contains("Electron") || $0.contains("Chromium") || $0.hasSuffix(" Framework.framework") && ($0.contains("Chrome") || $0.contains("Edge") || $0.contains("Brave")) }
-}
 
 func readTree(app: NSRunningApplication, menus: Bool, maxItems: Int, budget: Double) -> [String: Any] {
     let appEl = AXUIElementCreateApplication(app.processIdentifier)
-    // Electron apps (VS Code, Slack…) only build their tree when asked to.
-    AXUIElementSetAttributeValue(appEl, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    openAccess(app)
     let chromium = isChromium(app)
+    let electron = isElectron(app)
     let deadline = Date().addingTimeInterval(budget + 3)
     var items: [[String: Any]] = []
     // The same control drawn twice at the same spot (virtualized lists) is listed once.
@@ -221,10 +244,13 @@ func readTree(app: NSRunningApplication, menus: Bool, maxItems: Int, budget: Dou
         // Chromium-based apps (Spotify, Slack, Discord…) only expose their
         // controls after AXEnhancedUserInterface is switched on; the tree then
         // builds up over a moment.
-        for _ in 0..<4 where isChromium(app) && items.filter({ $0["name"] != nil }).count < 6 {
-            AXUIElementSetAttributeValue(appEl, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
-            enhanced = true
-            usleep(700_000)
+        // Electron fills its tree in after AXManualAccessibility alone.
+        for _ in 0..<(electron ? 6 : 4) where chromium && items.filter({ $0["name"] != nil }).count < 6 {
+            if !electron {
+                AXUIElementSetAttributeValue(appEl, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+                enhanced = true
+            }
+            usleep(electron ? 500_000 : 700_000)
             items.removeAll(); texts.removeAll(); seen.removeAll(); visited = 0; truncated = false
             walk(window, "w", 0, "")
         }

@@ -74,6 +74,8 @@ const playing = async () => (await desktop.read({ app: 'Spotify' })).elements.so
  */
 export async function spotifyPlay(what, { liked = false } = {}) {
   if (!liked && !String(what || '').trim()) throw new JevisError('BAD_ARGS', 'Ne çalınacağı söylenmedi.');
+  // Spotify brings itself to the front on its links; the user goes back to where they were afterwards.
+  const before = await desktop.frontmost().catch(() => null);
   await execFileAsync('open', [liked ? 'spotify:collection:tracks' : `spotify:search:${encodeURIComponent(what)}`], { timeout: 15000 });
   const target = liked ? 'Çal: Beğenilen Şarkılar (sayfanın büyük çal düğmesi)' : `"${what}" araması için en iyi sonucun Çal düğmesi`;
   let clicked = null;
@@ -90,6 +92,7 @@ export async function spotifyPlay(what, { liked = false } = {}) {
   if (!clicked) throw lastError || new JevisError('NOT_FOUND', 'Spotify\'da çal düğmesi bulunamadı.');
   let on = false;
   for (let i = 0; i < 8 && !on; i++) { await sleep(400); on = await playing().catch(() => false); }
+  if (before?.pid && before.bundleId !== 'com.spotify.client') await desktop.activate(before.pid).catch(() => {});
   return { played: liked ? 'Beğenilen Şarkılar' : what, element: clicked.element, playing: on };
 }
 
