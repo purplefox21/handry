@@ -66,30 +66,41 @@ const when = iso => (iso ? new Date(iso).toLocaleString('tr-TR', { weekday: 'sho
 // Spotify (accessibility tree, no Apple Events)
 // ---------------------------------------------------------------------------
 
-const playing = async () => (await desktop.read({ app: 'Spotify' })).elements.some(e => e.role === 'Button' && e.name === 'Duraklat' && /Oyuncu|Player/i.test(e.ctx || ''));
+const PLAYER = /Oyuncu denetimleri|Player controls/i;
+const playing = async () => (await desktop.read({ app: 'Spotify' })).elements.some(e => e.role === 'Button' && /^(Duraklat|Pause)$/.test(e.name) && PLAYER.test(e.ctx || ''));
+const lower = s => String(s ?? '').toLocaleLowerCase('tr').trim();
+
+/**
+ * The play button to press, once the page has loaded: Liked Songs' own, or
+ * the first plain "Çal" outside the player bar, which is the top search
+ * result's. null while the search box still shows another query.
+ */
+async function playButton(what, liked) {
+  const r = await desktop.read({ app: 'Spotify' });
+  if (liked) return r.elements.find(e => e.role === 'Button' && /^(Çal|Play): (Beğenilen Şarkılar|Liked Songs)$/.test(e.name)) || null;
+  const box = r.elements.find(e => e.role === 'ComboBox' && /çalmak istiyorsun|want to play/i.test(e.name || ''));
+  if (box && lower(box.value) !== lower(what)) return null;
+  return r.elements.find(e => e.role === 'Button' && /^(Çal|Play)$/.test(e.name) && !PLAYER.test(e.ctx || '')) || null;
+}
 
 /**
  * Plays something on Spotify: the top search result for `what`, or the
- * Liked Songs. Tries the click a few times while the page loads.
+ * Liked Songs. Waits for the page, presses its play button (Jev picks it if
+ * the page looks different than expected) and checks that music plays.
  */
 export async function spotifyPlay(what, { liked = false } = {}) {
   if (!liked && !String(what || '').trim()) throw new JevisError('BAD_ARGS', 'Ne çalınacağı söylenmedi.');
   // Spotify brings itself to the front on its links; the user goes back to where they were afterwards.
   const before = await desktop.frontmost().catch(() => null);
   await execFileAsync('open', [liked ? 'spotify:collection:tracks' : `spotify:search:${encodeURIComponent(what)}`], { timeout: 15000 });
-  const target = liked ? 'Çal: Beğenilen Şarkılar (sayfanın büyük çal düğmesi)' : `"${what}" araması için en iyi sonucun Çal düğmesi`;
-  let clicked = null;
-  let lastError = null;
-  for (let i = 0; i < 6 && !clicked; i++) {
-    await sleep(i === 0 ? 1200 : 700);
-    try {
-      clicked = await desktop.click(target, { app: 'Spotify' });
-    } catch (err) {
-      lastError = err;
-      if (!['NOT_FOUND', 'LOW_CONFIDENCE', 'STALE'].includes(err.code)) throw err;
-    }
+  let button = null;
+  for (let i = 0; i < 12 && !button; i++) {
+    await sleep(i === 0 ? 900 : 500);
+    button = await playButton(what, liked).catch(() => null);
   }
-  if (!clicked) throw lastError || new JevisError('NOT_FOUND', 'Spotify\'da çal düğmesi bulunamadı.');
+  const clicked = button
+    ? await desktop.click(`#${button.id}`, { app: 'Spotify' })
+    : await desktop.click(liked ? 'the big play button of the Liked Songs playlist (Beğenilen Şarkılar)' : `the play button (Çal) of the top search result for "${what}", not the player controls`, { app: 'Spotify' });
   let on = false;
   for (let i = 0; i < 8 && !on; i++) { await sleep(400); on = await playing().catch(() => false); }
   if (before?.pid && before.bundleId !== 'com.spotify.client') await desktop.activate(before.pid).catch(() => {});
@@ -99,7 +110,8 @@ export async function spotifyPlay(what, { liked = false } = {}) {
 /** Pauses Spotify through its own player button. */
 export async function spotifyPause() {
   if (!(await playing())) return { paused: false, note: 'Spotify zaten çalmıyor.' };
-  await desktop.click('Duraklat (oyuncu denetimleri)', { app: 'Spotify' });
+  const pause = (await desktop.read({ app: 'Spotify' })).elements.find(e => e.role === 'Button' && /^(Duraklat|Pause)$/.test(e.name) && PLAYER.test(e.ctx || ''));
+  await desktop.click(pause ? `#${pause.id}` : 'Duraklat (oyuncu denetimleri)', { app: 'Spotify' });
   return { paused: true };
 }
 
