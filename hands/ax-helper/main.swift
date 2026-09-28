@@ -414,8 +414,21 @@ case "key":
     emit(["ok": true])
 
 case "click":
+    // click <x> <y> [--pid N]: with --pid, only when that app is in front and
+    // owns what is under the point (checked right before the click).
+    let right = flag("--right"), double = flag("--double")
     guard args.count >= 2, let x = Double(args[0]), let y = Double(args[1]) else { fail("Kullanım: click <x> <y>", code: "BAD_ARGS") }
-    click(CGPoint(x: x, y: y), right: flag("--right"), double: flag("--double"))
+    if let pidOpt, let pid = pid_t(pidOpt) {
+        let front = NSWorkspace.shared.frontmostApplication
+        var found: AXUIElement?
+        var owner: pid_t = 0
+        if AXUIElementCopyElementAtPosition(AXUIElementCreateSystemWide(), Float(x), Float(y), &found) == .success, let el = found { AXUIElementGetPid(el, &owner) }
+        guard front?.processIdentifier == pid, owner == pid else {
+            let under = NSRunningApplication(processIdentifier: owner)?.localizedName ?? "başka bir şey"
+            fail("Tıklanmadı: o noktada artık hedef pencere yok (önde \(front?.localizedName ?? "?"), altında \(under)).", code: "NOT_FRONT")
+        }
+    }
+    click(CGPoint(x: x, y: y), right: right, double: double)
     emit(["ok": true])
 
 case "scroll":

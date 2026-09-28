@@ -32,6 +32,10 @@ process.env.JEVIS_TEST_CONFIRM = 'deny';
 
 // Calculator: 12 + 30
 await step('Hesap Makinesi\'ni Türkçe adıyla aç', () => call('desktop_open_app', { name: 'hesap makinesi' }), r => !r.isError && r.text.includes('Hesap Makinesi'));
+// Esc empties the display, so the clear key reads "Tümünü Sil" (AC).
+await call('desktop_key', { keys: 'escape', app: 'Hesap Makinesi' });
+await call('desktop_key', { keys: 'escape', app: 'Hesap Makinesi' });
+await sleep(200);
 await step('Temizle ("Tümünü Sil", onaysız geçmeli)', () => call('desktop_click', { target: 'Tümünü Sil', app: 'Hesap Makinesi' }), r => !r.isError);
 for (const b of ['1', '2', 'Artı', '3', '0', 'Eşittir']) {
   await step(`bas: ${b}`, () => call('desktop_click', { target: b, app: 'Hesap Makinesi' }), r => !r.isError);

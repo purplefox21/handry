@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-28):** Faz 0-7 ✅ hepsi tamam. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
+> **Durum (2026-09-28):** Faz 0-7 ✅ hepsi tamam. Faz 8 (hızlı yol v2, her uygulamada kontrol, öğrenen tarifler, logo) sürüyor. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -274,6 +274,24 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
 - Ekranda cevap bekleyen bir sistem izin sorusu varken macOS uygulamaların öne gelmesine izin vermiyor gibi. Bu yüzden masaüstü testi son çalıştırmada 17/23 kaldı (soru çıkmadan önce 23/23'tü).
 - Bu sırada bir güvenlik açığı bulundu: ⌘N, TextEdit yerine öndeki Chrome'a gidiyordu. Artık tuş ve klavye yazısı sadece istenen uygulama gerçekten öndeyse gönderiliyor; değilse "gönderilmedi" hatası dönüyor.
 
+### Faz 8 — Daha hızlı, her uygulamada, öğrenen JEVIS
+Kullanıcının isteği: "sesi yüzde 30 yap" gibi basit işler Claude'a gitmesin, Spotify gibi uygulamalar web'e kaçmasın, bir kere yapılan iş öğrenilsin.
+
+- [x] **1. Hızlı yol v2:** Jev tek istekte komutun türünü (13 tür) ve ayrıntısını (ses ne kadar, hangi müzik tuşu, YouTube mu) seçiyor; basit komutlar Claude'suz çalışıyor. Yüklü 96 uygulamanın hepsi açılıp kapatılabiliyor.
+  - `node tests/router-e2e.mjs` **30/30** (karar ortalama ~340 ms), `node tests/fast-e2e.mjs` **9/9**.
+  - Ses 0.5 sn, uygulama aç/kapat ~1 sn, sayfada tıklama 1.2 sn. Önceden Sonnet ile 15-20 sn.
+- [x] **2. Chromium/Electron uygulamaları, pencereler, ekrana bakıp tıklama:**
+  - Spotify, Slack, Discord gibi uygulamalar düğmelerini ancak `AXEnhancedUserInterface` açılınca gösteriyor. Yardımcı artık Chromium tabanlı uygulamayı (Frameworks klasöründen) tanıyıp bunu açıyor. Spotify: **0 → 158 isimli öğe**, "Ne çalmak istiyorsun?" kutusunu Jev %93 ile buluyor.
+  - `desktop_click_at`: son ekran görüntüsünün pikseliyle tıklama (canvas, oyun). Açıklama + o noktadaki öğe Jev risk kontrolünden geçiyor. Tıklamadan hemen önce yardımcı, noktadaki pencerenin hâlâ hedef uygulamanın olduğunu kontrol ediyor; değilse tıklamıyor.
+  - `desktop_windows` / `desktop_focus_window`: bir uygulamanın pencereleri arasında geçiş (ör. her proje için bir VS Code penceresi).
+  - `desktop_wait`: bir yazı çıkana (ya da kaybolana) kadar bekleme.
+  - `node tests/apps-e2e.mjs` **21/21**, `node tests/desktop-e2e.mjs` **23/23**.
+  - Öğrenilen: tam ekran bir uygulamadan (Spotify) masaüstüne dönerken macOS odağı bir anlığına başka uygulamaya verebiliyor. Koordinatla tıklamadaki son kontrol bu yüzden var.
+- [ ] **3. Öğrenen tarifler:** Claude'un bir kere yaptığı iş kendiliğinden tarif oluyor; benzer komut gelince Jev değişkenleri komuttan seçip Claude'suz oynatıyor.
+- [ ] **4. Dosya ve proje zekâsı:** klasör listeleme, son açılan dosyalar/uygulamalar, "bu projede ne yaptık" (git + Claude Code oturum kayıtları).
+- [ ] **5. Uygulamaya özel hızlı komutlar:** Spotify, Müzik, Notlar, Takvim, Anımsatıcılar.
+- [ ] **6. JEVIS.app logosu**, yeniden derleme ve kurulum.
+
 ## 7. Sınırlar ve riskler
 
 - CAPTCHA ve 2FA'yı JEVIS çözmez. Durur, sen çözersin.
@@ -373,6 +391,9 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-09-28:** Faz 8/2: Chromium uygulamaları (Spotify 0 → 158 öğe), koordinatla tıklama, pencere geçişi, bekleme. 21/21 + 23/23.
+- **2026-09-28:** Faz 8/1: Hızlı yol v2, basit komutlar Claude'suz ve bir saniyenin altında. 30/30 + 9/9.
 
 - **2026-09-25:** Proje incelendi; JEVIS ve Jev'in yetenekleri araştırıldı.
 - **2026-09-26:** macOS kısımları silindi (sadece Jev kalsın denmişti). Jev konuşmaları ve deneyler yapıldı.

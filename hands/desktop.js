@@ -335,7 +335,9 @@ export async function clickAt(x, y, { description = '', double = false, right = 
   const what = [description, hit.found && hit.name ? `${hit.role} "${hit.name}"` : ''].filter(Boolean).join(' — ') || `(${point.x}, ${point.y}) noktası`;
   const risk = await jev.isRisky(`${right ? 'Right-click' : double ? 'Double-click' : 'Click'} on: ${what}`, { app: shot.app });
   const approval = await guard({ name: `${description} ${hit.name || ''}`, role: hit.role || '' }, risk.p, `${shot.app} içinde şuraya tıklamak: ${what}`, shot.app);
-  await ax('click', point.x, point.y, ...(double ? ['--double'] : []), ...(right ? ['--right'] : []));
+  // The helper checks again right before clicking that the window is still the one under the point.
+  if (shot.windowId) await ensureFront(shot.pid);
+  await ax('click', point.x, point.y, ...(shot.windowId ? ['--pid', shot.pid] : []), ...(double ? ['--double'] : []), ...(right ? ['--right'] : []));
   return { point, hit: hit.found ? { role: hit.role, name: hit.name } : null, approval, ...(await after(shot.pid)) };
 }
 

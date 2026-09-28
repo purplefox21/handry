@@ -54,7 +54,13 @@ if (desktop.installedApps().includes('Spotify')) {
 
 // Calculator: click by screenshot pixels
 await step('Hesap Makinesi aç', () => call('desktop_open_app', { name: 'Hesap Makinesi' }), r => !r.isError);
-await step('Temizle', () => call('desktop_click', { target: 'Tümünü Sil', app: 'Hesap Makinesi' }), r => !r.isError);
+await sleep(800); // coming back from Spotify's full-screen space
+const display = async () => ((await desktop.read({ app: 'Hesap Makinesi' })).texts.at(-1) || '').replace(/[^\d,.-]/g, '');
+await step('Temizle (Esc)', async () => {
+  await call('desktop_key', { keys: 'escape', app: 'Hesap Makinesi' });
+  await call('desktop_key', { keys: 'escape', app: 'Hesap Makinesi' });
+  return { text: `ekran: ${await display()}` };
+}, r => r.text === 'ekran: 0');
 const shot = await callTool('desktop_screenshot', { app: 'Hesap Makinesi' });
 await step('Ekran görüntüsü piksel boyutunu söylüyor', async () => ({ text: shot.content.find(c => c.type === 'text').text }), r => /\d+×\d+ piksel/.test(r.text));
 
@@ -64,9 +70,11 @@ const { area, image } = loadState().shot;
 const px = Math.round(((seven.x + seven.w / 2 - area.x) * image.w) / area.w);
 const py = Math.round(((seven.y + seven.h / 2 - area.y) * image.h) / area.h);
 await step(`Görüntüde (${px}, ${py}) → "7" tuşuna tıkla`, () => call('desktop_click_at', { x: px, y: py, description: '7 tuşu' }), r => !r.isError && r.text.includes('[Button] 7'));
-await step('Ekranda 7 göründü (desktop_wait)', () => call('desktop_wait', { text: '7', app: 'Hesap Makinesi', seconds: 3 }), r => !r.isError && r.text.includes('Göründü'));
+await step('Ekranda 7 yazıyor', async () => ({ text: `ekran: ${await display()}` }), r => r.text === 'ekran: 7');
 await step('Riskli açıklama sorulur, reddedilince tıklanmaz', () => call('desktop_click_at', { x: px, y: py, description: 'Satın Al düğmesi' }), r => r.isError && r.text.includes('izin vermedi'));
-await step('Hâlâ tek 7 var (reddedilen tıklama olmadı)', () => call('desktop_read', { app: 'Hesap Makinesi' }), r => /^7$/m.test(r.text.split('Metinler:')[1] || ''));
+await step('Hâlâ 7 (reddedilen tıklama olmadı)', async () => ({ text: `ekran: ${await display()}` }), r => r.text === 'ekran: 7');
+for (const b of ['Artı', '5', 'Eşittir']) await call('desktop_click', { target: b, app: 'Hesap Makinesi' });
+await step('Sonuç 12 bekleniyor (desktop_wait)', () => call('desktop_wait', { text: '12', app: 'Hesap Makinesi', seconds: 3 }), r => !r.isError && r.text.includes('Göründü'));
 await step('Görüntü dışı nokta reddedilir', () => call('desktop_click_at', { x: 99999, y: 5, description: 'dışarısı' }), r => r.isError && r.text.includes('dışında'));
 await step('Olmayan yazı için bekleme zaman aşımı', () => call('desktop_wait', { text: 'hiç olmayacak yazı', app: 'Hesap Makinesi', seconds: 1 }), r => r.isError && r.text.includes('görünmedi'));
 await step('"gone" beklemesi hemen döner', () => call('desktop_wait', { text: 'hiç olmayacak yazı', app: 'Hesap Makinesi', gone: true }), r => !r.isError && r.text.includes('Kayboldu'));
@@ -75,14 +83,16 @@ await step('Hesap Makinesi kapat', () => call('desktop_quit_app', { name: 'Hesap
 // TextEdit: two windows, switch between them
 await step('TextEdit aç', () => call('desktop_open_app', { name: 'TextEdit' }), r => !r.isError);
 await sleep(500);
-await call('desktop_key', { keys: 'cmd+n', app: 'TextEdit' });
-await sleep(700);
-await call('desktop_key', { keys: 'cmd+n', app: 'TextEdit' });
-await sleep(700);
+// A fresh launch may show the open panel; new documents until there are two.
+const documents = async () => (await desktop.windows('TextEdit')).windows.filter(w => /Adsız|Untitled/.test(w.title));
+for (let i = 0; i < 4 && (await documents()).length < 2; i++) {
+  await call('desktop_key', { keys: 'cmd+n', app: 'TextEdit' });
+  await sleep(700);
+}
 let titles = [];
 await step('İki belge penceresi listeleniyor', async () => {
   const r = await call('desktop_windows', { app: 'TextEdit' });
-  titles = (await desktop.windows('TextEdit')).windows.filter(w => /Adsız|Untitled/.test(w.title));
+  titles = await documents();
   return r;
 }, () => titles.length >= 2);
 const back = titles.find(w => !w.focused);
