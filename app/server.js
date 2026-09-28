@@ -75,21 +75,31 @@ function readBody(req, limit = 25 * 1024 * 1024) {
 
 let activeRun = null;
 
+// The last runs, so the chat window can show what was asked in the bar.
+const HISTORY = [];
+const remember = entry => { HISTORY.push(entry); if (HISTORY.length > 50) HISTORY.shift(); };
+
 async function handleRun(req, res) {
   if (activeRun) return sendJson(res, 409, { error: 'JEVIS şu an başka bir işi yapıyor. Bitmesini bekle ya da DURDUR\'a bas.' });
-  const { text, brain: brainId = config().brain.default, sessionId, fast = true, model, effort } = JSON.parse((await readBody(req)).toString() || '{}');
+  const { text, brain: brainId = config().brain.default, sessionId, fast = true, model, effort, source = 'window' } = JSON.parse((await readBody(req)).toString() || '{}');
   if (!text?.trim()) return sendJson(res, 400, { error: 'Boş komut.' });
 
   res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
   const send = event => { if (!res.writableEnded) res.write(`${JSON.stringify(event)}\n`); };
   const controller = new AbortController();
   activeRun = { controller };
+  const entry = { at: Date.now(), source, text, tools: 0 };
+  const onEvent = ev => { if (ev.type === 'tool') entry.tools++; send(ev); };
   try {
-    send(await runCommand({ text, brainId, sessionId, fast, model, effort, onEvent: send, signal: controller.signal }));
+    const done = await runCommand({ text, brainId, sessionId, fast, model, effort, onEvent, signal: controller.signal });
+    Object.assign(entry, { id: done.runId, answer: done.text, ms: done.ms, fast: done.fast, learnedReplay: done.learnedReplay, recipe: done.recipe, brain: done.brain, model: done.model, stopped: done.stopped, learned: done.learned });
+    send(done);
   } catch (err) {
-    send({ type: 'error', message: controller.signal.aborted ? 'Durduruldu.' : err.message });
+    entry.error = controller.signal.aborted ? 'Durduruldu.' : err.message;
+    send({ type: 'error', message: entry.error });
   } finally {
     activeRun = null;
+    remember(entry);
     res.end();
   }
 }
@@ -116,6 +126,21 @@ async function handleVoice(req, res) {
   }
 }
 
+// JEVIS.app records the voice itself and leaves a WAV in ~/.jevis/tmp.
+async function handleVoiceFile(req, res) {
+  const { file } = JSON.parse((await readBody(req)).toString() || '{}');
+  const dir = homeDir('tmp');
+  const resolved = path.resolve(String(file || ''));
+  if (path.dirname(resolved) !== dir || !/^voice-[\w-]+\.wav$/.test(path.basename(resolved)) || !fs.existsSync(resolved)) {
+    return sendJson(res, 400, { error: 'Ses dosyası bulunamadı.' });
+  }
+  try {
+    sendJson(res, 200, { text: await transcribe(resolved) });
+  } finally {
+    fs.rmSync(resolved, { force: true });
+  }
+}
+
 async function handleSay(req, res) {
   const { text } = JSON.parse((await readBody(req)).toString() || '{}');
   speak(text || '');
@@ -134,6 +159,8 @@ const ROUTES = {
   'GET /api/log': (req, res) => sendJson(res, 200, { actions: recentActions(30) }),
   'GET /api/voice': (req, res) => sendJson(res, 200, { stt: sttStatus(), tts: ttsStatus() }),
   'POST /api/voice': handleVoice,
+  'POST /api/voice/file': handleVoiceFile,
+  'GET /api/history': (req, res) => sendJson(res, 200, { runs: HISTORY }),
   'POST /api/say': handleSay,
   'GET /api/recipes': (req, res) => sendJson(res, 200, { recipes: listRecipes() }),
   'POST /api/recipes': async (req, res) => {

@@ -68,8 +68,25 @@ export function buildApp() {
   }));
   execFileSync('swiftc', ['-O', '-o', path.join(APP, 'Contents', 'MacOS', 'JEVIS'), path.join(ROOT, 'app', 'macos', 'JEVIS.swift'),
     '-framework', 'AppKit', '-framework', 'WebKit', '-framework', 'Carbon'], { stdio: 'pipe' });
-  execFileSync('codesign', ['--force', '--deep', '--sign', '-', APP], { stdio: 'pipe' });
+  execFileSync('codesign', ['--force', '--deep', '--sign', signingIdentity(), APP], { stdio: 'pipe' });
   return APP;
+}
+
+/**
+ * A real signing identity (the Apple Development certificate Xcode installs)
+ * keeps the app's identity the same from build to build, so macOS remembers
+ * its permissions. Without one the app is signed ad hoc and every build has to
+ * be allowed again. jevis.config.json › app.signIdentity picks one by name.
+ */
+export function signingIdentity() {
+  const wanted = config().app?.signIdentity;
+  if (wanted) return wanted;
+  try {
+    const out = execFileSync('security', ['find-identity', '-v', '-p', 'codesigning'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+    const id = out.match(/"(Apple Development: [^"]+)"/)?.[1];
+    if (id) return id;
+  } catch {}
+  return '-';
 }
 
 export function installApp() {

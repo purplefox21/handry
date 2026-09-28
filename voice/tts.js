@@ -1,10 +1,20 @@
 // Spoken replies with macOS `say` (Turkish voice). Only a short summary is
 // read aloud; the full answer stays on screen.
 import fs from 'node:fs';
+import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { config } from '../core/config.js';
+import { config, HOME } from '../core/config.js';
 
 let speaking = null;
+
+// While JEVIS talks this file exists, so the "Hey Jev" listener in JEVIS.app
+// doesn't wake up to JEVIS's own voice.
+export const SPEAKING_FLAG = path.join(HOME, 'speaking');
+const flag = on => {
+  try {
+    if (on) { fs.mkdirSync(HOME, { recursive: true }); fs.writeFileSync(SPEAKING_FLAG, String(Date.now())); } else fs.rmSync(SPEAKING_FLAG, { force: true });
+  } catch {}
+};
 
 export function ttsStatus() {
   return fs.existsSync('/usr/bin/say') ? { ok: true, voice: config().voice.ttsVoice } : { ok: false, reason: '`say` bulunamadı' };
@@ -34,6 +44,7 @@ export function speakable(text) {
 export function stopSpeaking() {
   speaking?.kill();
   speaking = null;
+  flag(false);
 }
 
 /** Speaks (or with toFile writes an AIFF). Resolves when done. */
@@ -43,8 +54,9 @@ export function speak(text, { toFile } = {}) {
   if (!line) return Promise.resolve();
   const child = spawn('/usr/bin/say', ['-v', config().voice.ttsVoice, ...(toFile ? ['-o', toFile] : []), line], { stdio: 'ignore' });
   speaking = child;
+  if (!toFile) flag(true);
   return new Promise(resolve => child.on('close', () => {
-    if (speaking === child) speaking = null;
+    if (speaking === child) { speaking = null; flag(false); }
     resolve();
   }));
 }
