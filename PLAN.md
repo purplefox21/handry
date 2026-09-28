@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-28):** Faz 0-7 ✅ hepsi tamam. Faz 8 (hızlı yol v2, her uygulamada kontrol, öğrenen tarifler, logo) sürüyor. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
+> **Durum (2026-09-28):** Faz 0-8 ✅ hepsi tamam. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -308,7 +308,15 @@ Kullanıcının isteği: "sesi yüzde 30 yap" gibi basit işler Claude'a gitmesi
   - Chromium uygulamalarında isimsiz hücreler ve aynı yerde duran kopyalar atılıyor, sınır 900: Spotify arama sayfası 579 → 217 öğe.
   - Testler: `router-e2e` **40/40**, `appshortcuts-e2e` **10/10**. "Spotify'da Tarkan çal" Claude'suz **3.4 sn**, "beğendiğim şarkıları çal" **3.0 sn**.
   - Bilinen sınır: Takvim'in AppleScript'i tekrarlanan etkinliklerin sonraki tekrarlarını göstermeyebilir. Notlar/Anımsatıcılar/Takvim/Müzik için macOS ilk kullanımda bir kere izin soracak.
-- [ ] **6. JEVIS.app logosu**, yeniden derleme ve kurulum.
+- [x] **6. JEVIS.app logosu** (`app/macos/icon.swift`): mavi-mor zemin üzerinde beyaz şimşek. `node cli.js app build` her boyutta `.icns` üretiyor; sohbet sayfasının sekme simgesi de bu. Uygulama artık Dock'ta duruyor, normal menüsü var, açılışta penceresi geliyor, sunucu çökerse kendiliğinden yeniden başlıyor.
+  - Ad-hoc imzada her derleme yeni bir kimlik demek; macOS izinleri (Masaüstü klasörü, Erişilebilirlik, Ekran Kaydı, Mikrofon) yeniden istenir.
+
+**Yan etki bulundu ve düzeltildi (VS Code "Screen Reader Optimized"):**
+- JEVIS bir Electron uygulamasını okumak için erişilebilirlik ağacını açınca VS Code editörünü ekran okuyucu moduna alıyor.
+- Ağacı her işlemden sonra kapatmak çalışmıyor: VS Code ağacı saniyelerce geri kurmuyor.
+- Çözüm: VS Code ayarlarına `"editor.accessibilitySupport": "off"` eklendi (yedeği alındı, başka ayara dokunulmadı). `node cli.js doctor` bunu kontrol ediyor.
+
+**Test turu sırasında öğrenilen:** Kullanıcı bilgisayarı kullanırken masaüstü testleri uygulamaları öne getiremeyebiliyor. Güvenlik kontrolü o zaman tuş göndermeyi reddediyor (doğru davranış), test düşüyor. Sakin anda tekrar çalıştırınca 23/23 + 13/13 geçti.
 
 ## 7. Sınırlar ve riskler
 
@@ -410,6 +418,8 @@ Kullanıcının isteği: "sesi yüzde 30 yap" gibi basit işler Claude'a gitmesi
 
 ## 13. Geçmiş
 
+- **2026-09-28:** Faz 8/6: JEVIS.app logosu ve yeni sürüm. VS Code ekran okuyucu modu yan etkisi bulundu, düzeltildi. Faz 8 bitti.
+
 - **2026-09-28:** Faz 8/5: Uygulama kısayolları ve 5 yeni hızlı yol; "Spotify'da Tarkan çal" Claude'suz 3.4 sn. 40/40 + 10/10.
 
 - **2026-09-28:** Faz 8/4: Dosya ve proje araçları; "projede ne yaptık" 8 sn. 13/13.
@@ -441,12 +451,13 @@ Kullanıcının isteği: "sesi yüzde 30 yap" gibi basit işler Claude'a gitmesi
 
 ## 14. Senden gerekenler (2026-09-28)
 
-1. **Ekrandaki izin sorusu:** "Visual Studio Code … doğrudan ekranınıza ve sese erişmek istiyor". Ekran görüntüsü alabilmek için **İzin Ver**. Cevaplanana kadar uygulamalar öne gelemiyor; masaüstü testi bu yüzden son çalıştırmada 17/23 kaldı. Cevapladıktan sonra `node tests/desktop-e2e.mjs`.
+1. **Yeni JEVIS.app'e izinler:** Yeni sürüm kuruldu. Açılınca macOS sırayla soracak; cevaplar senin: **Masaüstü klasörü** (sunucu bu olmadan başlamaz), sonra Sistem Ayarları › Gizlilik ve Güvenlik altında **Erişilebilirlik** ve **Ekran Kaydı** (JEVIS'i listeden çıkarıp yeniden ekle ya da kapatıp aç), ilk sesli komutta **Mikrofon**.
+   - Notlar, Anımsatıcılar, Takvim, Müzik ilk kullanımda bir kere "JEVIS … kontrol etmek istiyor" diye soracak.
 2. **App Store işi:**
    - Hangi uygulama? Bilgisayarda kullanıcının birkaç uygulaması var (adları burada tutulmuyor).
    - `node cli.js open appstoreconnect.apple.com` ile açılan JEVIS Chrome penceresinde App Store Connect'e **bir kez giriş yap**.
    - `appstore/bilgi-karti.md`'yi doldur (ya da sohbette söyle).
-3. **JEVIS.app:** `node cli.js app install` ve `node cli.js app open`. İlk açılışta JEVIS'e sırayla şu izinleri ver: **Masaüstü klasörü**, **Erişilebilirlik**, **Ekran Kaydı**, **Mikrofon**. Menüde "İzinleri Kontrol Et…" var.
+3. **İsteğe bağlı, her derlemede izin sormasın diye:** Kendi imzalı bir sertifikayla imzalama (Anahtar Zinciri'nde "JEVIS Dev" sertifikası). İstersen kurarız.
 4. **İsteğe bağlı:**
    - `node cli.js autostart on`: bilgisayar açılınca başlasın.
    - `claude mcp add --scope user jevis -- /opt/homebrew/bin/node /Users/purplefox/Desktop/jev/mcp/server.js`: JEVIS araçları her Claude Code oturumunda olsun.
