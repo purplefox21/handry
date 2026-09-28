@@ -31,7 +31,13 @@ const barOnScreen = () => {
   return w.some(x => x.w === 680 && !x.minimized);
 };
 
+// Never type while a macOS permission question is on screen: Enter would answer it.
+const SYSTEM_DIALOGS = /UserNotificationCenter|SecurityAgent|universalAccessAuthWarn|CoreServicesUIAgent|tccd|Konum|Location/i;
 const before = await desktop.frontmost();
+if (SYSTEM_DIALOGS.test(before.app || '')) {
+  console.log(`⏭️  Ekranda bir macOS sorusu var (${before.app}); test çalıştırılmadı.`);
+  process.exit(0);
+}
 const command = 'şu an hangi şarkı çalıyor';
 
 await check('⌥Space çubuğu açıyor', async () => {
@@ -41,6 +47,8 @@ await check('⌥Space çubuğu açıyor', async () => {
 });
 
 await check('Yazılan komut Enter ile çubuktan gidiyor', async () => {
+  const front = await desktop.frontmost();
+  if (!barOnScreen() || SYSTEM_DIALOGS.test(front.app || '')) return { ok: false, note: `çubuk açık değil ya da önde bir sistem sorusu var (${front.app}); yazılmadı` };
   const count = (await history()).length;
   helper('type', command);
   await sleep(200);
