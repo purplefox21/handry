@@ -2,255 +2,160 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JEVIS — Jev ile Mac ve tarayıcı asistanı</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>JEVIS</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="glow-bg"></div>
-
-  <!-- Header -->
-  <header class="app-header">
-    <div class="header-brand">
-      <div class="logo-badge">
-        <span class="logo-icon">⚡</span>
-        <div class="logo-texts">
-          <span class="brand-title"><strong>JEVIS</strong> · TypeSafe Jev</span>
-          <span class="brand-sub">Jev ile hızlanan Mac ve tarayıcı asistanı</span>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">JEVIS</span>
+          <span class="brand-status" id="status" data-state="ready"><span class="dot"></span><span id="statusText">Hazır</span></span>
         </div>
       </div>
 
-      <!-- App Mode Switcher -->
-      <div class="mode-switcher">
-        <button id="modeJevisBtn" class="mode-btn active">🤖 JEVIS</button>
-        <button id="modePlaygroundBtn" class="mode-btn">🧪 Karar Laboratuvarı</button>
-      </div>
-    </div>
-
-    <div class="header-auth">
-      <div class="api-key-container">
-        <span class="key-icon">🔑</span>
-        <input type="password" id="apiKeyInput" placeholder="TypeSafe API Key (ts_...)" autocomplete="off">
-        <button id="toggleKeyVisibility" title="Anahtarı Göster/Gizle" class="icon-btn">👁️</button>
-        <button id="saveKeyBtn" class="btn btn-sm btn-ghost">Kaydet</button>
-      </div>
-    </div>
-  </header>
-
-  <!-- MODE 1: PLAYGROUND VIEW -->
-  <div id="playgroundView" class="view-container">
-    <!-- Presets bar -->
-    <section class="presets-section">
-      <div class="presets-label">
-        <span>💡 Hazır Deneyler:</span>
-      </div>
-      <div class="presets-buttons">
-        <button class="preset-btn active" data-preset="birds">
-          <span class="preset-icon">🐧</span>
-          <div class="preset-text">
-            <strong>Penguen & Tavuk</strong>
-            <small>Biyoloji, kanatlar ve istisnalar</small>
-          </div>
+      <div class="model-switch" id="modelSwitch" role="radiogroup" aria-label="Model">
+        <button class="model-option" role="radio" data-model="claude-sonnet-5" aria-checked="true" title="Günlük işler için: hızlı ve aboneliğinden az yer">
+          <span class="model-title">Hızlı</span><span class="model-sub">Sonnet 5</span>
         </button>
-
-        <button class="preset-btn" data-preset="iron_ship">
-          <span class="preset-icon">🚢</span>
-          <div class="preset-text">
-            <strong>Demir vs Gemi</strong>
-            <small>Fizik & Arşimet prensibi</small>
-          </div>
-        </button>
-
-        <button class="preset-btn" data-preset="giraffe_penguin">
-          <span class="preset-icon">🦒</span>
-          <div class="preset-text">
-            <strong>Zürafa Penguen (Tanımı Ezme)</strong>
-            <small>Kendi fantastik kurallarını dayatma</small>
-          </div>
-        </button>
-
-        <button class="preset-btn" data-preset="support_router">
-          <span class="preset-icon">🎯</span>
-          <div class="preset-text">
-            <strong>Yazılım Yönlendirici (Router)</strong>
-            <small>Kızgın müşteri, departman & aciliyet</small>
-          </div>
+        <button class="model-option" role="radio" data-model="claude-opus-5-5" aria-checked="false" title="Uzun ve zor işler için: daha güçlü, kotadan daha çok yer">
+          <span class="model-title">Güçlü</span><span class="model-sub">Opus 5.5</span>
         </button>
       </div>
-    </section>
 
-    <!-- Workspace Grid -->
-    <div class="workspace-grid">
-      <!-- Left Column: Inputs -->
-      <div class="panel input-panel">
-        <div class="panel-header">
-          <div class="panel-title">
-            <span class="step-num">1</span>
-            <h3>State (Durum / Bağlam)</h3>
+      <div class="top-actions">
+        <button class="icon-btn" id="recipesBtn" title="Tarifler" aria-label="Tarifler">
+          <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        </button>
+        <button class="icon-btn" id="settingsBtn" title="Ayarlar" aria-label="Ayarlar">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button class="icon-btn" id="newChatBtn" title="Yeni sohbet" aria-label="Yeni sohbet">
+          <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="chat" id="chat">
+      <div class="chat-inner">
+        <section class="welcome" id="welcome">
+          <div class="welcome-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           </div>
-          <span class="badge badge-info">Metin veya JSON</span>
-        </div>
-
-        <div class="panel-body">
-          <div class="form-group">
-            <label for="stateInput">
-              Değerlendirilecek Durum / Metin:
-              <span class="label-hint">Jev bu durumu okur ve soruları bu bağlama göre yanıtlar.</span>
-            </label>
-            <textarea id="stateInput" rows="6" placeholder="Değerlendirilecek durumu yazın..."></textarea>
-          </div>
-
-          <div class="questions-header">
-            <div class="panel-title">
-              <span class="step-num">2</span>
-              <h3>Sorular (Primitives: Noul, Choice, Score)</h3>
-            </div>
-            <div class="question-add-dropdown">
-              <button id="addQuestionBtn" class="btn btn-sm btn-outline">+ Soru Ekle</button>
-            </div>
-          </div>
-
-          <div id="questionsContainer" class="questions-list"></div>
-
-          <div class="action-bar">
-            <button id="runBtn" class="btn btn-primary btn-lg">
-              <span class="btn-icon">⚡</span> Jev'e Değerlendir (Çalıştır)
+          <h1>Merhaba, ne yapayım?</h1>
+          <p>Yaz ya da mikrofona basılı tutup söyle. Basit işleri Jev anında yapar; gerisini Claude planlar, JEVIS senin yerine tıklar ve yazar.</p>
+          <div class="suggestions">
+            <button class="suggestion" data-cmd="Hacker News'i aç ve ilk 5 başlığı Türkçe özetle">
+              <span class="sg-icon sg-web" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+              <span class="sg-title">Web'de iş yap</span>
+              <span class="sg-text">Hacker News'i aç, ilk 5 başlığı özetle</span>
             </button>
-            <button id="resetBtn" class="btn btn-ghost">Sıfırla</button>
+            <button class="suggestion" data-cmd="Hesap makinesinde 12 çarpı 7'yi hesapla, sonucu söyle ve uygulamayı kapat">
+              <span class="sg-icon sg-app" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+              <span class="sg-title">Uygulama kullan</span>
+              <span class="sg-text">Hesap makinesinde 12 × 7'yi hesapla</span>
+            </button>
+            <button class="suggestion" data-cmd="Sesi yüzde 30 yap">
+              <span class="sg-icon sg-mac" aria-hidden="true"><svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></span>
+              <span class="sg-title">Mac'i ayarla</span>
+              <span class="sg-text">Sesi %30 yap · anında, Claude'suz</span>
+            </button>
+            <button class="suggestion" data-open="recipes">
+              <span class="sg-icon sg-recipe" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>
+              <span class="sg-title">Tarif çalıştır</span>
+              <span class="sg-text">Kayıtlı bir işi saniyeler içinde tekrarla</span>
+            </button>
           </div>
-        </div>
+          <p class="welcome-keys">
+            <span><kbd>⌥</kbd><kbd>Space</kbd> aç / kapat</span>
+            <span><kbd>⌥</kbd><kbd>⇧</kbd><kbd>Space</kbd> basılı tut, konuş</span>
+            <span><kbd>⌥</kbd><kbd>Esc</kbd> her şeyi durdur</span>
+          </p>
+        </section>
+        <div class="messages" id="messages" aria-live="polite"></div>
       </div>
+    </main>
 
-      <!-- Right Column: Visualizer & Code Output -->
-      <div class="panel output-panel">
-        <div class="panel-header tabs-header">
-          <div class="tabs">
-            <button class="tab-btn active" data-tab="visual">📊 Görsel Kararlar</button>
-            <button class="tab-btn" data-tab="code">💻 Kod Örneği</button>
-            <button class="tab-btn" data-tab="raw">🔍 Ham JSON</button>
-          </div>
-          <div class="meta-stats" id="metaStats">
-            <span id="latencyBadge" class="stat-pill" style="display: none;">⏱️ 0ms</span>
-            <span id="tokenBadge" class="stat-pill" style="display: none;">🎟️ 0 token</span>
-          </div>
-        </div>
-
-        <div class="panel-body tab-contents">
-          <!-- Visual Tab -->
-          <div class="tab-pane active" id="tab-visual">
-            <div id="loadingState" class="state-overlay" style="display: none;">
-              <div class="spinner"></div>
-              <p>Jev Sistem 1 kararlarını hesaplıyor...</p>
-            </div>
-
-            <div id="emptyState" class="state-placeholder">
-              <div class="placeholder-icon">🔮</div>
-              <h4>Henüz bir istek gönderilmedi</h4>
-              <p>Hazır senaryolardan birini seçip <strong>"Jev'e Değerlendir"</strong> butonuna basın.</p>
-            </div>
-
-            <div id="errorState" class="alert alert-danger" style="display: none;">
-              <div class="alert-icon">⚠️</div>
-              <div class="alert-content">
-                <strong id="errorTitle">İstek Başarısız Oldu</strong>
-                <p id="errorMessage"></p>
-              </div>
-            </div>
-
-            <div id="resultsContainer" class="results-list" style="display: none;"></div>
-          </div>
-
-          <!-- Code Tab -->
-          <div class="tab-pane" id="tab-code">
-            <div class="code-intro">
-              <p>Bu kararları backend'inizde normal bir <code>if/else</code> gibi doğrudan kullanabilirsiniz:</p>
-            </div>
-            <div class="code-block-wrapper">
-              <div class="code-header">
-                <span>TypeScript / JavaScript</span>
-                <button class="copy-btn" data-target="codeSnippetJs">Kopyala</button>
-              </div>
-              <pre><code id="codeSnippetJs">// Kod hazırlanıyor...</code></pre>
-            </div>
-            <div class="code-block-wrapper">
-              <div class="code-header">
-                <span>Python</span>
-                <button class="copy-btn" data-target="codeSnippetPy">Kopyala</button>
-              </div>
-              <pre><code id="codeSnippetPy"># Kod hazırlanıyor...</code></pre>
-            </div>
-          </div>
-
-          <!-- Raw JSON Tab -->
-          <div class="tab-pane" id="tab-raw">
-            <div class="raw-grid">
-              <div class="raw-col">
-                <div class="raw-title">Gönderilen İstek (Request Payload)</div>
-                <pre><code id="rawRequestJson">{}</code></pre>
-              </div>
-              <div class="raw-col">
-                <div class="raw-title">Dönen Yanıt (Response Payload)</div>
-                <pre><code id="rawResponseJson">// Henüz yanıt yok</code></pre>
-              </div>
-            </div>
-          </div>
-        </div>
+    <footer class="composer-wrap">
+      <div class="composer" id="composer">
+        <button class="round-btn mic-btn" id="micBtn" title="Basılı tut ve konuş (kısa dokunuş: başlat / bitir)" aria-label="Sesle komut" hidden>
+          <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <textarea id="input" rows="1" placeholder="Ne yapayım? Yaz ya da mikrofona basılı tut…" aria-label="Komut"></textarea>
+        <button class="round-btn send-btn" id="sendBtn" title="Gönder" aria-label="Gönder" disabled>
+          <svg viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+        </button>
+        <button class="round-btn stop-btn" id="stopBtn" title="Durdur" aria-label="Durdur" hidden>
+          <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        </button>
       </div>
-    </div>
+      <div class="composer-hint" id="hint">Enter ile gönder · Shift+Enter yeni satır</div>
+    </footer>
   </div>
 
-  <!-- JEVIS: sohbet + canlı eylem akışı -->
-  <div id="jevisView" class="view-container active">
-    <div class="jevis-shell">
-      <div class="jevis-toolbar">
-        <label class="toolbar-field">🧠 Beyin
+  <div class="scrim" id="scrim" hidden></div>
+
+  <aside class="drawer" id="settingsDrawer" hidden aria-label="Ayarlar">
+    <div class="drawer-head">
+      <h2>Ayarlar</h2>
+      <button class="icon-btn" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="drawer-body">
+      <section class="setting">
+        <h3>Model</h3>
+        <p class="setting-help"><strong>Hızlı (Sonnet 5)</strong> günlük işler için, aboneliğinden daha az yer. <strong>Güçlü (Opus 5.5)</strong> uzun ve karışık işler için. Üstteki düğmeden de değişir.</p>
+      </section>
+      <section class="setting">
+        <h3>Düşünme seviyesi</h3>
+        <div class="segmented" id="effortSwitch" role="radiogroup" aria-label="Düşünme seviyesi">
+          <button role="radio" data-effort="medium">Normal</button>
+          <button role="radio" data-effort="high">Yüksek</button>
+          <button role="radio" data-effort="xhigh">Çok yüksek</button>
+        </div>
+        <p class="setting-help">Claude her adımda ne kadar düşünsün. Yüksek önerilir; basit işlerde fazladan maliyeti yok.</p>
+      </section>
+      <section class="setting">
+        <label class="switch-row">
+          <span><strong>Hızlı yol</strong><small>Ses, müzik, uygulama açma gibi basit komutları Claude'a sormadan hemen yapar.</small></span>
+          <input type="checkbox" id="fastToggle" checked><span class="switch" aria-hidden="true"></span>
+        </label>
+        <label class="switch-row" id="speakRow" hidden>
+          <span><strong>Sesli cevap</strong><small>Cevabın kısa özetini Türkçe okur.</small></span>
+          <input type="checkbox" id="speakToggle"><span class="switch" aria-hidden="true"></span>
+        </label>
+      </section>
+      <details class="setting advanced">
+        <summary>Gelişmiş</summary>
+        <label class="field">Beyin
           <select id="brainSelect"></select>
         </label>
-        <label class="toolbar-field" id="modelWrap" title="Claude Code'un kullanacağı model">Model
-          <select id="modelSelect"></select>
-        </label>
-        <label class="toolbar-field" id="effortWrap" title="Claude'un her adımda ne kadar düşüneceği">Effort
-          <select id="effortSelect"></select>
-        </label>
-        <label class="toolbar-toggle" title="Basit komutları (ses, müzik, uygulama açma, açık sayfada tek tık) beyne sormadan Jev ile hemen yapar">
-          <input type="checkbox" id="fastToggle" checked> ⚡ Hızlı yol
-        </label>
-        <label class="toolbar-toggle" id="speakToggleWrap" title="Cevabın özetini sesli okur" hidden>
-          <input type="checkbox" id="speakToggle"> 🔊 Sesli cevap
-        </label>
-        <label class="toolbar-field" id="recipeWrap" hidden>📌 Tarif
-          <select id="recipeSelect"></select>
-          <button id="recipeRunBtn" class="btn btn-sm btn-ghost" title="Tarifi beyin kullanmadan çalıştır">▶</button>
-        </label>
-        <button id="newChatBtn" class="btn btn-sm btn-ghost">Yeni sohbet</button>
-        <span id="runStatus" class="run-status">Hazır</span>
-      </div>
-
-      <div id="chatLog" class="chat-log" aria-live="polite">
-        <div class="chat-welcome" id="chatWelcome">
-          <h2>Ne yapayım?</h2>
-          <p>Yaz ya da mikrofona bas. Basit işleri Jev anında yapar; gerisini seçtiğin beyin planlar, JEVIS'in elleri uygular. Riskli işlerde senden onay istenir.</p>
-          <div class="example-chips">
-            <button class="chip-btn" data-cmd="Sesi yüzde 30 yap">🔊 Sesi %30 yap</button>
-            <button class="chip-btn" data-cmd="Hesap makinesinde 12 çarpı 7'yi hesapla, sonucu söyle ve uygulamayı kapat">🧮 12 × 7</button>
-            <button class="chip-btn" data-cmd="Hacker News'i aç ve ilk 5 başlığı Türkçe özetle">📰 Haber özeti</button>
-            <button class="chip-btn" data-cmd="appstoreconnect.apple.com'u aç ve ne gördüğünü anlat">🍎 App Store Connect</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="chat-input">
-        <button id="micBtn" class="mic-btn" title="Bas-konuş: basılı tut, konuş, bırak" hidden>🎙️</button>
-        <textarea id="chatInput" rows="2" placeholder="JEVIS'e ne yapmasını istediğini yaz… (Enter: gönder, Shift+Enter: yeni satır)"></textarea>
-        <button id="sendBtn" class="btn btn-primary">Gönder</button>
-        <button id="stopBtn" class="btn btn-danger" hidden>⛔ DURDUR</button>
-      </div>
+        <p class="setting-help">Claude Code senin aboneliğinle çalışır. Diğerleri kurulunca burada seçilebilir.</p>
+      </details>
+      <section class="setting">
+        <h3>Durum</h3>
+        <ul class="status-list" id="statusList"></ul>
+      </section>
     </div>
-  </div>
+  </aside>
 
+  <aside class="drawer" id="recipesDrawer" hidden aria-label="Tarifler">
+    <div class="drawer-head">
+      <h2>Tarifler</h2>
+      <button class="icon-btn" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="drawer-body">
+      <p class="setting-help">Bir kez yaptığın işi kaydet, sonra saniyeler içinde tekrarla. Tarifler Claude kullanmaz; bir adım takılırsa Claude kaldığı yerden devam eder.</p>
+      <div class="recipe-list" id="recipeList"></div>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast" role="status" hidden></div>
   <script src="app.js"></script>
 </body>
 </html>

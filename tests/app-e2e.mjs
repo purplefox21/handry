@@ -125,7 +125,7 @@ try {
   await check('Arayüz: sohbet kutusunu JEVIS\'in kendi elleriyle kullan', async () => {
     process.env.JEVIS_TEST_CONFIRM = 'allow'; // "Gönder" is a risky word; this test process answers its dialog
     await browser.open(`${BASE}/`, { newTab: true });
-    await browser.type('JEVIS\'e ne yapmasını istediğini yaz', 'hesap makinesini aç');
+    await browser.type('Komut', 'hesap makinesini aç');
     await browser.click('Gönder');
     await browser.wait({ text: 'Bitti', ms: 20000 });
     const v = await browser.verify('the chat shows the command "hesap makinesini aç" and a finished fast-path answer that the calculator was opened');

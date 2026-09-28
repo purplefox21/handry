@@ -6,6 +6,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { ROOT, config, homeDir } from '../core/config.js';
 import { getApiKey } from '../core/jev.js';
+import { findBinary } from '../brain/common.js';
 import { runCommand } from '../core/runner.js';
 import { listBrains } from '../brain/index.js';
 import { requestStop } from '../guard/stop.js';
@@ -122,29 +123,6 @@ async function handleSay(req, res) {
 }
 
 // ---------------------------------------------------------------------------
-// Jev playground proxy (Karar Laboratuvarı)
-// ---------------------------------------------------------------------------
-
-async function handleEvaluate(req, res) {
-  const payload = JSON.parse((await readBody(req)).toString());
-  let apiKey = req.headers.authorization?.replace('Bearer ', '');
-  if (!apiKey) {
-    try { apiKey = getApiKey(); } catch (err) { return sendJson(res, 400, { error: err.message }); }
-  }
-  const startTime = Date.now();
-  const typesafeRes = await fetch('https://api.typesafe.ai/v1/systemone', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ state: payload.state, model: payload.model || 'jev-latest', questions: payload.questions })
-  });
-  const data = await typesafeRes.json();
-  if (!typesafeRes.ok) {
-    return sendJson(res, typesafeRes.status, { error: data.message || data.error || 'TypeSafe API hatası', details: data, status: typesafeRes.status });
-  }
-  sendJson(res, 200, { ...data, _client_latency_ms: Date.now() - startTime });
-}
-
-// ---------------------------------------------------------------------------
 
 const ROUTES = {
   'POST /api/run': handleRun,
@@ -167,7 +145,16 @@ const ROUTES = {
     deleteRecipe(JSON.parse((await readBody(req)).toString()).name);
     sendJson(res, 200, { ok: true });
   },
-  'POST /api/evaluate': handleEvaluate
+  'GET /api/status': (req, res) => {
+    let jev = true;
+    try { getApiKey(); } catch { jev = false; }
+    sendJson(res, 200, {
+      jev,
+      claude: Boolean(findBinary('claude')),
+      chrome: fs.existsSync(config().browser.chromePath),
+      voice: sttStatus().ok
+    });
+  }
 };
 
 export function registerRoute(key, handler) {

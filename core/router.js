@@ -40,5 +40,7 @@ export async function tryFast(command, onEvent) {
   const text = result.content.filter(c => c.type === 'text').map(c => c.text).join('\n');
   onEvent({ type: 'tool_result', name: 'browser_click', text, isError: Boolean(result.isError) });
   if (result.isError) return { handled: false, note: `Hızlı yol olmadı: ${text}` };
-  return { handled: true, text };
+  const clicked = text.match(/Öğe: "([^"]+)"/)?.[1] || command;
+  const opened = text.includes('Sayfa değişti') || text.includes('Yeni sekme') ? text.match(/Şu an: (.+?) \(/)?.[1] : null;
+  return { handled: true, text: `"${clicked}" tıklandı.${opened ? ` Açılan sayfa: ${opened}` : ''}` };
 }

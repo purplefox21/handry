@@ -92,8 +92,7 @@ jev/
 3. **Jev öğe seçer, metin üretmez.** Beyin "ne" yapılacağını söyler, Jev "nereye" sorusunu cevaplar, kod yapar. Yazılacak metni ya kullanıcı söyler ya beyin üretir.
 4. **Her şey MCP araçları olarak sunulur.** Böylece beyin değiştirilebilir. Bağlantı doğrudan (stdio) kurulur, ağa port açılmaz.
 5. **İlk beyin Claude Code (abonelik).** Yavaş kalırsa ya da reddederse: Codex CLI, Gemini CLI, API (Anthropic / OpenAI uyumlu) veya Ollama.
-   - **Model kararı (2026-09-28):** Varsayılan **Opus 5.5 + yalın mod + effort high**. Kullanıcı high effort istedi.
-   - Kota biterse arayüzdeki seçiciden **Sonnet 5**'e geçilir. Opus 4.8 bırakıldı: hem en pahalı hem en eski.
+   - **Model kararı (2026-09-28, kullanıcı):** Varsayılan **Sonnet 5 + yalın mod + effort high**. Arayüzde tek tıkla **Opus 5.5**'e ("Güçlü") geçilir. Opus 4.8 bırakıldı: hem en pahalı hem en eski.
    - **Yalın mod:** Claude Code'un uzun kodlama talimatı yerine kısa JEVIS talimatı (`--system-prompt`) verilir, dahili kodlama araçları kapatılır (`--tools ""`). JEVIS araçları yine MCP'den gelir. Her turda tekrar okunan yük yaklaşık 5 kat azalır; beyinde terminal ve dosya erişimi de olmaz.
    - Opus 5.5 için `claude` 2.1.280 veya üstü gerekiyor; kullanıcı 2.1.283'e güncelledi.
 6. **Şifreler LLM'e hiç gitmez.** macOS Anahtar Zinciri'nden kod okuyup yazar, kayıtlarda maskelenir.
@@ -218,7 +217,7 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
 - [x] `brain/codex.js` (deneysel, bu Mac'te kurulu olmadığı için test edilmedi), `brain/anthropic.js` (Anthropic SDK, anahtar gerekir), `brain/openai-compatible.js` (OpenAI, Ollama, LM Studio… sahte sunucuyla test edildi)
 - [x] Hızlı yol (`core/router.js`): Jev "bu tek adımlık basit bir komut mu?" diye bakar. Öyleyse beyne gitmeden hemen yapılır.
 - [x] Sunucu sadece `127.0.0.1`'i dinler ve oturum anahtarı ister
-- [x] Karar Laboratuvarı (Jev deney alanı) ayrı bir sekme olarak kalır
+- [x] ~~Karar Laboratuvarı ayrı bir sekme olarak kalır~~ Kullanıcı gereksiz buldu. 2026-09-28 arayüz yenilemesinde kaldırıldı; git geçmişinde duruyor.
 
 **Bitince:** Tarayıcıda `localhost:3000`'i açıp yazıyorsun, beyin olarak hangi LLM'in çalışacağını seçiyorsun.
 **Test:** Aynı App Store akışı hem Claude Code hem de başka bir beyinle çalışıyor. Basit komutlar 1 saniyenin altında.
@@ -377,6 +376,13 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
 
 - **2026-09-25:** Proje incelendi; JEVIS ve Jev'in yetenekleri araştırıldı.
 - **2026-09-26:** macOS kısımları silindi (sadece Jev kalsın denmişti). Jev konuşmaları ve deneyler yapıldı.
+- **2026-09-28:** Arayüz baştan yazıldı:
+  - macOS tarzı, açık/koyu tema.
+  - Hızlı (Sonnet 5) / Güçlü (Opus 5.5) düğmesi; varsayılan Sonnet 5.
+  - Türkçe adım açıklamaları katlanan listede.
+  - Tarifler ve Ayarlar yan panelleri (tarif çalıştırma ve kaydetme sayfa içinde).
+  - Karar Laboratuvarı ve API anahtarı kutusu kaldırıldı.
+  - Testler: sohbet 7/7, ses 8/8, tarif 7/7.
 - **2026-09-28:** Beyin varsayılanı Opus 5.5 + yalın mod + effort high oldu; arayüze model/effort seçici eklendi. JEVIS'in Chrome penceresi kapalıyken bağlanamama hatası düzeltildi.
 - **2026-09-28:** Faz 7 bitti: tarifler, JEVIS.app menü çubuğu uygulaması, açılışta başlama, doctor. Bütün fazlar tamam.
 - **2026-09-28:** Faz 6 bitti: whisper.cpp ile Türkçe konuşma tanıma, Yelda ile sesli cevap, bas-konuş, `do` / `listen` komutları. 8/8.

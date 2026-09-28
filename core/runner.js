@@ -57,7 +57,8 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
     const brain = getBrain(brainId);
     onEvent({ type: 'status', text: `${brain.label} düşünüyor…` });
     const out = await brain.run({ text, sessionId, onEvent, signal, model, effort });
-    return finish({ text: out.text, sessionId: out.sessionId }, { brain: brain.id, stopped: Boolean(out.stopped) });
+    const usedModel = brain.id === 'claude-code' ? (model || config().brain.providers['claude-code']?.model) : undefined;
+    return finish({ text: out.text, sessionId: out.sessionId }, { brain: brain.id, model: usedModel, stopped: Boolean(out.stopped) });
   } finally {
     if (previousRun === undefined) delete process.env.JEVIS_RUN_ID;
     else process.env.JEVIS_RUN_ID = previousRun;

@@ -29,7 +29,7 @@ export function listRecipes() {
   if (!fs.existsSync(DIR)) return [];
   return fs.readdirSync(DIR).filter(f => f.endsWith('.json')).map(f => {
     const r = JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf-8'));
-    return { name: r.name, description: r.description || '', steps: r.steps.length, vars: varsIn(r.steps) };
+    return { name: r.name, description: r.description || '', steps: r.steps.length, vars: varsIn(r.steps), hints: r.hints || {} };
   });
 }
 

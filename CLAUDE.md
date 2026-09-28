@@ -30,7 +30,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 
 ## Çalıştırma
 
-- `npm start` → http://localhost:3000 — JEVIS sohbeti (beyin seçici, hızlı yol, canlı eylem akışı, DURDUR) + Karar Laboratuvarı
+- `npm start` → http://localhost:3000 — JEVIS sohbeti: Hızlı (Sonnet 5) / Güçlü (Opus 5.5) model düğmesi, katlanan adım listesi, tarifler ve ayarlar paneli, bas-konuş, DURDUR
 - `node cli.js` → JEVIS komutları: `do "…"` (komut ver), `listen --do` (sesle), tarayıcı (open, read, click, type…), masaüstü (`desk …`, `app`, `mac`), `recipe …`, `secret`, `stop`, `doctor`
 - `node cli.js app install && node cli.js app open` → menü çubuğu uygulaması JEVIS.app (⌥Space sohbet, ⌥⇧Space bas-konuş, ⌥Esc acil durdur)
 - `node appstore/privacy-scan.js <klasör>` → App Privacy taslağı
