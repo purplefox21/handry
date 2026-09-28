@@ -446,8 +446,9 @@ final class Listener {
         listener.onCancel = { log(["type": "cancel"]) }
         listener.onError = { log(["type": "error", "message": $0]) }
 
-        Listener.requestPermissions { mic, speech in
-            log(["type": "permissions", "mic": mic, "speech": speech])
+        // A file needs no microphone, only the speech recognizer.
+        SFSpeechRecognizer.requestAuthorization { status in
+            log(["type": "permissions", "speech": status == .authorized])
             DispatchQueue.global().async {
                 if active { listener.startActive(pushToTalk: false) } else { listener.setWake(true) }
                 guard let file = try? AVAudioFile(forReading: URL(fileURLWithPath: input)) else {
