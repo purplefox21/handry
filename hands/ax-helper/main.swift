@@ -370,7 +370,12 @@ case "frontmost":
     let app = targetApp(pid: pidOpt, name: appOpt)
     let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
     let mine = windows.filter { ($0[kCGWindowOwnerPID as String] as? pid_t) == app.processIdentifier && ($0[kCGWindowLayer as String] as? Int) == 0 }
-    var win = mine.first
+    // Without the focused window (no Accessibility permission) the biggest one, not a full-screen app's thin strips.
+    let area = { (d: [String: Any]) -> CGFloat in
+        guard let b = d[kCGWindowBounds as String] as? NSDictionary, let r = CGRect(dictionaryRepresentation: b as CFDictionary) else { return 0 }
+        return r.width * r.height
+    }
+    var win = mine.max { area($0) < area($1) }
     let appEl = AXUIElementCreateApplication(app.processIdentifier)
     var out: [String: Any] = ["app": app.localizedName ?? "", "pid": app.processIdentifier, "bundleId": app.bundleIdentifier ?? ""]
     if let w = focusedWindow(appEl) {

@@ -50,7 +50,7 @@ async function ensureTrusted() {
   if (trustedChecked) return;
   const { trusted } = await ax('trusted');
   if (!trusted) {
-    throw new JevisError('NO_PERMISSION', 'Erişilebilirlik izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik bölümünde JEVIS\'i çalıştıran uygulamayı (Terminal, VS Code ya da JEVIS) aç.');
+    throw new JevisError('NO_PERMISSION', 'Erişilebilirlik izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik bölümünde JEVIS\'i çalıştıran uygulamayı (JEVIS, Terminal ya da VS Code) aç. JEVIS yeni kurulduysa listedeki eski JEVIS\'i − ile silip + ile yeniden ekle.');
   }
   trustedChecked = true;
 }
@@ -299,7 +299,15 @@ export async function screenshot({ app, fullScreen = false } = {}) {
   const f = await frontmost();
   const whole = fullScreen || !f.windowId;
   const file = path.join(homeDir('shots'), `desktop-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`);
-  await execFileAsync('screencapture', ['-x', '-o', '-t', 'jpg', ...(whole ? [] : ['-l', String(f.windowId)]), file]);
+  try {
+    await execFileAsync('screencapture', ['-x', '-o', '-t', 'jpg', ...(whole ? [] : ['-l', String(f.windowId)]), file]);
+  } catch (err) {
+    const { screenRecording } = await ax('trusted').catch(() => ({}));
+    if (screenRecording === false) {
+      throw new JevisError('NO_PERMISSION', 'Ekran Kaydı izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi Kaydı bölümünde JEVIS\'i çalıştıran uygulamayı aç, sonra o uygulamayı kapatıp yeniden aç.');
+    }
+    throw err;
+  }
   await execFileAsync('sips', ['-Z', '1400', file]).catch(() => {});
   const { stdout } = await execFileAsync('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', file]);
   const image = { w: Number(stdout.match(/pixelWidth: (\d+)/)?.[1]), h: Number(stdout.match(/pixelHeight: (\d+)/)?.[1]) };
