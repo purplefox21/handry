@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-28):** Faz 0-8 ✅ hepsi tamam. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
+> **Durum (2026-09-28):** Faz 0-8 ✅ hepsi tamam. Faz 9 (kompakt çubuk, canlı ses, "Hey Jev") planlandı; kullanıcı "başla" deyince başlanacak. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -318,6 +318,29 @@ Kullanıcının isteği: "sesi yüzde 30 yap" gibi basit işler Claude'a gitmesi
 
 **Test turu sırasında öğrenilen:** Kullanıcı bilgisayarı kullanırken masaüstü testleri uygulamaları öne getiremeyebiliyor. Güvenlik kontrolü o zaman tuş göndermeyi reddediyor (doğru davranış), test düşüyor. Sakin anda tekrar çalıştırınca 23/23 + 13/13 geçti.
 
+### Faz 9 — Kompakt çubuk ve "Hey Jev" (planlandı, kullanıcı "başla" deyince)
+Kullanıcının isteği: büyük sohbet penceresi yerine ekranın üstünden açılan küçük bir yazı alanı; yaz, Enter. "Hey Jev" deyince aynı alan açılsın, konuşulanı canlı yazsın, "gönder" demeden gitsin.
+
+Bugünkü durum: sesli kullanım bas-konuş. ⌥⇧Space basılı tutulur, bırakınca whisper yazıya çevirir ve kendiliğinden gönderir. Konuşurken yazı görünmez, sessizlikte kendiliğinden bitmez, uyandırma kelimesi yok.
+
+Yapılan ölçümler (2026-09-28): Apple'ın konuşma tanıması Türkçeyi cihaz içinde (internetsiz) destekliyor (`SFSpeechRecognizer tr-TR`, on-device: evet). macOS 26'nın yeni `SpeechTranscriber`'ı 30 dil destekliyor ama Türkçe yok. whisper.cpp'nin `whisper-stream`, `whisper-command` ve VAD araçları kurulu.
+
+- [ ] **9.1 Kompakt çubuk (klavye):**
+  - JEVIS.app'te ekranın üst ortasında açılan, kenarsız, yüzen bir panel (Spotlight gibi, ~680×52). Tam ekran uygulamaların üstünde ve her masaüstünde görünür.
+  - ⌥Space açar/kapatır, Esc ya da dışarı tıklama gizler, Enter gönderir. Çalışırken tek satır canlı durum ("Spotify'da çalınıyor: Tarkan…") ve DURDUR; bitince kısa cevap aşağı doğru açılır, birkaç saniye sonra kendiliğinden kapanır.
+  - Arayüz `app/public/bar.html` (sohbet kodunun akış/adım kısmı ortak bir dosyaya alınır). Büyük pencere "ayrıntılar ve geçmiş" olarak kalır, aynı sohbeti paylaşır.
+- [ ] **9.2 Canlı yazı ve sessizlikte gönderme:**
+  - Mikrofon JEVIS.app'te (Swift). Apple'ın cihaz içi Türkçe tanıması konuşurken kelimeleri anında çubuğa yazar.
+  - ~1 sn sessizlik = cümle bitti. Aynı ses whisper'a da gider (JEVIS, VS Code, Claude gibi adları daha iyi tanıyor), doğru metin yerine oturur ve kendiliğinden gönderilir.
+  - Göndermeden önce ~1 sn'lik ince bir geri sayım: Enter hemen gönderir, Esc iptal eder, klavyeye dokunmak düzenleme moduna geçirir.
+  - Yeni izin: Konuşma Tanıma (ilk kullanımda macOS sorar).
+- [ ] **9.3 "Hey Jev":**
+  - Açılıp kapatılabilen sürekli dinleme. Ucuz bir ses/konuşma kapısı; sadece kısa bir konuşma bitince whisper çalışır, metinde "hey jev" (ve "hey cev", "hey jeff" gibi yanlış duyulmuş hâlleri) aranır. Emin olunamayan durumda Jev karar verir ("JEVIS'e mi seslenildi?").
+  - Uyanınca çubuk iner, kısa bir ses çalar, 9.2'deki akış başlar. "Hey Jev, sesi kıs" tek nefeste söylenirse komut doğrudan alınır.
+  - JEVIS konuşurken ve ekran kilitliyken dinleme durur. Açıkken macOS menü çubuğunda turuncu mikrofon noktası sürekli görünür (sesin hiçbiri bilgisayardan çıkmaz).
+  - Ölçülecek: yanlış uyanma (30 dk podcast/YouTube açıkken), kaçırma (20 deneme), gecikme, işlemci/pil. Yetersizse B planı: "hey jev" için openWakeWord ile küçük özel bir model eğitmek.
+- [ ] **9.4 Cilalama:** uyanma/gönderme sesleri, sesle verilen komuta sesli cevap (yazılana değil), ayarlar (dinleme açık/kapalı, sessizlik süresi), uygulama logolu yeniden kurulum.
+
 ## 7. Sınırlar ve riskler
 
 - CAPTCHA ve 2FA'yı JEVIS çözmez. Durur, sen çözersin.
@@ -417,6 +440,8 @@ Kullanıcının isteği: "sesi yüzde 30 yap" gibi basit işler Claude'a gitmesi
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-09-28:** Faz 9 planlandı: kompakt çubuk, konuşurken canlı yazı ve sessizlikte gönderme, "Hey Jev".
 
 - **2026-09-28:** Faz 8/6: JEVIS.app logosu ve yeni sürüm. VS Code ekran okuyucu modu yan etkisi bulundu, düzeltildi. Faz 8 bitti.
 
