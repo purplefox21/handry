@@ -24,7 +24,7 @@ import path from 'node:path';
 const HELP = `JEVIS komutları
 
 Komut ver (hızlı yol ya da beyin)
-  do "<komut>" [--brain=claude-code] [--no-fast] [--say]
+  do "<komut>" [--brain=claude-code] [--model=claude-sonnet-5] [--effort=high] [--no-fast] [--say]
   listen [saniye] [--do] [--say]       Mikrofonu dinle, yazıya çevir (--do: çalıştır)
 
 Tarayıcı
@@ -153,7 +153,7 @@ function printEvent(ev) {
 }
 
 async function doCommand(text) {
-  const out = await runCommand({ text, brainId: flagValue('--brain') || config().brain.default, fast: !flags.has('--no-fast'), onEvent: printEvent });
+  const out = await runCommand({ text, brainId: flagValue('--brain') || config().brain.default, fast: !flags.has('--no-fast'), model: flagValue('--model'), effort: flagValue('--effort'), onEvent: printEvent });
   if (flags.has('--say') && out.text) await speak(out.text);
   return `✅ ${out.text || 'Bitti.'}\n(${(out.ms / 1000).toFixed(1)} sn${out.fast ? ', beyin kullanılmadı' : ''})`;
 }

@@ -16,10 +16,10 @@ function recipeCall(text) {
 }
 
 /** Replays a recipe; if a step fails, the brain continues from there. */
-export async function runRecipeWithHandoff({ name, vars, brain, sessionId, onEvent, signal }) {
+export async function runRecipeWithHandoff({ name, vars, brain, sessionId, onEvent, signal, model, effort }) {
   let session = sessionId;
   const askBrain = async prompt => {
-    const out = await brain.run({ text: prompt, sessionId: session, onEvent, signal });
+    const out = await brain.run({ text: prompt, sessionId: session, onEvent, signal, model, effort });
     session = out.sessionId;
     return out;
   };
@@ -35,7 +35,7 @@ export async function runRecipeWithHandoff({ name, vars, brain, sessionId, onEve
   return { text: out.text, sessionId: out.sessionId };
 }
 
-export async function runCommand({ text, brainId = config().brain.default, sessionId, fast = true, onEvent, signal }) {
+export async function runCommand({ text, brainId = config().brain.default, sessionId, fast = true, model, effort, onEvent, signal }) {
   const started = Date.now();
   const runId = `run-${Date.now().toString(36)}`;
   const previousRun = process.env.JEVIS_RUN_ID;
@@ -46,7 +46,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
   try {
     const recipe = recipeCall(text);
     if (recipe) {
-      const out = await runRecipeWithHandoff({ ...recipe, brain: getBrain(brainId), sessionId, onEvent, signal });
+      const out = await runRecipeWithHandoff({ ...recipe, brain: getBrain(brainId), sessionId, onEvent, signal, model, effort });
       return finish(out, { recipe: recipe.name, brain: brainId, stopped: Boolean(out.stopped) });
     }
     if (fast) {
@@ -56,7 +56,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
     }
     const brain = getBrain(brainId);
     onEvent({ type: 'status', text: `${brain.label} düşünüyor…` });
-    const out = await brain.run({ text, sessionId, onEvent, signal });
+    const out = await brain.run({ text, sessionId, onEvent, signal, model, effort });
     return finish({ text: out.text, sessionId: out.sessionId }, { brain: brain.id, stopped: Boolean(out.stopped) });
   } finally {
     if (previousRun === undefined) delete process.env.JEVIS_RUN_ID;

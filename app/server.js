@@ -76,7 +76,7 @@ let activeRun = null;
 
 async function handleRun(req, res) {
   if (activeRun) return sendJson(res, 409, { error: 'JEVIS şu an başka bir işi yapıyor. Bitmesini bekle ya da DURDUR\'a bas.' });
-  const { text, brain: brainId = config().brain.default, sessionId, fast = true } = JSON.parse((await readBody(req)).toString() || '{}');
+  const { text, brain: brainId = config().brain.default, sessionId, fast = true, model, effort } = JSON.parse((await readBody(req)).toString() || '{}');
   if (!text?.trim()) return sendJson(res, 400, { error: 'Boş komut.' });
 
   res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -84,7 +84,7 @@ async function handleRun(req, res) {
   const controller = new AbortController();
   activeRun = { controller };
   try {
-    send(await runCommand({ text, brainId, sessionId, fast, onEvent: send, signal: controller.signal }));
+    send(await runCommand({ text, brainId, sessionId, fast, model, effort, onEvent: send, signal: controller.signal }));
   } catch (err) {
     send({ type: 'error', message: controller.signal.aborted ? 'Durduruldu.' : err.message });
   } finally {
@@ -149,7 +149,10 @@ async function handleEvaluate(req, res) {
 const ROUTES = {
   'POST /api/run': handleRun,
   'POST /api/stop': (req, res) => handleStop(res),
-  'GET /api/brains': async (req, res) => sendJson(res, 200, { default: config().brain.default, brains: await listBrains() }),
+  'GET /api/brains': async (req, res) => {
+    const cc = config().brain.providers['claude-code'] || {};
+    sendJson(res, 200, { default: config().brain.default, brains: await listBrains(), claudeCode: { model: cc.model, effort: cc.effort, models: cc.models || [], efforts: cc.efforts || [] } });
+  },
   'GET /api/log': (req, res) => sendJson(res, 200, { actions: recentActions(30) }),
   'GET /api/voice': (req, res) => sendJson(res, 200, { stt: sttStatus(), tts: ttsStatus() }),
   'POST /api/voice': handleVoice,

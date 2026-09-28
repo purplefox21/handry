@@ -92,6 +92,10 @@ jev/
 3. **Jev öğe seçer, metin üretmez.** Beyin "ne" yapılacağını söyler, Jev "nereye" sorusunu cevaplar, kod yapar. Yazılacak metni ya kullanıcı söyler ya beyin üretir.
 4. **Her şey MCP araçları olarak sunulur.** Böylece beyin değiştirilebilir. Bağlantı doğrudan (stdio) kurulur, ağa port açılmaz.
 5. **İlk beyin Claude Code (abonelik).** Yavaş kalırsa ya da reddederse: Codex CLI, Gemini CLI, API (Anthropic / OpenAI uyumlu) veya Ollama.
+   - **Model kararı (2026-09-28):** Varsayılan **Opus 5.5 + yalın mod + effort high**. Kullanıcı high effort istedi.
+   - Kota biterse arayüzdeki seçiciden **Sonnet 5**'e geçilir. Opus 4.8 bırakıldı: hem en pahalı hem en eski.
+   - **Yalın mod:** Claude Code'un uzun kodlama talimatı yerine kısa JEVIS talimatı (`--system-prompt`) verilir, dahili kodlama araçları kapatılır (`--tools ""`). JEVIS araçları yine MCP'den gelir. Her turda tekrar okunan yük yaklaşık 5 kat azalır; beyinde terminal ve dosya erişimi de olmaz.
+   - Opus 5.5 için `claude` 2.1.280 veya üstü gerekiyor; kullanıcı 2.1.283'e güncelledi.
 6. **Şifreler LLM'e hiç gitmez.** macOS Anahtar Zinciri'nden kod okuyup yazar, kayıtlarda maskelenir.
 7. **Riskli işlerde onay.** Gönderme, yayınlama, silme, ödeme, fiyat değişikliği gibi işlemlerde macOS onay penceresi açılır. Riskli olup olmadığına Jev karar verir ("Bu tıklama geri alınamaz ya da dışarıyı etkiler mi?"), ayrıca bir kural listesi var. Kullanıcı ayarlardan değiştirebilir.
 8. **Güven eşikleri** ayar dosyasında durur. Başlangıç değerleri:
@@ -299,6 +303,23 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
   - "Dark mode'u aç" için "hiçbiri" dedi (%94).
   - Test betikleri: `node tests/jev-pick.mjs` (öğe seçimi) ve `node tests/npc-score.mjs` (hamle puanlama).
 - **Canlı API:** Model `jev-1.13.0`. Basit bir `noul` sorusu yaklaşık 490 ms sürüyor (istemci tarafında ölçüldü).
+- **2026-09-28, beyin modeli karşılaştırması:**
+  - Görev: App Store benzeri form (isim, kategori, fiyat, kutucuk, yaş sınırı penceresi). `claude` 2.1.283, her ayar bir kez çalıştı, hepsi doğru yaptı.
+  - Maliyet resmi fiyatlarla hesaplandı. Claude Code önbelleğe 1 saatlik yazıyor (girdi fiyatının 2 katı).
+
+  | Ayar | Süre | Maliyet |
+  |---|---|---|
+  | Opus 4.8, tam (güncellemeden önceki varsayılan) | 40 sn | $0.48 |
+  | Opus 5.5, tam | 28 sn | $0.27 |
+  | Sonnet 5, tam | 25 sn | $0.33 |
+  | Opus 5.5, yalın | 23 sn | $0.13 |
+  | Sonnet 5, yalın | 20 sn | $0.05 |
+  | Opus 5.5, yalın + high | 19 sn | $0.07 |
+  | Sonnet 5, yalın + high | 17 sn | $0.07 |
+
+  - Sonraki denemeler öncekilerin önbelleğinden faydalandığı için küçük farklar gürültü sayılmalı.
+  - Net sonuç: yalın mod maliyeti 2-6 kat düşürüyor. Effort high bu basit işlerde maliyeti artırmadı.
+  - Yeni ayarla `tests/app-e2e.mjs` 7/7; beyinle form doldurma 11.5 sn (önceki 17.5 sn).
 
 ## 10. Jev notları (öğrendiklerimiz)
 
@@ -356,6 +377,7 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
 
 - **2026-09-25:** Proje incelendi; JEVIS ve Jev'in yetenekleri araştırıldı.
 - **2026-09-26:** macOS kısımları silindi (sadece Jev kalsın denmişti). Jev konuşmaları ve deneyler yapıldı.
+- **2026-09-28:** Beyin varsayılanı Opus 5.5 + yalın mod + effort high oldu; arayüze model/effort seçici eklendi. JEVIS'in Chrome penceresi kapalıyken bağlanamama hatası düzeltildi.
 - **2026-09-28:** Faz 7 bitti: tarifler, JEVIS.app menü çubuğu uygulaması, açılışta başlama, doctor. Bütün fazlar tamam.
 - **2026-09-28:** Faz 6 bitti: whisper.cpp ile Türkçe konuşma tanıma, Yelda ile sesli cevap, bas-konuş, `do` / `listen` komutları. 8/8.
 - **2026-09-28:** Faz 5 bitti: sohbet arayüzü (app/), beyin adaptörleri, hızlı yol, DURDUR. 7/7.

@@ -819,7 +819,7 @@ async function sendCommand(text) {
   try {
     const res = await api('/api/run', {
       method: 'POST',
-      body: JSON.stringify({ text, brain: brainSelect.value, sessionId, fast: fastToggle.checked })
+      body: JSON.stringify({ text, brain: brainSelect.value, sessionId, fast: fastToggle.checked, ...claudeOptions() })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -847,8 +847,37 @@ async function sendCommand(text) {
   }
 }
 
+const modelSelect = document.getElementById('modelSelect');
+const effortSelect = document.getElementById('effortSelect');
+const MODEL_NAMES = { 'claude-opus-5-5': 'Opus 5.5', 'claude-sonnet-5': 'Sonnet 5', 'claude-haiku-4-5': 'Haiku 4.5' };
+
+// Model and effort only apply to the Claude Code brain.
+function claudeOptions() {
+  return brainSelect.value === 'claude-code' ? { model: modelSelect.value, effort: effortSelect.value } : {};
+}
+
+function fillSelect(select, values, chosen, label = v => v) {
+  select.replaceChildren(...values.map(v => {
+    const option = el('option', null, label(v));
+    option.value = v;
+    return option;
+  }));
+  if (values.includes(chosen)) select.value = chosen;
+}
+
+function syncClaudeControls() {
+  const show = brainSelect.value === 'claude-code';
+  document.getElementById('modelWrap').hidden = !show;
+  document.getElementById('effortWrap').hidden = !show;
+}
+
 async function loadBrains() {
   const data = await (await api('/api/brains')).json();
+  let savedModel = null;
+  let savedEffort = null;
+  try { savedModel = localStorage.getItem('jevis_model'); savedEffort = localStorage.getItem('jevis_effort'); } catch {}
+  fillSelect(modelSelect, data.claudeCode.models, savedModel || data.claudeCode.model, v => MODEL_NAMES[v] || v);
+  fillSelect(effortSelect, data.claudeCode.efforts, savedEffort || data.claudeCode.effort);
   brainSelect.replaceChildren();
   let saved = null;
   try { saved = localStorage.getItem('jevis_brain'); } catch {}
@@ -860,11 +889,21 @@ async function loadBrains() {
   }
   const usable = id => data.brains.some(b => b.id === id && b.available);
   brainSelect.value = usable(saved) ? saved : data.default;
+  syncClaudeControls();
 }
+
+modelSelect.addEventListener('change', () => {
+  try { localStorage.setItem('jevis_model', modelSelect.value); } catch {}
+  sessionId = null; // a different model starts a fresh conversation
+});
+effortSelect.addEventListener('change', () => {
+  try { localStorage.setItem('jevis_effort', effortSelect.value); } catch {}
+});
 
 brainSelect.addEventListener('change', () => {
   try { localStorage.setItem('jevis_brain', brainSelect.value); } catch {}
   sessionId = null;
+  syncClaudeControls();
 });
 
 sendBtn.addEventListener('click', () => {

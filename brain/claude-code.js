@@ -11,17 +11,27 @@ export async function available() {
   return findBinary('claude') ? { ok: true } : { ok: false, reason: 'claude komutu bulunamadı' };
 }
 
-export function run({ text, sessionId, onEvent, signal }) {
+/**
+ * Lean mode: a short JEVIS system prompt instead of Claude Code's long coding
+ * one, and none of its built-in coding tools (shell, file edits…). The JEVIS
+ * tools come in through MCP either way. Measured on a form task: same result,
+ * about 2–6× cheaper and faster, and no shell access for the brain.
+ */
+export function run({ text, sessionId, onEvent, signal, model, effort }) {
   const bin = findBinary('claude');
+  const settings = config().brain.providers['claude-code'] || {};
   const args = [
     '-p', text,
     '--output-format', 'stream-json', '--verbose',
     '--mcp-config', mcpConfigFile(), '--strict-mcp-config',
-    '--allowedTools', 'mcp__jevis',
-    '--append-system-prompt', BRAIN_PROMPT
+    '--allowedTools', 'mcp__jevis'
   ];
-  const model = config().brain.providers['claude-code']?.model;
-  if (model) args.push('--model', model);
+  if (settings.lean === false) args.push('--append-system-prompt', BRAIN_PROMPT);
+  else args.push('--tools', '', '--system-prompt', BRAIN_PROMPT);
+  const chosenModel = model || settings.model;
+  const chosenEffort = effort || settings.effort;
+  if (chosenModel) args.push('--model', chosenModel);
+  if (chosenEffort) args.push('--effort', chosenEffort);
   if (sessionId) args.push('--resume', sessionId);
 
   return new Promise((resolve, reject) => {
