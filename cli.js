@@ -10,6 +10,11 @@ import { runCommand, runRecipeWithHandoff } from './core/runner.js';
 import { listRecipes, loadRecipe, saveFromRun, deleteRecipe } from './core/recipes.js';
 import { getBrain } from './brain/index.js';
 import { loadState } from './core/config.js';
+import { doctor } from './core/doctor.js';
+import { buildApp, installApp, INSTALLED } from './app/macos/build.js';
+import { enableAutostart, disableAutostart, autostartEnabled } from './app/macos/autostart.js';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import * as desktop from './hands/desktop.js';
 import { transcribe } from './voice/stt.js';
 import { speak } from './voice/tts.js';
@@ -54,6 +59,11 @@ Mac uygulamaları
   desk key <kısayol>                  Örn: cmd+s, escape, return
   desk shot [--full]                  Ön pencerenin ekran görüntüsü
   mac <eylem> [değer]                 volume 40, mute, next_track, dark_mode, notify "…", spotify_search "…"
+
+Uygulama ve kurulum
+  doctor                              Her şeyi kontrol et, eksikleri söyle
+  app build | app install | app open  Menü çubuğu uygulaması (⌥Space, ⌥⇧Space bas-konuş, ⌥Esc durdur)
+  autostart on | off | status         Bilgisayar açılınca JEVIS başlasın
 
 Şifreler (macOS Anahtar Zinciri)
   secret add <isim> --site=site1.com,site2.com   Şifreyi sorar, sadece bu sitelerde kullanılır
@@ -168,6 +178,25 @@ async function recipeCommand() {
 }
 
 async function run() {
+  if (cmd === 'doctor') return doctor();
+  if (cmd === 'app') {
+    if (args[0] === 'build') return `Derlendi: ${buildApp()}`;
+    if (args[0] === 'install') return `Kuruldu: ${installApp()}\nAçmak için: node cli.js app open`;
+    if (args[0] === 'open') {
+      execFileSync('open', [fs.existsSync(INSTALLED) ? INSTALLED : buildApp()]);
+      return 'JEVIS açıldı: menü çubuğundaki ⚡ simgesi. ⌥Space sohbet, ⌥⇧Space bas-konuş, ⌥Esc acil durdur.';
+    }
+    return 'Kullanım: app build | app install | app open';
+  }
+  if (cmd === 'autostart') {
+    if (args[0] === 'on') {
+      const target = fs.existsSync(INSTALLED) ? INSTALLED : installApp();
+      enableAutostart(target);
+      return `✅ JEVIS bilgisayar açılınca başlayacak (${target}).`;
+    }
+    if (args[0] === 'off') { disableAutostart(); return 'Açılışta başlama kapatıldı.'; }
+    return autostartEnabled() ? 'Açılışta başlama: açık' : 'Açılışta başlama: kapalı';
+  }
   if (cmd === 'recipe') return recipeCommand();
   if (cmd === 'do') return doCommand(args.join(' '));
   if (cmd === 'listen') {

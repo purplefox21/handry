@@ -355,6 +355,15 @@ case "setvalue":
     AXUIElementSetAttributeValue(el, "AXFocused" as CFString, kCFBooleanTrue)
     var method = "AXValue"
     if AXUIElementSetAttributeValue(el, "AXValue" as CFString, value as CFString) != .success || text(attribute(el, "AXValue")) != value.trimmingCharacters(in: .whitespacesAndNewlines) {
+        // The keyboard fallback types into the front app: it must be the target app.
+        let target = targetApp(pid: pidOpt, name: appOpt)
+        if NSWorkspace.shared.frontmostApplication?.processIdentifier != target.processIdentifier {
+            target.activate(options: [])
+            usleep(300000)
+        }
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == target.processIdentifier else {
+            fail("\(target.localizedName ?? "Uygulama") öne getirilemedi; klavyeyle yazılmadı.", code: "NOT_FRONT")
+        }
         if let p = center(el) { click(p) }
         usleep(80000)
         sendKey("cmd+a")

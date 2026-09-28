@@ -42,13 +42,17 @@ await step('Ekran görüntüsü (pencere)', () => callTool('desktop_screenshot',
 await step('Hesap Makinesi\'ni kapat', () => call('desktop_quit_app', { name: 'Hesap Makinesi' }), r => r.text.includes('Kapatıldı'));
 
 // TextEdit: new document through the window, menu action, typing, discard dialog
-await step('TextEdit aç', () => call('desktop_open_app', { name: 'TextEdit' }), r => !r.isError);
-await sleep(700);
-await step('"Yeni Belge"', () => call('desktop_click', { target: 'Yeni Belge', app: 'TextEdit' }), r => !r.isError);
-await sleep(700);
+await step('TextEdit aç', () => call('desktop_open_app', { name: 'TextEdit' }), r => !r.isError && r.text.includes('TextEdit'));
+await sleep(500);
+// A fresh launch may show the open panel or restore windows; ⌘N always gives a new document.
+await step('Yeni belge (⌘N)', async () => {
+  await call('desktop_key', { keys: 'cmd+n', app: 'TextEdit' });
+  await sleep(800);
+  return call('desktop_read', { app: 'TextEdit' });
+}, r => /Adsız|Untitled/.test(r.text.split('\n')[1] || ''));
 await step('Belgeye yaz', () => call('desktop_type', { target: 'belge metin alanı', text: 'JEVIS masaüstü testi', app: 'TextEdit' }), r => !r.isError);
-await step('Yazı doğru alanda', () => call('desktop_read', { app: 'TextEdit' }), r => r.text.includes('JEVIS masaüstü testi'));
-await step('Menü öğesi: "Düz Metin Yap"', () => call('desktop_click', { target: 'Düz Metin Yap', app: 'TextEdit' }), r => !r.isError && r.text.includes('Düz Metin Yap'));
+await step('Yazı metin alanında', () => call('desktop_read', { app: 'TextEdit' }), r => /\[TextArea\][^\n]*JEVIS masaüstü testi/.test(r.text));
+await step('Menü öğesi: "Tümünü Seç" (menü açılmadan)', () => call('desktop_click', { target: 'Tümünü Seç', app: 'TextEdit' }), r => !r.isError && r.text.includes('Tümünü Seç'));
 await sleep(500);
 await step('Terminal koruması: odaktaki alana yazmak (TextEdit, sorulmamalı)', () => call('desktop_type', { text: ' +', app: 'TextEdit' }), r => !r.isError);
 await step('Kapatmayı iste → "kaydedilsin mi?"', () => call('desktop_quit_app', { name: 'TextEdit' }), r => r.text.includes('kapanmadı'));

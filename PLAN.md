@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-28):** Faz 0-6 ✅ (Faz 2'deki gerçek App Store işi kullanıcı bekleniyor). Faz 7 (tarifler + menü çubuğu uygulaması) devam ediyor.
+> **Durum (2026-09-28):** Faz 0-7 ✅ hepsi tamam. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -251,12 +251,25 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
 - Tarayıcıda örnek hızını basit ortalamayla düşürmek tanımayı bozuyor ("Xcode Ağaç ve Proje İdeale"). Tarayıcının kendi dönüştürücüsü (`OfflineAudioContext`) kullanılıyor.
 
 ### Faz 7 — Tarifler ve uygulama haline getirme
-- [ ] Başarılı akışlar tarif olarak kaydedilir. Adımlar doğal dilde saklanır ("Pricing and Availability'e tıkla"), böylece sayfa düzeni değişse bile tekrar oynatırken Jev doğru öğeyi bulur.
-- [ ] Tarif oynatma beyinsiz, sadece Jev ile çalışır: çok hızlı, neredeyse bedava. Takılırsa beyne devreder.
-- [ ] Hazır tarifler: `appstore-yeni-surum`, `appstore-fiyat`, sabah rutini
-- [ ] Menü çubuğu uygulaması (kısayolla açılan pencere) ve bilgisayar açılınca otomatik başlama
+- [x] Başarılı akışlar tarif olarak kaydedilir. Adımlar doğal dilde saklanır ("Pricing and Availability'e tıkla"), böylece sayfa düzeni değişse bile tekrar oynatırken Jev doğru öğeyi bulur.
+- [x] Tarif oynatma beyinsiz, sadece Jev ile çalışır: çok hızlı, neredeyse bedava. Takılırsa beyne devreder.
+- [x] Hazır tarifler: `sabah-rutini` şablonu (değişkenli, düşünme adımlı). App Store tarifleri ilk gerçek App Store işinden "📌 Tarif olarak kaydet" ile kaydedilecek; gerçek sayfa görülmeden yazılırsa yanlış olur.
+- [x] Menü çubuğu uygulaması JEVIS.app: ⌥Space sohbet, ⌥⇧Space basılı tut-konuş, ⌥Esc acil durdur; sunucuyu kendisi başlatır. Açılışta başlama `node cli.js autostart on` ile; varsayılan kapalı.
 
 **Bitince:** Tekrar eden işler tek komutla, saniyeler içinde yapılıyor.
+**Sonuç:**
+- `node tests/recipe-e2e.mjs` **7/7**:
+  - İşten tarif çıkarma: #id hedefleri isimlere çevriliyor.
+  - Beyinsiz tekrar oynatma, değişkenler, takılınca beyne devretme, düşünme adımı.
+  - Sohbet API'sinden "tarif: …" komutu **2.5 sn**. Aynı iş Claude ile 17-25 sn sürüyor.
+- Takılan tarif gerçek Claude Code'a da devredildi, kalan adımları tamamladı (25.7 sn).
+- JEVIS.app derlendi ve ad-hoc imzalandı. Sunucuyu kendisi başlattı, ⌥Space ile pencere açıldı ve sohbet yüklendi, ⌥Esc acil durdurmayı yazdı. Uygulama kapanınca sunucusu da kapandı.
+- `node cli.js doctor` bütün parçaları kontrol ediyor.
+
+**Öğrenilenler:**
+- Proje `~/Desktop` içinde olduğu için JEVIS.app'in başlattığı sunucu ilk açılışta macOS'un "Masaüstü klasörüne erişim" iznini bekliyor. Başka bir izin sorusu ekrandayken bu soru sıraya giriyor ve sunucu takılı kalıyor.
+- Ekranda cevap bekleyen bir sistem izin sorusu varken macOS uygulamaların öne gelmesine izin vermiyor gibi. Bu yüzden masaüstü testi son çalıştırmada 17/23 kaldı (soru çıkmadan önce 23/23'tü).
+- Bu sırada bir güvenlik açığı bulundu: ⌘N, TextEdit yerine öndeki Chrome'a gidiyordu. Artık tuş ve klavye yazısı sadece istenen uygulama gerçekten öndeyse gönderiliyor; değilse "gönderilmedi" hatası dönüyor.
 
 ## 7. Sınırlar ve riskler
 
@@ -343,6 +356,7 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
 
 - **2026-09-25:** Proje incelendi; JEVIS ve Jev'in yetenekleri araştırıldı.
 - **2026-09-26:** macOS kısımları silindi (sadece Jev kalsın denmişti). Jev konuşmaları ve deneyler yapıldı.
+- **2026-09-28:** Faz 7 bitti: tarifler, JEVIS.app menü çubuğu uygulaması, açılışta başlama, doctor. Bütün fazlar tamam.
 - **2026-09-28:** Faz 6 bitti: whisper.cpp ile Türkçe konuşma tanıma, Yelda ile sesli cevap, bas-konuş, `do` / `listen` komutları. 8/8.
 - **2026-09-28:** Faz 5 bitti: sohbet arayüzü (app/), beyin adaptörleri, hızlı yol, DURDUR. 7/7.
 - **2026-09-28:** Faz 4 bitti: Swift erişilebilirlik yardımcısı, masaüstü elleri, mac_action, terminal/kısayol korumaları. 23/23.
@@ -351,3 +365,20 @@ Claude Code (claude -p + MCP) Hesap Makinesi'nde 7×8=56'yı Türkçe buton adla
 - **2026-09-28:** Faz 1 bitti: Jev çekirdeği, tarayıcı elleri, CLI, onay penceresi. Test sayfasında 27/27, gerçek sitelerde 9/9.
 - **2026-09-28:** Faz 0 bitti: güvenlik açığı kapandı, 3 hata düzeldi, bağımlılıklar kuruldu.
 - **2026-09-28:** Silinenler geri istendi ve kayıtlardan byte byte geri getirildi. Git kuruldu (`6b77f32`). Claude in Chrome reddedildi, kendi JEVIS sistemimize karar verildi. Bu plan yazıldı.
+
+## 14. Senden gerekenler (2026-09-28)
+
+1. **Ekrandaki izin sorusu:** "Visual Studio Code … doğrudan ekranınıza ve sese erişmek istiyor". Ekran görüntüsü alabilmek için **İzin Ver**. Cevaplanana kadar uygulamalar öne gelemiyor; masaüstü testi bu yüzden son çalıştırmada 17/23 kaldı. Cevapladıktan sonra `node tests/desktop-e2e.mjs`.
+2. **App Store işi:**
+   - Hangi uygulama? Bilgisayarda kullanıcının birkaç uygulaması var (adları burada tutulmuyor).
+   - `node cli.js open appstoreconnect.apple.com` ile açılan JEVIS Chrome penceresinde App Store Connect'e **bir kez giriş yap**.
+   - `appstore/bilgi-karti.md`'yi doldur (ya da sohbette söyle).
+3. **JEVIS.app:** `node cli.js app install` ve `node cli.js app open`. İlk açılışta JEVIS'e sırayla şu izinleri ver: **Masaüstü klasörü**, **Erişilebilirlik**, **Ekran Kaydı**, **Mikrofon**. Menüde "İzinleri Kontrol Et…" var.
+4. **İsteğe bağlı:**
+   - `node cli.js autostart on`: bilgisayar açılınca başlasın.
+   - `claude mcp add --scope user jevis -- /opt/homebrew/bin/node /Users/purplefox/Desktop/jev/mcp/server.js`: JEVIS araçları her Claude Code oturumunda olsun.
+   - Bu klasörde yeni bir Claude Code oturumu açınca `jevis` MCP sunucusunu onayla.
+5. **İsteğe bağlı başka beyinler:**
+   - Codex: `npm i -g @openai/codex`, sonra giriş.
+   - Ollama: kur, bir model indir, adını `jevis.config.json` › `brain.providers.ollama.model` alanına yaz.
+   - Anthropic API: `ANTHROPIC_API_KEY`.

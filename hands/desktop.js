@@ -175,7 +175,7 @@ export async function click(target, { app } = {}) {
 export async function type(target, text, { app, submit = false } = {}) {
   await ensureTrusted();
   if (!target) {
-    const front = await frontmost();
+    const front = await ensureFront(app);
     await shellGuard(front.bundleId, `"${text}" yazmak${submit ? ' ve Enter\'a basmak' : ''}`);
     await ax('type', text);
     if (submit) await ax('key', 'return');
@@ -193,11 +193,29 @@ export async function type(target, text, { app, submit = false } = {}) {
   return { element: { name: el.name, role: el.role }, jev: { confidence: pct(el.pick.confidence), ms: el.pick.ms }, typed: text.length, method: res.method, approval, ...(await after(el.pid)) };
 }
 
+/**
+ * Keys and keyboard typing go to whatever app is in front. When the caller
+ * names an app, it must really be in front first; otherwise nothing is sent.
+ */
+async function ensureFront(app) {
+  if (!app) return frontmost();
+  const target = await appArgs(app);
+  let front = await frontmost();
+  for (let i = 0; i < 10 && String(front.pid) !== String(target[1]); i++) {
+    if (i === 0) await ax('activate', ...target).catch(() => {});
+    await sleep(150);
+    front = await frontmost();
+  }
+  if (String(front.pid) !== String(target[1])) {
+    throw new JevisError('NOT_FRONT', `${app} öne getirilemedi (önde: ${front.app}); tuş gönderilmedi. Ekranda cevap bekleyen bir sistem sorusu olabilir.`);
+  }
+  return front;
+}
+
 export async function key(combo, { app } = {}) {
   await ensureTrusted();
   const normalized = combo.toLowerCase().replace(/\s+/g, '');
-  if (app) await ax('activate', ...(await appArgs(app)));
-  const front = await frontmost();
+  const front = await ensureFront(app);
   if (DANGEROUS_KEYS.has(normalized)) {
     const ok = await confirmAction(`JEVIS "${front.app}" içinde ${combo} kısayoluna basmak istiyor (uygulama kapanabilir ya da veri silinebilir).\n\nİzin veriyor musun?`);
     if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${combo}`);
@@ -225,6 +243,7 @@ export async function activate(app) {
  */
 export async function openApp(name, target) {
   const extra = target ? [target.startsWith('~/') ? path.join(os.homedir(), target.slice(2)) : target] : [];
+  let opened = name;
   try {
     await execFileAsync('open', ['-a', name, ...extra]);
   } catch {
@@ -232,12 +251,17 @@ export async function openApp(name, target) {
     const installed = dirs.flatMap(d => { try { return fs.readdirSync(d).filter(f => f.endsWith('.app')).map(f => f.slice(0, -4)); } catch { return []; } });
     const pick = await jev.pickOption('application to open', name, installed);
     if (pick.index === null || !jev.isConfident(pick)) throw new JevisError('NO_APP', `"${name}" adında bir uygulama bulunamadı.`);
-    await execFileAsync('open', ['-a', installed[pick.index], ...extra]);
+    opened = installed[pick.index];
+    await execFileAsync('open', ['-a', opened, ...extra]);
   }
-  for (let i = 0; i < 20; i++) {
+  // Wait until that app is really in front ("Hesap Makinesi" is com.apple.calculator).
+  const wanted = [name, opened].map(n => n.toLowerCase().replace(/\.app$/, ''));
+  const isIt = f => wanted.some(w => f.app?.toLowerCase() === w || f.bundleId?.toLowerCase().endsWith(`.${w.replace(/\s+/g, '')}`));
+  for (let i = 0; i < 25; i++) {
     await sleep(200);
     const f = await frontmost().catch(() => null);
-    if (f && f.window !== undefined) return f;
+    if (f && isIt(f)) return f;
+    if (i === 10) await ax('activate', '--app', opened).catch(() => {});
   }
   return frontmost();
 }
