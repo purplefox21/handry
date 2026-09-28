@@ -1,6 +1,6 @@
 // Phase 5 end to end: app server API (fast path, Claude Code brain, busy
-// guard, stop), the OpenAI-compatible adapter against a mock server, and the
-// chat UI itself driven through JEVIS's own browser hands.
+// guard, stop), the OpenAI-compatible adapter against a mock server, the chat
+// UI and the compact bar, both driven through JEVIS's own browser hands.
 // Usage: node tests/app-e2e.mjs   (uses the Claude subscription for two short runs)
 import http from 'node:http';
 import { spawn } from 'node:child_process';
@@ -133,6 +133,19 @@ try {
     await browser.closeTab();
     if ((await desktop.apps()).some(a => a.bundleId === 'com.apple.calculator')) await desktop.quitApp('Hesap Makinesi');
     return v.yes;
+  });
+
+  await check('Çubuk: komut yaz, Enter, cevap; büyük pencerenin geçmişine düşüyor', async () => {
+    await browser.open(`${BASE}/bar.html`, { newTab: true });
+    await browser.type('Komut', 'şu an hangi şarkı çalıyor', { submit: true });
+    await browser.wait({ text: 'Bitti', ms: 20000 });
+    const page = await browser.activePage();
+    const answer = await page.textContent('#answer');
+    await browser.closeTab();
+    const history = await (await fetch(`${BASE}/api/history`, { headers })).json();
+    const last = history.runs.at(-1);
+    console.log(`        cevap: ${answer}`);
+    return /çal/.test(answer) && last?.source === 'bar' && last.text === 'şu an hangi şarkı çalıyor' && last.fast;
   });
 } finally {
   serverProc.kill();

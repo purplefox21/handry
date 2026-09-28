@@ -51,6 +51,7 @@ final class Listener {
     private var woke = false
     private var pushToTalk = false
     private var finishing = false
+    private var wakeEnd: Double?       // where "Hey Jev" ends in the phrase audio (seconds)
 
     static let wakePattern = try! NSRegularExpression(
         pattern: "^\\s*(?:hey|hei|hay|hi|ey|ay|he)[\\s,.!]*(?:jev|jevs|jevis|jeff|jef|jefe|cev|ceb|cef|cevs|chev|shev|j\\.?e\\.?v\\.?|jarvis|ciyev)(?![\\p{L}\\p{N}])[\\s,.!?:;-]*",
@@ -301,6 +302,7 @@ final class Listener {
         text = ""
         heard = false
         finishing = false
+        wakeEnd = nil
         samples = []
         // The moment before the voice started (the "H" of "Hey") is kept.
         var total = 0.0
@@ -333,7 +335,10 @@ final class Listener {
             guard let self else { return }
             self.q.async {
                 guard gen == self.generation else { return }
-                if let result { self.recognized(result.bestTranscription.formattedString, final: result.isFinal) }
+                if let result {
+                    if self.woke || self.mode == .candidate, let end = Listener.wakeEnd(result.bestTranscription.segments) { self.wakeEnd = end }
+                    self.recognized(result.bestTranscription.formattedString, final: result.isFinal)
+                }
                 else if error != nil, self.finishing { self.deliver() }
             }
         }
@@ -357,6 +362,20 @@ final class Listener {
         if final && finishing { deliver() }
     }
 
+    /// When the words "Hey Jev" end, from the recognizer's word timings.
+    /// whisper hears the rest badly when it starts with them, so they are cut off.
+    static func wakeEnd(_ segments: [SFTranscriptionSegment]) -> Double? {
+        var head = ""
+        for (i, segment) in segments.prefix(5).enumerated() {
+            head += (i == 0 ? "" : " ") + segment.substring
+            if afterWake(head) == "" {
+                let end = segment.timestamp + segment.duration
+                return end > 0 ? end : nil
+            }
+        }
+        return nil
+    }
+
     private func update(_ command: String) {
         text = command
         if !command.isEmpty { heard = true }
@@ -377,7 +396,12 @@ final class Listener {
         finishing = false
         let said = text
         let wasWoken = woke
-        let wav = samples.count > 16000 / 4 ? writeWav(samples) : nil
+        var audio = samples
+        if wasWoken, let end = wakeEnd {
+            let cut = max(0, min(audio.count, Int((end + 0.05) * 16000)))
+            audio.removeFirst(cut)
+        }
+        let wav = audio.count > 16000 / 4 ? writeWav(audio) : nil
         cancelRecognition()
         mode = wake ? .waiting : .off
         updateEngine()
