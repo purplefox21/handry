@@ -71,6 +71,17 @@ export async function doctor() {
   lines.push(fs.existsSync(path.join(ROOT, '.mcp.json')) && findBinary('claude')
     ? ok('Claude Code MCP bağlantısı', '.mcp.json (bu klasörde açılan oturumlar)')
     : warn('Claude Code MCP bağlantısı', '.mcp.json ya da claude komutu yok'));
+  // Other Claude sessions using JEVIS's hands: every Claude Code session, and the Claude app.
+  const readJson = f => { try { return JSON.parse(fs.readFileSync(f, 'utf-8')); } catch { return null; } };
+  lines.push(readJson(path.join(os.homedir(), '.claude.json'))?.mcpServers?.jevis
+    ? ok('JEVIS her Claude Code oturumunda', 'kullanıcı kapsamında MCP')
+    : `➖ JEVIS her Claude Code oturumunda — kapalı (claude mcp add --scope user jevis -- ${process.execPath} ${path.join(ROOT, 'mcp', 'server.js')})`);
+  const desktopConfig = path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+  if (fs.existsSync(desktopConfig)) {
+    lines.push(readJson(desktopConfig)?.mcpServers?.jevis
+      ? ok('JEVIS Claude uygulamasında', 'ayarlı (Claude uygulamasına Erişilebilirlik ve Ekran Kaydı izni gerekir)')
+      : '➖ JEVIS Claude uygulamasında — ayarlı değil');
+  }
 
   lines.push(await reachable(`http://127.0.0.1:${c.server.port}/`)
     ? ok('Sohbet sunucusu', `http://localhost:${c.server.port}`)

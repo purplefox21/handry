@@ -16,7 +16,8 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 
 ## JEVIS araçları (sen beyin olduğunda)
 
-`.mcp.json` içindeki `jevis` MCP sunucusu `mcp__jevis__*` araçlarını verir. Kullanım kuralları sunucunun kendi talimatında yazıyor; özetle:
+`jevis` MCP sunucusu (`mcp/server.js`) `mcp__jevis__*` araçlarını verir. Bu klasörde `.mcp.json` ile, ayrıca kullanıcı kapsamında bütün Claude Code oturumlarında ve Claude masaüstü uygulamasında kurulu. Kullanım kuralları sunucunun kendi talimatında yazıyor; özetle:
+- Basit tek adımlık işler (ses, müzik, uygulama aç/kapat, site, arama, Spotify, not, takvim) için önce `jevis_do`: JEVIS'in hızlı yolu 1-3 sn'de yapar. "Kendi başına yapamıyor" derse işi diğer araçlarla yap.
 - Yeni sayfada önce `browser_read`. Hedefi sayfadaki kelimelerle ver ("Save", "None under Cartoon or Fantasy Violence") ya da `#id` kullan.
 - Jev emin olmazsa adayları listeler; tahmin etme, `#id` ile seç.
 - Onay penceresinde kullanıcı "Hayır" derse dur ve bildir. Başka bir yol arama.

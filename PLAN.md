@@ -450,6 +450,9 @@ Yapılan ölçümler (2026-09-28): Apple'ın konuşma tanıması Türkçeyi ciha
 
 ## 13. Geçmiş
 
+- **2026-09-29:** Claude → JEVIS: `jevis_do` aracı (Claude oturumları basit komutu JEVIS'in hızlı yoluna ve öğrendiği işlere 1-3 sn'de verir, düşünme gerekiyorsa beyin çağırmadan geri döner). JEVIS MCP'si bütün Claude Code oturumlarına (kullanıcı kapsamı) ve Claude masaüstü uygulamasına kuruldu. MCP 11/11.
+- **2026-09-29:** Öğrenme düzeltmeleri: önceki mesaja bağlı ("okey bi daha dene") ve sırayla seçen ("ikinci şarkı") komutlar öğrenilmiyor; öğrenilmiş iş tekrar edilmeden önce Jev "aynı iş mi" diye ikinci kez bakıyor. Yanlış öğrenilen iki kayıt `~/.jevis/learned-removed`'a alındı. 10/10.
+
 - **2026-09-28:** Faz 9 planlandı: kompakt çubuk, konuşurken canlı yazı ve sessizlikte gönderme, "Hey Jev".
 
 - **2026-09-28:** Faz 8/6: JEVIS.app logosu ve yeni sürüm. VS Code ekran okuyucu modu yan etkisi bulundu, düzeltildi. Faz 8 bitti.
@@ -494,7 +497,7 @@ Yapılan ölçümler (2026-09-28): Apple'ın konuşma tanıması Türkçeyi ciha
 3. **İsteğe bağlı, her derlemede izin sormasın diye:** Kendi imzalı bir sertifikayla imzalama (Anahtar Zinciri'nde "JEVIS Dev" sertifikası). İstersen kurarız.
 4. **İsteğe bağlı:**
    - `node cli.js autostart on`: bilgisayar açılınca başlasın.
-   - `claude mcp add --scope user jevis -- /opt/homebrew/bin/node /Users/purplefox/Desktop/jev/mcp/server.js`: JEVIS araçları her Claude Code oturumunda olsun.
+   - ~~JEVIS araçları her Claude Code oturumunda~~ ✅ 2026-09-29'da yapıldı (kullanıcı kapsamında MCP). Claude masaüstü uygulamasına da eklendi; orada kullanmak için Claude uygulamasına Erişilebilirlik ve Ekran Kaydı izni gerekir.
    - Bu klasörde yeni bir Claude Code oturumu açınca `jevis` MCP sunucusunu onayla.
 5. **İsteğe bağlı başka beyinler:**
    - Codex: `npm i -g @openai/codex`, sonra giriş.
