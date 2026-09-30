@@ -450,6 +450,8 @@ Yapılan ölçümler (2026-09-28): Apple'ın konuşma tanıması Türkçeyi ciha
 
 ## 13. Geçmiş
 
+- **2026-09-30:** Gerçek kullanımdan (başka bir Claude oturumu JEVIS'le GoDaddy'de DNS değiştirdi) gelen raporla 5 tarayıcı hatası düzeltildi: görünmez `<select>`li kutular, açılır listede yan menüden seçenek seçilmesi, başarısız işlemden sonra kayan #id'ler, uzun sayfalarda gereksiz uzun liste, `wait_for_user`'ın yanlışlıkla Enter'la bitmesi. Yeni test sayfası `tests/fixtures/dns-like.html`, `tests/forms-e2e.mjs` 9/9. Not: browser-e2e'deki "Şiddet sorusu → None" adımı değişiklikten bağımsız olarak sınırda (Jev %59-74).
+
 - **2026-09-29:** Claude → JEVIS: `jevis_do` aracı (Claude oturumları basit komutu JEVIS'in hızlı yoluna ve öğrendiği işlere 1-3 sn'de verir, düşünme gerekiyorsa beyin çağırmadan geri döner). JEVIS MCP'si bütün Claude Code oturumlarına (kullanıcı kapsamı) ve Claude masaüstü uygulamasına kuruldu. MCP 11/11.
 - **2026-09-29:** Öğrenme düzeltmeleri: önceki mesaja bağlı ("okey bi daha dene") ve sırayla seçen ("ikinci şarkı") komutlar öğrenilmiyor; öğrenilmiş iş tekrar edilmeden önce Jev "aynı iş mi" diye ikinci kez bakıyor. Yanlış öğrenilen iki kayıt `~/.jevis/learned-removed`'a alındı. 10/10.
 
