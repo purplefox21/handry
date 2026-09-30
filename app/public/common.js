@@ -178,17 +178,6 @@ async function runStream(body, onEvent, signal) {
   }
 }
 
-// The brain's conversation is shared between the chat page and the bar, so a
-// follow-up works in either. It is forgotten after half an hour of silence.
-const SESSION_TTL = 30 * 60 * 1000;
-function loadSession(key) {
-  const s = store.get('session', null);
-  return s && s.key === key && Date.now() - s.at < SESSION_TTL ? s.id : null;
-}
-function saveSession(id, key) {
-  if (id) store.set('session', { id, key, at: Date.now() });
-}
-
 // Audio for whisper.cpp: 16 kHz mono WAV.
 
 function toWav(samples, rate) {

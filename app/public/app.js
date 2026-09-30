@@ -4,6 +4,8 @@
 
 const state = {
   running: false,
+  chatId: null, // the chat shown here; commands typed here go to it
+  shownEntries: 0, // how many of its entries are on screen (the bar and voice add more)
   brain: 'claude-code',
   model: null,
   effort: null,
@@ -181,7 +183,7 @@ function finishTurn(turn, ev) {
     note.append(icon('bookmark'), document.createTextNode(ev.learned.updated ? 'Bu işi zaten biliyordum; öğrendiğim yolu güncelledim.' : 'Bunu öğrendim. Benzer bir komutu bir dahaki sefere Claude\'a sormadan yaparım.'));
     turn.body.append(note);
   }
-  if (ev.sessionId) saveSession(ev.sessionId, sessionKey());
+  if (ev.chat && !ev.replay) { state.chatId = ev.chat.id; showChatTitle(ev.chat.title); }
   if (!ev.fast && !ev.recipe && !ev.learned?.name && !ev.stopped && ev.runId && turn.steps.querySelector('.step.ok')) addSaveRecipe(turn, ev.runId);
   if (state.speak && final && !ev.replay) api('/api/say', { method: 'POST', body: JSON.stringify({ text: final }) });
 }
@@ -238,7 +240,6 @@ const sendBtn = $('sendBtn');
 const stopBtn = $('stopBtn');
 
 const currentBrainLabel = () => (state.brain === 'claude-code' ? (MODEL_NAMES[state.model] || 'Claude') : (BRAIN_NAMES[state.brain] || state.brain));
-const sessionKey = () => `${state.brain}|${state.model}`;
 
 function setRunning(on) {
   state.running = on;
@@ -252,6 +253,7 @@ function setRunning(on) {
 async function send(text) {
   text = String(text || '').trim();
   if (!text || state.running) return;
+  let newChatDone = false;
   showWelcome(false);
   addUser(text);
   const turn = newTurn();
@@ -260,17 +262,20 @@ async function send(text) {
     await runStream({
       text,
       brain: state.brain,
-      sessionId: loadSession(sessionKey()),
+      chatId: state.chatId || undefined,
       fast: state.fast,
       source: 'window',
       ...(state.brain === 'claude-code' ? { model: state.model, effort: state.effort } : {})
-    }, ev => handleEvent(turn, ev));
+    }, ev => { if (ev.newChat) newChatDone = true; handleEvent(turn, ev); });
     if (!turn.finished) failTurn(turn, 'Bağlantı yarıda kesildi.');
   } catch (err) {
     failTurn(turn, `Bağlantı hatası: ${err.message}`);
   } finally {
     setRunning(false);
   }
+  // "yeni sohbet" said here: show the clean page; otherwise remember what is on screen.
+  const { chat } = await (await api('/api/chats/current')).json().catch(() => ({}));
+  if (newChatDone) { renderChat(chat); toast('Yeni sohbet açıldı.'); } else if (chat?.id === state.chatId) state.shownEntries = chat.entries.length;
 }
 
 function updateSendButton() {
@@ -299,25 +304,107 @@ function submit() {
   send(text);
 }
 
-// Commands given in the compact bar show up here too, when this window is looked at.
-let barRunsSeen = Date.now();
-async function showBarRuns() {
-  if (state.running) return;
-  const data = await (await api('/api/history')).json().catch(() => ({ runs: [] }));
-  for (const r of (data.runs || []).filter(x => x.source === 'bar' && x.at > barRunsSeen)) {
-    barRunsSeen = r.at;
-    showWelcome(false);
-    addUser(r.text);
+// ---------------------------------------------------------------------------
+// Chats: this window shows one; the bar, voice and the terminal write into the current one
+// ---------------------------------------------------------------------------
+
+const SOURCES = { bar: 'Çubuktan', cli: 'Terminalden', voice: 'Sesle' };
+const VIA_ROUTE = { fast: { fast: true }, learned: { learnedReplay: true }, recipe: { recipe: 'tarif' } };
+
+function showChatTitle(title) {
+  $('chatTitle').textContent = title && title !== 'Yeni sohbet' ? short(title, 36) : '';
+}
+
+/** Past entries of a chat, as finished turns. */
+function renderEntries(entries) {
+  let source = null;
+  for (const e of entries) {
+    if (e.role === 'user') {
+      showWelcome(false);
+      addUser(e.text);
+      source = e.source;
+      continue;
+    }
     const turn = newTurn();
-    turn.tools = r.tools || 0;
-    if (r.error) failTurn(turn, r.error);
-    else finishTurn(turn, { ...r, type: 'done', text: r.answer, runId: r.id, replay: true });
-    turn.label.textContent = `Çubuktan · ${turn.label.textContent}`;
+    turn.tools = e.steps?.length || 0;
+    if (e.via === 'error') failTurn(turn, e.text);
+    else {
+      finishTurn(turn, { type: 'done', text: e.text, ms: e.ms, runId: e.runId, model: e.model, replay: true, ...(VIA_ROUTE[e.via] || {}) });
+      if (SOURCES[source]) turn.label.textContent = `${SOURCES[source]} · ${turn.label.textContent}`;
+    }
   }
+}
+
+function renderChat(chat) {
+  $('messages').replaceChildren();
+  state.chatId = chat?.id || null;
+  state.shownEntries = chat?.entries.length || 0;
+  showChatTitle(chat?.title);
+  if (!chat?.entries.length) { showWelcome(true); return; }
+  renderEntries(chat.entries);
   scrollDown(true);
 }
-window.addEventListener('focus', () => showBarRuns().catch(() => {}));
-document.addEventListener('visibilitychange', () => { if (!document.hidden) showBarRuns().catch(() => {}); });
+
+// When this window is looked at: what the bar or voice added, or the chat they moved to.
+async function syncChat() {
+  if (state.running) return;
+  const { chat, stale } = await (await api('/api/chats/current')).json();
+  if (!chat || stale) return;
+  if (chat.id !== state.chatId) return renderChat(chat);
+  if (chat.entries.length > state.shownEntries) {
+    renderEntries(chat.entries.slice(state.shownEntries));
+    state.shownEntries = chat.entries.length;
+    showChatTitle(chat.title);
+    scrollDown(true);
+  }
+}
+window.addEventListener('focus', () => syncChat().catch(() => {}));
+document.addEventListener('visibilitychange', () => { if (!document.hidden) syncChat().catch(() => {}); });
+
+const ago = t => {
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return 'az önce';
+  if (m < 60) return `${m} dk önce`;
+  if (m < 1440) return `${Math.round(m / 60)} saat önce`;
+  return new Date(t).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+};
+
+async function loadChats() {
+  const { chats } = await (await api('/api/chats')).json();
+  const list = $('chatList');
+  if (!chats.length) { list.replaceChildren(el('div', 'empty', 'Henüz sohbet yok.')); return; }
+  list.replaceChildren(...chats.map(c => {
+    const item = el('div', `chat-item${c.id === state.chatId ? ' current' : ''}`);
+    const textBox = el('div', 'chat-item-text');
+    textBox.append(el('div', 'chat-item-title', c.title), el('div', 'chat-item-meta', `${c.count} komut · ${ago(c.updated)}`));
+    const del = el('button', 'icon-btn');
+    del.title = 'Sil';
+    del.append(icon('trash'));
+    del.addEventListener('click', async e => {
+      e.stopPropagation();
+      if (!del.dataset.sure) { del.dataset.sure = '1'; del.title = 'Emin misin? Tekrar bas'; del.classList.add('danger'); setTimeout(() => { delete del.dataset.sure; del.classList.remove('danger'); }, 3000); return; }
+      await api('/api/chats/delete', { method: 'POST', body: JSON.stringify({ id: c.id }) });
+      if (c.id === state.chatId) renderChat(null);
+      loadChats();
+    });
+    item.append(textBox, del);
+    item.addEventListener('click', async () => {
+      if (state.running) return toast('Önce çalışan işi bitir ya da durdur.');
+      const { chat } = await (await api('/api/chats/switch', { method: 'POST', body: JSON.stringify({ id: c.id }) })).json();
+      renderChat(chat);
+      closeDrawer();
+    });
+    return item;
+  }));
+}
+
+async function startNewChat() {
+  if (state.running) return toast('Önce çalışan işi bitir ya da durdur.');
+  const { chat } = await (await api('/api/chats/new', { method: 'POST' })).json();
+  renderChat(chat);
+  closeDrawer();
+  input.focus();
+}
 
 sendBtn.addEventListener('click', submit);
 stopBtn.addEventListener('click', async () => {
@@ -325,13 +412,9 @@ stopBtn.addEventListener('click', async () => {
   await api('/api/stop', { method: 'POST' });
 });
 
-$('newChatBtn').addEventListener('click', () => {
-  if (state.running) return toast('Önce çalışan işi bitir ya da durdur.');
-  store.set('session', null);
-  $('messages').replaceChildren();
-  showWelcome(true);
-  input.focus();
-});
+$('newChatBtn').addEventListener('click', () => startNewChat().catch(err => toast(err.message)));
+$('newChatInDrawer').addEventListener('click', () => startNewChat().catch(err => toast(err.message)));
+$('chatsBtn').addEventListener('click', () => openDrawer('chatsDrawer'));
 
 document.querySelectorAll('.suggestion').forEach(card => card.addEventListener('click', () => {
   if (card.dataset.open === 'recipes') openDrawer('recipesDrawer');
@@ -436,6 +519,7 @@ function openDrawer(id) {
   $('scrim').hidden = false;
   $(id).hidden = false;
   if (id === 'recipesDrawer') loadRecipes();
+  if (id === 'chatsDrawer') loadChats().catch(err => toast(err.message));
   if (id === 'settingsDrawer') loadStatus().catch(() => {});
 }
 
@@ -595,6 +679,9 @@ async function init() {
       $('speakRow').hidden = !v.tts.ok;
     }).catch(() => {})
   ]);
+  // The current chat, unless it went quiet 2 hours ago (then a clean page; it stays in Sohbetler).
+  const { chat, stale } = await (await api('/api/chats/current')).json().catch(() => ({}));
+  if (chat && !stale) renderChat(chat);
   input.focus();
 }
 

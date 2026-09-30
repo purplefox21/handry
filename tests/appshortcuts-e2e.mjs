@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+process.env.JEVIS_NO_CHAT = '1'; // test commands stay out of the user's chats
 import { runCommand } from '../core/runner.js';
 import * as apps from '../hands/apps.js';
 import * as desktop from '../hands/desktop.js';

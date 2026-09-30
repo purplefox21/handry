@@ -1,6 +1,7 @@
 // Fast path v2 end to end: simple commands run without a brain, quickly.
 // Restores the volume it changes; opens/closes Calculator; uses the JEVIS Chrome.
 // Usage: node tests/fast-e2e.mjs
+process.env.JEVIS_NO_CHAT = '1'; // test commands stay out of the user's chats
 import { runCommand } from '../core/runner.js';
 import * as mac from '../hands/mac.js';
 import * as desktop from '../hands/desktop.js';

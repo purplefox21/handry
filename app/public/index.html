@@ -16,7 +16,7 @@
           <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
         </div>
         <div class="brand-text">
-          <span class="brand-name">JEVIS</span>
+          <span class="brand-name">JEVIS <span class="chat-title" id="chatTitle"></span></span>
           <span class="brand-status" id="status" data-state="ready"><span class="dot"></span><span id="statusText">Hazır</span></span>
         </div>
       </div>
@@ -31,6 +31,9 @@
       </div>
 
       <div class="top-actions">
+        <button class="icon-btn" id="chatsBtn" title="Sohbetler" aria-label="Sohbetler">
+          <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
         <button class="icon-btn" id="recipesBtn" title="Tarifler" aria-label="Tarifler">
           <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
@@ -142,6 +145,18 @@
         <h3>Durum</h3>
         <ul class="status-list" id="statusList"></ul>
       </section>
+    </div>
+  </aside>
+
+  <aside class="drawer" id="chatsDrawer" hidden aria-label="Sohbetler">
+    <div class="drawer-head">
+      <h2>Sohbetler</h2>
+      <button class="icon-btn" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="drawer-body">
+      <p class="setting-help">Her sohbetin kendi Claude oturumu var: "bunu", "bi daha dene" gibi devamları anlar. Çubuk, ses ve bu pencere aynı sohbete yazar. Konu değişince "yeni konu" de; 2 saat sessizlikte yenisi kendiliğinden açılır.</p>
+      <button class="btn btn-primary" id="newChatInDrawer" type="button">Yeni sohbet</button>
+      <div class="chat-list" id="chatList"></div>
     </div>
   </aside>
 

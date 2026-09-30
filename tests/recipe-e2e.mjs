@@ -3,6 +3,7 @@
 // ask_brain step, and "tarif: …" through the chat API. Test recipes are removed.
 // Usage: node tests/recipe-e2e.mjs
 import fs from 'node:fs';
+process.env.JEVIS_NO_CHAT = '1'; // test commands stay out of the user's chats
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { callTool } from '../core/tools.js';

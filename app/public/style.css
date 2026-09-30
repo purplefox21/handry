@@ -103,7 +103,16 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 }
 .brand-mark svg, .welcome-mark svg { width: 17px; height: 17px; fill: #fff; stroke: none; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
-.brand-name { font-weight: 700; letter-spacing: 0.02em; }
+.brand-name { font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+.chat-title { font-weight: 500; color: var(--text-2); letter-spacing: 0; }
+.chat-title:not(:empty)::before { content: "· "; }
+.chat-list { display: flex; flex-direction: column; gap: 6px; }
+.chat-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); cursor: default; }
+.chat-item:hover { border-color: var(--border-strong); }
+.chat-item.current { border-color: var(--accent); background: var(--accent-soft); }
+.chat-item-text { flex: 1; min-width: 0; }
+.chat-item-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-item-meta { font-size: 12px; color: var(--text-3); }
 .brand-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); white-space: nowrap; }
 .brand-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
 .brand-status[data-state="busy"] .dot { background: var(--amber); animation: pulse 1.2s ease-in-out infinite; }
@@ -509,3 +518,4 @@ kbd {
   .chat-inner, .composer-wrap { padding-left: 12px; padding-right: 12px; }
   .msg-user { max-width: 88%; }
 }
+.icon-btn.danger { color: var(--red); background: var(--red-soft); }

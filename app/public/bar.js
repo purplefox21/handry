@@ -132,13 +132,13 @@ function finish(ev) {
   const who = ev.fast ? 'Hızlı yol' : ev.learnedReplay ? `Öğrenilmiş yol${ev.brain ? ' + Claude' : ''}` : ev.recipe ? `Tarif: ${pretty(ev.recipe)}` : (MODEL_NAMES[ev.model] || 'JEVIS');
   const bits = [`${ev.stopped ? 'Durduruldu' : 'Bitti'} · ${who}${run.tools ? ` · ${run.tools} adım` : ''} · ${((ev.ms || 0) / 1000).toFixed(1)} sn`];
   if (ev.learned?.name) bits.push('Bunu öğrendim; bir dahakine Claude\'suz');
+  if (ev.chat) bits.push(ev.newChat ? 'Yeni sohbet' : `Sohbet: ${short(ev.chat.title, 30)}`);
   foot.replaceChildren(...bits.map(b => el('span', null, b)));
   const more = el('a', null, 'Ayrıntılar');
   more.href = '#';
   more.addEventListener('click', e => { e.preventDefault(); native({ type: 'openMain' }); });
   foot.append(more);
   foot.hidden = false;
-  if (ev.sessionId) saveSession(ev.sessionId, sessionKey());
   if (run.fromVoice && text) api('/api/say', { method: 'POST', body: JSON.stringify({ text }) }).catch(() => {});
   setState('idle');
   scheduleHide(text.length > 160 ? 20000 : 9000);
@@ -159,8 +159,6 @@ function fail(message) {
 // ---------------------------------------------------------------------------
 // Sending
 // ---------------------------------------------------------------------------
-
-const sessionKey = () => `${store.get('brain', 'claude-code')}|${store.get('model', MODELS[0][0])}`;
 
 async function submit(text, { fromVoice = false } = {}) {
   text = String(text ?? input.value).trim();
@@ -187,7 +185,6 @@ async function submit(text, { fromVoice = false } = {}) {
     await runStream({
       text,
       brain,
-      sessionId: loadSession(sessionKey()),
       fast: store.get('fast', true),
       source: 'bar',
       ...(brain === 'claude-code' ? { model: store.get('model', MODELS[0][0]), effort: store.get('effort', undefined) } : {})
