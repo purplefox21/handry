@@ -24,7 +24,7 @@ import path from 'node:path';
 const HELP = `JEVIS komutları
 
 Komut ver (hızlı yol ya da beyin)
-  do "<komut>" [--new] [--brain=claude-code] [--model=claude-sonnet-5] [--effort=high] [--no-fast] [--say]
+  do "<komut>" [--new] [--brain=claude-code] [--model=claude-sonnet-5-5] [--effort=high] [--no-fast] [--say]
                                       Çubuk ve pencereyle aynı sohbete yazılır (--new: yeni sohbet)
   listen [saniye] [--do] [--say]       Mikrofonu dinle, yazıya çevir (--do: çalıştır)
 

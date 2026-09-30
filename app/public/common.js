@@ -19,7 +19,7 @@ const store = {
   }
 };
 
-const MODEL_NAMES = { 'claude-sonnet-5': 'Sonnet 5', 'claude-opus-5-5': 'Opus 5.5', 'claude-haiku-4-5': 'Haiku 4.5' };
+const MODEL_NAMES = { 'claude-sonnet-5-5': 'Sonnet 5.5', 'claude-sonnet-5': 'Sonnet 5', 'claude-opus-5-5': 'Opus 5.5', 'claude-haiku-4-5': 'Haiku 4.5' };
 const BRAIN_NAMES = { 'claude-code': 'Claude Code', codex: 'Codex', anthropic: 'Claude API', openai: 'OpenAI uyumlu', ollama: 'Ollama' };
 const ROUTE_NAMES = {
   volume: 'ses', mute: 'ses', music: 'müzik', now_playing: 'çalan şarkı', app_open: 'uygulama açma', app_quit: 'uygulama kapatma',

@@ -19,7 +19,7 @@ const nativeBridge = window.webkit?.messageHandlers?.bar;
 const native = msg => { try { nativeBridge?.postMessage(msg); } catch {} };
 if (!nativeBridge) document.body.classList.add('standalone');
 
-const MODELS = [['claude-sonnet-5', 'Hızlı'], ['claude-opus-5-5', 'Güçlü']];
+const MODELS = [['claude-sonnet-5-5', 'Hızlı'], ['claude-opus-5-5', 'Güçlü']];
 const STOP_WORDS = /^(dur|durdur|iptal|vazgeç|stop)[.!]*$/i;
 
 const run = { active: false, finishedAt: 0, tools: 0, fromVoice: false };
@@ -47,16 +47,21 @@ function scheduleHide(ms) {
 // ---------------------------------------------------------------------------
 
 const modelBtn = $('modelBtn');
-function showModel() {
+// The picked model, or the first one if the saved pick is no longer offered
+// (so the chip and what is sent always agree).
+function currentModel() {
   const model = store.get('model', MODELS[0][0]);
-  const entry = MODELS.find(([id]) => id === model) || MODELS[0];
+  return MODELS.some(([id]) => id === model) ? model : MODELS[0][0];
+}
+
+function showModel() {
+  const entry = MODELS.find(([id]) => id === currentModel());
   modelBtn.textContent = entry[1];
   modelBtn.classList.toggle('strong', entry[0] === MODELS[1][0]);
   modelBtn.title = `Model: ${entry[1]} (${MODEL_NAMES[entry[0]]}). Değiştirmek için tıkla.`;
 }
 modelBtn.addEventListener('click', () => {
-  const current = store.get('model', MODELS[0][0]);
-  store.set('model', current === MODELS[0][0] ? MODELS[1][0] : MODELS[0][0]);
+  store.set('model', currentModel() === MODELS[0][0] ? MODELS[1][0] : MODELS[0][0]);
   showModel();
   input.focus();
 });
@@ -94,7 +99,7 @@ function handle(ev) {
   switch (ev.type) {
     case 'route':
       if (ev.route === 'learned') nowText.textContent = 'Öğrendiğim yoldan yapıyorum…';
-      else if (ev.route === 'needs_brain') nowText.textContent = `Claude (${MODEL_NAMES[store.get('model', MODELS[0][0])] || 'Sonnet 5'}) düşünüyor…`;
+      else if (ev.route === 'needs_brain') nowText.textContent = `Claude (${MODEL_NAMES[currentModel()]}) düşünüyor…`;
       else nowText.textContent = `Hızlı yol · ${ROUTE_NAMES[ev.route] || ev.route}`;
       break;
     case 'status':
@@ -188,7 +193,7 @@ async function submit(text, { fromVoice = false } = {}) {
       brain,
       fast: store.get('fast', true),
       source: 'bar',
-      ...(brain === 'claude-code' ? { model: store.get('model', MODELS[0][0]), effort: store.get('effort', undefined) } : {})
+      ...(brain === 'claude-code' ? { model: currentModel(), effort: store.get('effort', undefined) } : {})
     }, handle);
     if (run.active) fail('Bağlantı yarıda kesildi.');
   } catch (err) {

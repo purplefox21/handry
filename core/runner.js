@@ -32,8 +32,8 @@ async function screenNow() {
   return parts.join('; ');
 }
 
-// "Claude (Sonnet 5)" rather than the name of the program Claude runs in.
-const MODEL_NAMES = { 'claude-sonnet-5': 'Sonnet 5', 'claude-opus-5-5': 'Opus 5.5', 'claude-haiku-4-5': 'Haiku 4.5' };
+// "Claude (Sonnet 5.5)" rather than the name of the program Claude runs in.
+const MODEL_NAMES = { 'claude-sonnet-5-5': 'Sonnet 5.5', 'claude-sonnet-5': 'Sonnet 5', 'claude-opus-5-5': 'Opus 5.5', 'claude-haiku-4-5': 'Haiku 4.5' };
 function thinker(brain, model) {
   if (brain.id !== 'claude-code') return brain.label;
   const id = model || config().brain.providers['claude-code']?.model;

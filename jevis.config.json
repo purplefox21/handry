@@ -72,11 +72,11 @@
     "maxSteps": 40,
     "providers": {
       "claude-code": {
-        "model": "claude-opus-5-5",
+        "model": "claude-sonnet-5-5",
         "effort": "high",
         "lean": true,
         "models": [
-          "claude-sonnet-5",
+          "claude-sonnet-5-5",
           "claude-opus-5-5"
         ],
         "efforts": [
@@ -86,7 +86,7 @@
         ]
       },
       "anthropic": {
-        "model": "claude-opus-5"
+        "model": "claude-sonnet-5-5"
       },
       "openai": {
         "baseURL": "https://api.openai.com/v1",

@@ -27,7 +27,7 @@ function toToolResult(block, result) {
 export async function run({ text, sessionId, onEvent, signal }) {
   const client = new Anthropic();
   const { maxSteps } = config().brain;
-  const model = config().brain.providers.anthropic.model || 'claude-opus-5';
+  const model = config().brain.providers.anthropic.model || 'claude-sonnet-5-5';
   const id = sessionId || `anthropic-${Date.now()}`;
   const messages = sessions.get(id) || [];
   messages.push({ role: 'user', content: text });

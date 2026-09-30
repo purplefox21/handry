@@ -31,7 +31,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 
 ## Çalıştırma
 
-- `npm start` → http://localhost:3000 — JEVIS sohbeti: Güçlü (Opus 5.5, varsayılan) / Hızlı (Sonnet 5) model düğmesi, sohbet listesi, katlanan adım listesi, tarifler ve ayarlar paneli, bas-konuş, DURDUR
+- `npm start` → http://localhost:3000 — JEVIS sohbeti: Hızlı (Sonnet 5.5, varsayılan) / Güçlü (Opus 5.5) model düğmesi, sohbet listesi, katlanan adım listesi, tarifler ve ayarlar paneli, bas-konuş, DURDUR
 - `node cli.js` → JEVIS komutları: `do "…"` (komut ver), `listen --do` (sesle), tarayıcı (open, read, click, type…), masaüstü (`desk …`, `app`, `mac`), `recipe …`, `secret`, `stop`, `doctor`
 - `node cli.js app install && node cli.js app open` → JEVIS.app: ⌥Space üstten inen kompakt çubuk, ⌥⇧Space bas-konuş, "Hey Jev" ile sesli uyandırma, ⌥Esc acil durdur; Dock simgesi büyük pencereyi açar
 - `node appstore/privacy-scan.js <klasör>` → App Privacy taslağı
@@ -47,7 +47,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/mcp-smoke.mjs` → MCP sunucusu
 - `node tests/guard-e2e.mjs` → kasa, bekçi, acil durdurma (Anahtar Zinciri'ne test kaydı ekleyip siler)
 - `node tests/desktop-e2e.mjs` → masaüstü elleri (Hesap Makinesi ve TextEdit'i açıp kapatır)
-- `node tests/app-e2e.mjs` → sohbet sunucusu: hızlı yol, Claude Code beyni, DURDUR, OpenAI uyumlu adaptör, arayüz (aboneliğinden iki kısa çalışma harcar)
+- `node tests/app-e2e.mjs` → sohbet sunucusu: hızlı yol, Claude Code beyni, DURDUR, OpenAI uyumlu adaptör, arayüz, model seçimi (aboneliğinden iki kısa çalışma harcar)
 - `node tests/voice-e2e.mjs` → ses: whisper, sessizlik filtresi, sesli cevap (hoparlörsüz), arayüz kayıt kodu, mikrofon
 - `node tests/recipe-e2e.mjs` → tarifler: kaydet, beyinsiz oynat, değişkenler, beyne devretme
 - `node tests/router-e2e.mjs` → hızlı yol kararları (30 Türkçe komut, hiçbir şey yapmaz)

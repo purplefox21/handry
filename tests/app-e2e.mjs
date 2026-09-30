@@ -79,7 +79,7 @@ try {
     const tools = r.events.filter(e => e.type === 'tool').map(e => e.name);
     const page = await browser.activePage();
     const state = await page.evaluate(() => [document.getElementById('name').value, document.getElementById('price').value]);
-    console.log(`        araçlar: ${tools.join(', ')} · ${(r.done?.ms / 1000).toFixed(1)} sn`);
+    console.log(`        ${r.done?.model} · araçlar: ${tools.join(', ')} · ${(r.done?.ms / 1000).toFixed(1)} sn`);
     return r.done?.brain === 'claude-code' && state[0] === 'Sohbet Testi' && state[1] === '$0.99' && r.done?.sessionId;
   });
 
@@ -133,6 +133,41 @@ try {
     await browser.closeTab();
     if ((await desktop.apps()).some(a => a.bundleId === 'com.apple.calculator')) await desktop.quitApp('Hesap Makinesi');
     return v.yes;
+  });
+
+  await check('Model: varsayılan değişince pencere ve çubuk bir kere ona geçiyor, sonra kullanıcının seçimi kalıyor', async () => {
+    const cc = config().brain.providers['claude-code'];
+    const other = cc.models.find(m => m !== cc.model);
+    const saved = (model, seenDefault) => p => p.evaluate(([m, d]) => {
+      localStorage.setItem('jevis_model', JSON.stringify(m));
+      localStorage.setItem('jevis_modelDefault', JSON.stringify(d));
+    }, [model, seenDefault]);
+    const loadWindow = async p => { await p.reload(); await p.waitForFunction(() => document.querySelectorAll('#brainSelect option').length > 0); };
+    const checked = p => p.evaluate(() => document.querySelector('#modelSwitch [aria-checked="true"]')?.dataset.model);
+
+    await browser.open(`${BASE}/`, { newTab: true });
+    const win = await browser.activePage();
+    await saved('claude-sonnet-5', 'claude-sonnet-5')(win); // an older JEVIS: its default was Sonnet 5
+    await loadWindow(win);
+    const adopted = await checked(win);
+    await win.click(`#modelSwitch [data-model="${other}"]`);
+    await loadWindow(win);
+    const kept = await checked(win);
+    await browser.closeTab();
+
+    await browser.open(`${BASE}/bar.html`, { newTab: true });
+    const bar = await browser.activePage();
+    await saved(other, other)(bar); // the default was the other model until now
+    await bar.reload();
+    await bar.waitForFunction(d => localStorage.getItem('jevis_modelDefault') === JSON.stringify(d), cc.model);
+    const chip = await bar.textContent('#modelBtn');
+    await saved('claude-sonnet-5', cc.model)(bar); // a pick that is no longer offered
+    await bar.reload();
+    await sleep(500);
+    const fallback = await bar.textContent('#modelBtn');
+    await browser.closeTab();
+    console.log(`        pencere: ${adopted} → seçim ${kept} korundu · çubuk: ${chip}, listede olmayan seçimde: ${fallback}`);
+    return adopted === cc.model && kept === other && chip === 'Hızlı' && fallback === 'Hızlı';
   });
 
   await check('Çubuk: komut yaz, Enter, cevap; büyük pencerenin geçmişine düşüyor', async () => {

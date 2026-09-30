@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-10-01):** Faz 0-10 ✅. Kullanıcıdan beklenen: iMessage adresi (`node cli.js notify set …`). Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
+> **Durum (2026-10-01):** Faz 0-10 ✅, sohbetler ✅. Varsayılan beyin Sonnet 5.5. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -92,9 +92,9 @@ jev/
 3. **Jev öğe seçer, metin üretmez.** Beyin "ne" yapılacağını söyler, Jev "nereye" sorusunu cevaplar, kod yapar. Yazılacak metni ya kullanıcı söyler ya beyin üretir.
 4. **Her şey MCP araçları olarak sunulur.** Böylece beyin değiştirilebilir. Bağlantı doğrudan (stdio) kurulur, ağa port açılmaz.
 5. **İlk beyin Claude Code (abonelik).** Yavaş kalırsa ya da reddederse: Codex CLI, Gemini CLI, API (Anthropic / OpenAI uyumlu) veya Ollama.
-   - **Model kararı (2026-09-28, kullanıcı):** Varsayılan **Sonnet 5 + yalın mod + effort high**. Arayüzde tek tıkla **Opus 5.5**'e ("Güçlü") geçilir. Opus 4.8 bırakıldı: hem en pahalı hem en eski.
+   - **Model kararı (2026-10-01, kullanıcı):** Varsayılan **Sonnet 5.5 + yalın mod + effort high** ("Hızlı"). Sonnet 5.5 28 Eylül 2026'da çıktı; Sonnet 5'ten ~%30 hızlı ve ucuz. Arayüzde tek tıkla **Opus 5.5**'e ("Güçlü") geçilir. Sonnet 5 listeden çıktı; Opus 4.8 daha önce bırakılmıştı (hem en pahalı hem en eski).
    - **Yalın mod:** Claude Code'un uzun kodlama talimatı yerine kısa JEVIS talimatı (`--system-prompt`) verilir, dahili kodlama araçları kapatılır (`--tools ""`). JEVIS araçları yine MCP'den gelir. Her turda tekrar okunan yük yaklaşık 5 kat azalır; beyinde terminal ve dosya erişimi de olmaz.
-   - Opus 5.5 için `claude` 2.1.280 veya üstü gerekiyor; kullanıcı 2.1.283'e güncelledi.
+   - Opus 5.5 için `claude` 2.1.280, Sonnet 5.5 için 2.1.284 veya üstü gerekiyor (2.1.283 `claude-sonnet-5-5`'i tanımıyordu). 2026-10-01'de 2.1.286'ya güncellendi; eski sürümler `~/.local/share/claude/versions/` altında duruyor.
 6. **Şifreler LLM'e hiç gitmez.** macOS Anahtar Zinciri'nden kod okuyup yazar, kayıtlarda maskelenir.
 7. **Riskli işlerde onay.** Gönderme, yayınlama, silme, ödeme, fiyat değişikliği gibi işlemlerde macOS onay penceresi açılır. Riskli olup olmadığına Jev karar verir ("Bu tıklama geri alınamaz ya da dışarıyı etkiler mi?"), ayrıca bir kural listesi var. Kullanıcı ayarlardan değiştirebilir.
 8. **Güven eşikleri** ayar dosyasında durur. Başlangıç değerleri:
@@ -481,7 +481,7 @@ Kullanıcının isteği: "sohbet sohbet olsun, session session"; eksileri de eng
 
 ## 13. Geçmiş
 
-- **2026-10-01:** Kullanıcının isteğiyle JEVIS'in varsayılan beyni **Opus 5.5** oldu (önce Sonnet 5). Yalın mod ve effort high aynı kaldı; Sonnet 5 "Hızlı" düğmesiyle seçilebiliyor. Arayüz, varsayılan değişince bir kereye mahsus yeni varsayılana geçiyor.
+- **2026-10-01:** Claude Sonnet 5.5 çıktı; kullanıcının isteğiyle JEVIS'in varsayılan beyni **Sonnet 5.5** oldu (önce Sonnet 5). `claude` 2.1.283 → 2.1.286. Model düğmesi: Hızlı = Sonnet 5.5 (varsayılan), Güçlü = Opus 5.5. Yalın mod ve effort high aynı. Pencere ve çubuk, varsayılan değişince bir kereye mahsus yeni varsayılana geçiyor; sonra kullanıcının seçimi korunuyor. Çubuk listede olmayan eski bir seçimi göndermiyor. Denendi: JEVIS'in beyni Sonnet 5.5 ile araçsız kısa soruda 2,9 sn; model arayüzü görünmez Chrome'da doğrulandı; app-e2e'ye model kontrolü eklendi (tamamı kullanıcı Mac'i kullanırken çalıştırılmadı: Hesap Makinesi açıyor).
 
 - **2026-10-01:** Sohbetler: her sohbetin kendi Claude oturumu, "sen yokken" ve "şu an ekranda" bilgisi, 12 turda özetle tazeleme, "yeni sohbet", sohbet listesi. 9/9 + 4/4.
 
