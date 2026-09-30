@@ -44,8 +44,26 @@ export function listLearned() {
  * Skips questions and summaries (the answer is the result there, not the
  * actions), unfinished work, and texts the brain wrote itself.
  */
-export async function learnFromRun({ command, runId, answer = '' }) {
-  const steps = stepsFromRun(runId);
+// String values of a step's arguments with their paths: "url", "fields.Name"…
+function leaves(args, prefix = []) {
+  const out = [];
+  for (const [k, v] of Object.entries(args || {})) {
+    if (!prefix.length && !FIELDS.includes(k) && k !== 'fields') continue;
+    if (typeof v === 'string' && v) out.push({ path: [...prefix, k], value: v });
+    else if (v && typeof v === 'object' && !Array.isArray(v)) out.push(...leaves(v, [...prefix, k]));
+  }
+  return out;
+}
+const getAt = (obj, path) => path.reduce((o, k) => o?.[k], obj);
+const setAt = (obj, path, value) => { const last = path.at(-1); path.slice(0, -1).reduce((o, k) => o[k], obj)[last] = value; };
+
+/**
+ * explicit: Claude says "learn this" (jevis_teach) — the work is done, so its
+ * final answer isn't checked. since: only the steps from then on.
+ */
+export async function learnFromRun({ command, runId, answer = '', explicit = false, since = 0, lastSteps = 0 }) {
+  let steps = stepsFromRun(runId, { since });
+  if (lastSteps > 0) steps = steps.slice(-lastSteps);
   if (!steps.length) return { skipped: 'tekrar oynatılacak adım yok' };
   if (steps.length > MAX_STEPS) return { skipped: 'adım sayısı çok fazla' };
   if (steps.some(s => s.ask_brain)) return { skipped: 'görüntüye bakarak tıklama var' };
@@ -55,14 +73,12 @@ export async function learnFromRun({ command, runId, answer = '' }) {
   const taken = new Map(); // "step/field" → ranges already matched by a longer span
   const all = spans(command).sort((a, b) => b.text.length - a.text.length);
   steps.forEach((step, si) => {
-    for (const field of FIELDS) {
-      const value = step.args?.[field];
-      if (typeof value !== 'string' || !value) continue;
+    for (const { path: field, value } of leaves(step.args)) {
       const hay = lower(value);
-      const key = `${si}/${field}`;
+      const key = `${si}/${field.join('.')}`;
       for (const span of all) {
         for (const [encoding, encode] of ENCODINGS) {
-          if (encoding && field !== 'url') continue;
+          if (encoding && field.join('.') !== 'url') continue;
           const needle = lower(encode(span.text));
           const at = wholeWordAt(hay, needle).filter(i => !(taken.get(key) || []).some(([a, b]) => i < b && i + needle.length > a));
           if (!at.length) continue;
@@ -87,7 +103,7 @@ export async function learnFromRun({ command, runId, answer = '' }) {
   });
   const { answers } = await jev.ask({ command, answer: String(answer).slice(0, 1500) }, questions);
   if ((answers.doing?.noul ?? 0) < 0.5) return { skipped: 'bu bir soru ya da bilgi isteği' };
-  if ((answers.succeeded?.noul ?? 0) < 0.5) return { skipped: 'iş tam bitmemiş görünüyor' };
+  if (!explicit && (answers.succeeded?.noul ?? 0) < 0.5) return { skipped: 'iş tam bitmemiş görünüyor' };
   // "Try again" means whatever came before; "the second song" is a different song next time.
   if ((answers.standalone?.noul ?? 0) < 0.5) return { skipped: 'komut önceki mesaja bağlı' };
   if ((answers.by_position?.noul ?? 0) >= 0.5) return { skipped: 'komut bir şeyi sırasıyla seçiyor' };
@@ -101,22 +117,24 @@ export async function learnFromRun({ command, runId, answer = '' }) {
   if (chosen.reduce((n, v) => n + v.text.length, 0) > 0.7 * command.replace(/\s+/g, '').length) return { skipped: 'komutun neredeyse tamamı değişken' };
 
   // Put {{x1}} where the details were.
-  const templated = steps.map(step => ({ ...step, args: { ...step.args } }));
+  const templated = steps.map(step => ({ ...step, args: structuredClone(step.args) }));
   for (const v of chosen) {
     for (const use of uses.get(v.text)) {
-      const value = templated[use.step].args[use.field];
+      const value = getAt(templated[use.step].args, use.field);
       if (lower(value).length !== value.length) continue;
       const encode = ENCODINGS.find(([e]) => e === use.encoding)[1];
       const needle = lower(encode(v.text));
       const at = wholeWordAt(lower(value), needle);
       let out = value;
       for (const i of at.reverse()) out = `${out.slice(0, i)}{{${v.name}${use.encoding ? `:${use.encoding}` : ''}}}${out.slice(i + needle.length)}`;
-      templated[use.step].args[use.field] = out;
+      setAt(templated[use.step].args, use.field, out);
     }
   }
   // Typing a text the brain came up with would repeat that old text next time.
-  const invented = templated.find(s => TYPING.has(s.tool) && typeof s.args.text === 'string' && !/\{\{x\d+/.test(s.args.text)
-    && s.args.text.trim().length > 2 && !lower(command).includes(lower(s.args.text.trim())));
+  // (Short form answers like "None" or "Free" are choices, not texts, and are replayed as they are.)
+  const typedTexts = templated.flatMap(s => (TYPING.has(s.tool) && typeof s.args.text === 'string' ? [s.args.text]
+    : s.tool === 'browser_fill' ? Object.values(s.args.fields || {}).filter(v => typeof v === 'string' && v.length > 40) : []));
+  const invented = typedTexts.find(t => !/\{\{x\d+/.test(t) && t.trim().length > 2 && !lower(command).includes(lower(t.trim())));
   if (invented) return { skipped: 'yazılan metni Claude kendisi yazmış' };
 
   let pattern = command;
