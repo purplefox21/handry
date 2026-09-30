@@ -42,6 +42,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 ## Testler
 
 - `node tests/browser-e2e.mjs` → tarayıcı elleri (gerçek Chrome + Jev, test sayfası)
+- `node tests/faz10-e2e.mjs` → giriş uyarısı ve iMessage (kaydedilir, gönderilmez), oturum kontrolü, toplu doldurma, jevis_teach, site notu, indirme, değer kaydetme (Anahtar Zinciri'ne test kaydı ekleyip siler), onay penceresi, tablo, numaralı ekran görüntüsü
 - `node tests/forms-e2e.mjs` → zor formlar: görünmez select'li kutular, açılır listeler ve aynı adlı yan menü, sabit #id'ler, ekran dışı özeti, wait_for_user'ın sayfayı izlemesi
 - `node tests/mcp-smoke.mjs` → MCP sunucusu
 - `node tests/guard-e2e.mjs` → kasa, bekçi, acil durdurma (Anahtar Zinciri'ne test kaydı ekleyip siler)

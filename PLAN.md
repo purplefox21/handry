@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-30):** Faz 0-9 ✅. Faz 10 (gerçek işlerden gelenler: giriş farkındalığı + iMessage, toplu form, Claude'un JEVIS'e öğretmesi, indirme, tablo, numaralı ekran görüntüsü) yapılıyor. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
+> **Durum (2026-10-01):** Faz 0-10 ✅. Kullanıcıdan beklenen: iMessage adresi (`node cli.js notify set …`). Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -358,13 +358,17 @@ Kullanıcının kararları:
 - "Göstererek öğretme"yi kullanıcı yapmaz: Claude işi yapar ve JEVIS'e öğretir.
 - Giriş gerekince JEVIS hemen söylemeli (sesli, çubukta, bildirimle, başında değilse iPhone'a iMessage).
 
-- [ ] **10.1 Giriş farkındalığı:** giriş/2FA/CAPTCHA çıkınca ses + çubuk + bildirim; 1 dakika cevap yoksa iMessage. İşin başında `browser_sessions`: hangi sitede oturum açık?
-- [ ] **10.2 Toplu form doldurma (`browser_fill`):** bir listeyle bütün alanlar tek çağrıda; "önce → sonra" tablosu.
-- [ ] **10.3 Claude JEVIS'e öğretir:** `jevis_teach` (bu oturumda yapılanı öğren), site notları (`site_note`, siteyi her okuyuşta gelir).
-- [ ] **10.4 İndirme ve değer kaydetme:** `browser_download` (dosyayı istenen klasöre), `browser_save_value` (sayfadaki anahtarı Anahtar Zinciri'ne ya da `.env`'e).
-- [ ] **10.5 Onay penceresinde değişiklikler:** "Kaydet"e basmadan önce o sayfada yazılan/seçilen değerler pencerede görünür.
-- [ ] **10.6 Tablo okuma (`browser_table`):** tablo satırları JSON olarak.
-- [ ] **10.7 Numaralı ekran görüntüsü:** ekran görüntüsünde her öğenin #numarası. Numara bir piksel yeri değil, öğenin kendisi: #14'e tıklamak o öğeye tıklar, sayfa kaymış olsa bile. Öğe kaybolduysa JEVIS başka bir şeye tıklamaz, "yeniden oku" der. Tıklamadan sonra neye tıkladığını adıyla söyler.
+- [x] **10.1 Giriş farkındalığı:** giriş/2FA/CAPTCHA çıkınca ses + Mac bildirimi + JEVIS çubuğu (klavyeyi almadan, kullanıcı şifre yazıyor olabilir); `wait_for_user` 1 dakikada bitmezse iMessage (`node cli.js notify set <telefon|Apple ID>`, adres `~/.jevis/config.json`'da). `browser_sessions`: işin başında sitelerin hesap sayfalarını yeni sekmede açıp giriş gerekip gerekmediğine bakıyor, eksikleri tek seferde söylüyor.
+- [x] **10.2 Toplu form doldurma (`browser_fill`):** bütün alanlar tek çağrıda (Jev paralel eşliyor); yazı, açılır menü, seçenek düğmesi, onay kutusu; "önce → sonra" tablosu; emin olunamayan alan doldurulmuyor, adaylarıyla listeleniyor. App Store benzeri formda 6/6 alan 2 sn.
+- [x] **10.3 Claude JEVIS'e öğretir:** `jevis_teach` (MCP oturumunun adımlarından değişkenli öğrenilmiş iş; `jevis_do` ya da çubuk/ses Claude'suz yapar, testte 1.5 sn), site notları (`site_note`, `~/.jevis/sites/`, site açılınca/okununca gelir).
+- [x] **10.4 İndirme ve değer kaydetme:** `browser_download` (istenen klasöre, üstüne yazmadan), `browser_save_value` (sayfadaki düz yazı anahtarları da buluyor; Anahtar Zinciri ya da git'e girmeyen `.env`).
+- [x] **10.5 Onay penceresinde değişiklikler:** "Kaydet" onayında "• Name: … • Price: …" listesi; şifreler ••••.
+- [x] **10.6 Tablo okuma (`browser_table`):** `<table>`, ARIA tablo/grid ve `<div>` listeleri JSON satırları olarak.
+- [x] **10.7 Numaralı ekran görüntüsü:** `browser_screenshot marks=true`; renkli kutular + numara listesi, işaretler görüntü alınır alınmaz siliniyor.
+  - Tasarım notu: ekran görüntüsünde her öğenin #numarası. Numara bir piksel yeri değil, öğenin kendisi: #14'e tıklamak o öğeye tıklar, sayfa kaymış olsa bile. Öğe kaybolduysa JEVIS başka bir şeye tıklamaz, "yeniden oku" der. Tıklamadan sonra neye tıkladığını adıyla söyler.
+
+**Sonuç:** `node tests/faz10-e2e.mjs` **15/15**. Tarayıcı 27/27 (iki kez), formlar 9/9, MCP 11/11, koruma 12/12, tarif 7/7, öğrenme 10/10.
+**Öğrenilen:** JEVIS sadece tıklanabilir öğeleri tanıyordu; sayfada düz yazı olarak duran bir API anahtarını göremiyordu. `browser_save_value` artık anahtar/token gibi görünen yazıları da aday yapıyor.
 
 ## 7. Sınırlar ve riskler
 
@@ -465,6 +469,8 @@ Kullanıcının kararları:
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-10-01:** Faz 10 bitti: giriş farkındalığı + iMessage, `browser_sessions`, `browser_fill`, `jevis_teach`, site notları, `browser_download`, `browser_save_value`, onay penceresinde değişiklikler, `browser_table`, numaralı ekran görüntüsü. 15/15.
 
 - **2026-09-30:** Gerçek kullanımdan (başka bir Claude oturumu JEVIS'le GoDaddy'de DNS değiştirdi) gelen raporla 5 tarayıcı hatası düzeltildi: görünmez `<select>`li kutular, açılır listede yan menüden seçenek seçilmesi, başarısız işlemden sonra kayan #id'ler, uzun sayfalarda gereksiz uzun liste, `wait_for_user`'ın yanlışlıkla Enter'la bitmesi. Yeni test sayfası `tests/fixtures/dns-like.html`, `tests/forms-e2e.mjs` 9/9. Not: browser-e2e'deki "Şiddet sorusu → None" adımı değişiklikten bağımsız olarak sınırda (Jev %59-74).
 
