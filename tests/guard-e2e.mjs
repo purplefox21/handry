@@ -67,7 +67,8 @@ try {
 
   process.env.JEVIS_TEST_CONFIRM = 'allow';
   const waited = await call('wait_for_user', { message: 'Doğrulama kodunu gir.' });
-  await check('wait_for_user kullanıcıyı bekleyip devam etti', () => waited.text.includes('tamamladı'));
+  // Nobody typed the code: "Tamam" alone must not count as done while the 2FA page is still there.
+  await check('wait_for_user: "Tamam" dendi ama 2FA sayfası duruyor → söylüyor', () => waited.text.includes('hâlâ'));
   process.env.JEVIS_TEST_CONFIRM = 'deny';
 
   const today = new Date().toISOString().slice(0, 10);

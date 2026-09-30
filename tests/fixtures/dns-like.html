@@ -83,8 +83,8 @@
     document.getElementById('status').textContent = `Kaydedildi: ${document.getElementById('type').value} / ${document.getElementById('ttlBtn').textContent} / ${document.getElementById('prioBtn').textContent}`;
     log('save');
   }
-  // #login: the "user" logs in by hand 1.5 s later.
-  if (location.hash === '#login') setTimeout(() => {
+  // ?login: the "user" logs in by hand 1.5 s later.
+  if (location.search.includes('login')) setTimeout(() => {
     document.getElementById('login').textContent = 'Hoş geldin, Berat';
     history.replaceState(null, '', '#panel');
   }, 1500);

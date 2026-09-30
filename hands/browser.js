@@ -131,14 +131,25 @@ function snapshotInFrame({ prefix, max }) {
   const clean = s => (s || '').replace(/\s+/g, ' ').trim();
   const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 
-  document.querySelectorAll('[data-jevis-id]').forEach(el => el.removeAttribute('data-jevis-id'));
   document.querySelectorAll('[data-jevis-p]').forEach(el => el.removeAttribute('data-jevis-p'));
 
   const isVisible = el => {
     const r = el.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) return false;
     const cs = getComputedStyle(el);
-    return cs.visibility !== 'hidden' && cs.display !== 'none' && Number(cs.opacity) > 0.05;
+    if (cs.visibility === 'hidden' || cs.display === 'none') return false;
+    // A native <select> is often made see-through and laid over a styled box
+    // (GoDaddy and many others): the box is what people see and click.
+    return el.tagName === 'SELECT' || Number(cs.opacity) > 0.05;
+  };
+  // Visible text of an element without the option lists of <select>s inside it.
+  const textOf = el => {
+    let t = el.innerText || el.textContent || '';
+    for (const s of el.querySelectorAll('select')) {
+      const own = s.innerText || s.textContent || '';
+      if (own) t = t.replace(own, ' ');
+    }
+    return clean(t);
   };
 
   const roleOf = el => {
@@ -177,7 +188,7 @@ function snapshotInFrame({ prefix, max }) {
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
       return clean(el.getAttribute('placeholder') || el.getAttribute('title') || el.getAttribute('name') || el.id || '');
     }
-    const text = clean(el.innerText || el.textContent);
+    const text = textOf(el);
     if (text) return text;
     return clean(el.getAttribute('title') || el.querySelector('img[alt]')?.alt || el.querySelector('svg title')?.textContent || el.getAttribute('name') || '');
   };
@@ -232,8 +243,11 @@ function snapshotInFrame({ prefix, max }) {
 
   const picked = new Set();
   const list = [];
+  const selects = [...document.querySelectorAll('select')].filter(isVisible);
   for (const el of document.querySelectorAll(INTERACTIVE)) {
     if (el.tagName === 'INPUT' && el.type === 'hidden') continue;
+    // The styled box around a select: the select stands for it (role, label, value).
+    if (el.tagName !== 'SELECT' && selects.some(sel => el.contains(sel)) && textOf(el).length < 40) continue;
     const isFile = el.tagName === 'INPUT' && el.type === 'file';
     if (!isFile && !isVisible(el)) continue; // file inputs are often hidden behind a styled button
     picked.add(el);
@@ -272,14 +286,23 @@ function snapshotInFrame({ prefix, max }) {
   }
 
   const ordered = [...items.filter(i => i.inView), ...items.filter(i => !i.inView)].slice(0, max);
-  return {
-    total: items.length,
-    items: ordered.map((it, n) => {
-      const id = `${prefix}${n + 1}`;
+  // An element keeps its #id as long as it stays on the page, so ids from an
+  // earlier read still mean the same thing after a failed action. Frames get
+  // a prefix of their own once, so their ids never collide.
+  if (window.__jevisPrefix === undefined) window.__jevisPrefix = prefix ? `f${Math.random().toString(36).slice(2, 5)}-` : '';
+  window.__jevisNext = window.__jevisNext || 0;
+  const keep = new Set();
+  const out = ordered.map(it => {
+    let id = it.el.getAttribute('data-jevis-id');
+    if (!id) {
+      id = `${window.__jevisPrefix}${++window.__jevisNext}`;
       it.el.setAttribute('data-jevis-id', id);
-      return { id, role: it.role, name: it.name, ctx: it.ctx, state: it.state, inView: it.inView };
-    })
-  };
+    }
+    keep.add(it.el);
+    return { id, role: it.role, name: it.name, ctx: it.ctx, state: it.state, inView: it.inView };
+  });
+  document.querySelectorAll('[data-jevis-id]').forEach(el => { if (!keep.has(el)) el.removeAttribute('data-jevis-id'); });
+  return { total: items.length, items: out };
 }
 
 function pageTextInFrame(maxChars) {
@@ -358,14 +381,46 @@ const PURPOSE = {
   click: t => `Click: ${t}`,
   option: t => `Choose this option in the open list/menu: ${t}`,
   type: t => `Type text into: ${t}`,
-  select: t => `Choose a value in the dropdown/select: ${t}`,
+  select: t => `Choose a value in the dropdown/select: ${t} (a dropdown usually shows its current value, with the field's name next to it as nearby text)`,
   check: t => `Tick or untick the checkbox/switch/radio: ${t}`,
   upload: t => `Upload a file using: ${t}`,
   secret: t => `Enter the password/secret into: ${t}`
 };
 
 const pickInfo = pick => ({ confidence: pct(pick.confidence), ms: pick.ms, risk: pick.risk === null ? null : pct(pick.risk) });
-const OPTION_ROLES = ['option', 'menuitem', 'menuitemradio', 'menuitemcheckbox', 'treeitem', 'listitem'];
+const OPTION_ROLES = ['option', 'menuitem', 'menuitemradio', 'menuitemcheckbox'];
+
+/**
+ * The entries of the list that was just opened, not every same-named thing
+ * on the page (a side menu's tree items were picked on GoDaddy). In order:
+ * inside the list the trigger points to (aria-controls/owns), option-like
+ * entries that appeared on opening, option-like entries in a popup,
+ * option-like entries on screen, anything new on screen.
+ */
+async function narrowOptions(page, items, scope = {}) {
+  const info = await page.mainFrame().evaluate(({ ids, listId }) => {
+    const box = listId ? document.getElementById(listId) : null;
+    return ids.map(id => {
+      const el = document.querySelector(`[data-jevis-id="${CSS.escape(id)}"]`);
+      if (!el) return [id, {}];
+      return [id, {
+        inBox: Boolean(box && box !== el && box.contains(el)),
+        fresh: !el.hasAttribute('data-jevis-before'),
+        inPopup: Boolean(el.closest('[role=listbox], [role=menu], [role=dialog], [role=grid], datalist'))
+      }];
+    });
+  }, { ids: items.map(i => i.id), listId: scope.listId || null }).catch(() => []);
+  const by = new Map(info);
+  const optionLike = i => OPTION_ROLES.includes(i.role);
+  const tiers = [
+    items.filter(i => by.get(i.id)?.inBox),
+    items.filter(i => optionLike(i) && i.inView && by.get(i.id)?.fresh),
+    items.filter(i => optionLike(i) && i.inView && by.get(i.id)?.inPopup),
+    items.filter(i => optionLike(i) && i.inView),
+    scope.opened ? items.filter(i => i.inView && by.get(i.id)?.fresh) : []
+  ];
+  return tiers.find(t => t.length) || items;
+}
 
 
 /**
@@ -373,7 +428,7 @@ const OPTION_ROLES = ['option', 'menuitem', 'menuitemradio', 'menuitemcheckbox',
  * into a Playwright locator. Throws LOW_CONFIDENCE with candidates when Jev
  * isn't sure, so the caller can choose by #id instead of guessing.
  */
-async function resolve(page, target, purpose, { withRisk = false } = {}) {
+async function resolve(page, target, purpose, { withRisk = false, scope } = {}) {
   const idMatch = String(target).trim().match(/^#([\w-]+)$/);
   if (idMatch) {
     const loc = await locate(page, idMatch[1]);
@@ -381,8 +436,10 @@ async function resolve(page, target, purpose, { withRisk = false } = {}) {
     // Same order as the element list: a field is named by its label, not by what's typed in it.
     const name = await loc.evaluate(el => {
       const clean = s => (s || '').replace(/\s+/g, ' ').trim();
+      let text = el.innerText || '';
+      for (const s of el.querySelectorAll('select')) if (s.innerText) text = text.replace(s.innerText, ' ');
       return (clean(el.getAttribute('aria-label')) || clean([...(el.labels || [])].map(l => l.innerText).join(' '))
-        || clean(el.getAttribute('placeholder')) || clean(el.getAttribute('title')) || clean(el.innerText)
+        || clean(el.getAttribute('placeholder')) || clean(el.getAttribute('title')) || clean(text)
         || clean(el.getAttribute('name')) || clean(el.id) || clean(el.value)).slice(0, 80);
     });
     const item = { id: idMatch[1], name, role: 'seçilen', ctx: '', state: [] };
@@ -392,10 +449,7 @@ async function resolve(page, target, purpose, { withRisk = false } = {}) {
 
   const snap = await snapshot(page);
   let items = snap.items;
-  if (purpose === 'option') {
-    const options = items.filter(i => OPTION_ROLES.includes(i.role));
-    if (options.length) items = options; // an open list: only its entries are candidates
-  }
+  if (purpose === 'option') items = await narrowOptions(page, items, scope);
   if (!items.length) throw new JevisError('NOT_FOUND', 'Sayfada kullanılabilir öğe bulunamadı.');
   const labels = items.map(labelOf);
   const pick = await jev.pickElement(PURPOSE[purpose](target), labels, { url: snap.url, title: snap.title }, { withRisk });
@@ -490,10 +544,10 @@ export async function read({ text = true } = {}) {
   return { url: snap.url, title: snap.title, elements: snap.items, total: snap.total, text: body, alerts };
 }
 
-export async function click(target, { risk = true, purpose = 'click' } = {}) {
+export async function click(target, { risk = true, purpose = 'click', scope } = {}) {
   const page = await activePage();
   const before = { url: page.url() };
-  const { loc, item, pick } = await resolve(page, target, purpose, { withRisk: risk });
+  const { loc, item, pick } = await resolve(page, target, purpose, { withRisk: risk, scope });
   if (await loc.evaluate(el => el.tagName === 'INPUT' && el.type === 'file')) {
     throw new JevisError('WRONG_TOOL', 'Bu bir dosya seçme alanı; dosya yüklemek için upload kullanın.');
   }
@@ -560,9 +614,10 @@ export async function select(target, option) {
   const page = await activePage();
   const before = { url: page.url() };
   const { loc, item, pick } = await resolve(page, target, 'select');
-  const isNative = await loc.evaluate(el => el.tagName === 'SELECT');
-  if (isNative) {
-    const options = await loc.evaluate(el => [...el.options].map(o => o.text.replace(/\s+/g, ' ').trim()));
+  // The target may be a styled box with the real <select> inside it.
+  const native = (await loc.evaluateHandle(el => (el.tagName === 'SELECT' ? el : el.querySelector('select')))).asElement();
+  if (native) {
+    const options = await native.evaluate(el => [...el.options].map(o => o.text.replace(/\s+/g, ' ').trim()));
     let index = options.findIndex(o => o.toLowerCase() === String(option).toLowerCase());
     if (index < 0) {
       const optPick = await jev.pickOption(item.name, option, options);
@@ -571,14 +626,20 @@ export async function select(target, option) {
       }
       index = optPick.index;
     }
-    await loc.selectOption({ index });
+    await native.selectOption({ index }, { force: true });
     return { element: item, jev: pickInfo(pick), selected: options[index], ...(await outcome(page, before)) };
   }
-  // Custom dropdown: open it, then pick the option like any other element.
+  // Custom dropdown: open it, then pick the option among the list's entries.
   // The commit (Save/Done) is where the risk check belongs, not the option.
+  const listId = await loc.evaluate(el => el.getAttribute('aria-controls') || el.getAttribute('aria-owns')
+    || el.querySelector('[aria-controls]')?.getAttribute('aria-controls') || '').catch(() => '');
+  await page.mainFrame().evaluate(() => {
+    document.querySelectorAll('[data-jevis-before]').forEach(e => e.removeAttribute('data-jevis-before'));
+    document.querySelectorAll('[data-jevis-p]').forEach(e => e.setAttribute('data-jevis-before', ''));
+  }).catch(() => {});
   await clickLocator(loc);
   await sleep(300);
-  const chosen = await click(option, { risk: false, purpose: 'option' });
+  const chosen = await click(option, { risk: false, purpose: 'option', scope: { listId, opened: true } });
   return { element: item, jev: pickInfo(pick), selected: chosen.element.name, ...(await outcome(await activePage(), before)) };
 }
 
@@ -730,11 +791,16 @@ export async function verify(expectation) {
 // Text formatting shared by the CLI and the MCP server
 // ---------------------------------------------------------------------------
 
-export function formatRead(r, { maxElements = 200 } = {}) {
+export function formatRead(r, { maxElements = 200, all = false } = {}) {
   const lines = [`Sayfa: ${r.title}`, `URL: ${r.url}`];
   if (r.alerts?.length) lines.push(`Uyarılar: ${r.alerts.join(' | ')}`);
-  lines.push('', `Öğeler (${r.elements.length}${r.total > r.elements.length ? ` / ${r.total}` : ''}):`);
-  for (const el of r.elements.slice(0, maxElements)) lines.push(`#${el.id} ${labelOf(el)}`);
+  // What's on screen in full; the rest as a count (targets there still work by name).
+  const onScreen = r.elements.filter(e => e.inView);
+  const shown = all || !onScreen.length ? r.elements : onScreen;
+  lines.push('', `Öğeler (${shown.length}${all ? '' : ' ekranda'}${r.total > r.elements.length ? `, sayfada toplam ${r.total}` : ''}):`);
+  for (const el of shown.slice(0, maxElements)) lines.push(`#${el.id} ${labelOf(el)}`);
+  const rest = r.elements.length - Math.min(shown.length, maxElements);
+  if (rest > 0) lines.push(`… ekran dışında ${rest} öğe daha. Onlara da adıyla hedef verebilirsin; hepsini görmek için browser_read all=true.`);
   if (r.text) lines.push('', 'Sayfa metni:', r.text);
   return lines.join('\n');
 }

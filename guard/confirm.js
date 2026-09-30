@@ -59,21 +59,45 @@ export function confirmAction(message, { timeoutSec = config().confirm.timeoutSe
  * Pauses until the user has done something by hand (log in, type a 2FA code,
  * solve a CAPTCHA). Resolves 'done', 'cancel' or 'timeout'.
  */
-export function waitForUser(message, { timeoutSec = config().guard.waitForUserTimeoutSec } = {}) {
+export function waitForUser(message, { timeoutSec = config().guard.waitForUserTimeoutSec, until = null } = {}) {
   if (process.env.JEVIS_TEST_CONFIRM === 'allow') return Promise.resolve('done');
   if (process.env.JEVIS_TEST_CONFIRM === 'deny') return Promise.resolve('cancel');
+  // No default button: an Enter meant for the web page must not say "done".
   const script = [
     'on run argv',
-    'set r to display dialog (item 1 of argv) with title "JEVIS seni bekliyor" buttons {"Vazgeç", "Tamam"} default button "Tamam" cancel button "Vazgeç" with icon note giving up after ((item 2 of argv) as integer)',
+    'set r to display dialog (item 1 of argv) with title "JEVIS seni bekliyor" buttons {"Vazgeç", "Tamam"} cancel button "Vazgeç" with icon note giving up after ((item 2 of argv) as integer)',
     'if gave up of r then return "timeout"',
     'return button returned of r',
     'end run'
   ].join('\n');
-  const text = `${message}\n\nBitince "Tamam"a bas.`;
+  const text = `${message}\n\n${until ? 'Bitirince kendiliğinden devam ederim; istersen "Tamam"a da basabilirsin.' : 'Bitince "Tamam"a bas.'}`;
   return new Promise(resolve => {
-    execFile('osascript', ['-e', script, text, String(timeoutSec)], (err, stdout) => {
-      if (err) return resolve('cancel');
-      resolve(stdout.trim() === 'timeout' ? 'timeout' : 'done');
-    });
+    let finished = false;
+    let dialog = null;
+    let timer = null;
+    const finish = answer => {
+      if (finished) return;
+      finished = true;
+      clearInterval(timer);
+      dialog?.kill();
+      resolve(answer);
+    };
+    // Tests: no dialog at all, only the page can end the wait.
+    if (process.env.JEVIS_TEST_CONFIRM !== 'watch') {
+      dialog = execFile('osascript', ['-e', script, text, String(timeoutSec)], (err, stdout) => {
+        if (finished) return;
+        if (err) return finish('cancel');
+        finish(stdout.trim() === 'timeout' ? 'timeout' : 'done');
+      });
+    }
+    // until(): checked every second; true when the page shows the user is done.
+    if (until) {
+      const started = Date.now();
+      timer = setInterval(async () => {
+        if (finished) return;
+        if (Date.now() - started > timeoutSec * 1000) return finish('timeout');
+        if (await until().catch(() => false)) finish('done');
+      }, 1000);
+    }
   });
 }

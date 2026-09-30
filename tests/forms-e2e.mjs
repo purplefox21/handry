@@ -79,7 +79,7 @@ await check('Ekran dışındaki öğe listelenmese de adıyla tıklanabiliyor', 
 });
 
 await check('wait_for_user until_text: kullanıcı işi bitirince kendiliğinden devam', async () => {
-  await call('browser_open', { url: `${FIXTURE}#login` });
+  await call('browser_open', { url: `${FIXTURE}?login=1` });
   process.env.JEVIS_TEST_CONFIRM = 'watch'; // no dialog button; only the page can end the wait
   const r = await call('wait_for_user', { message: 'Giriş yap', until_text: 'Hoş geldin', timeout_sec: 10 });
   process.env.JEVIS_TEST_CONFIRM = 'allow';
