@@ -446,7 +446,7 @@ const PURPOSE = {
   option: t => `Choose this option in the open list/menu: ${t}`,
   type: t => `Type text into: ${t}`,
   select: t => `Choose a value in the dropdown/select: ${t} (a dropdown usually shows its current value, with the field's name next to it as nearby text)`,
-  check: t => `Tick or untick the checkbox/switch/radio: ${t}`,
+  check: t => `Tick or untick the checkbox/switch/radio: ${t} (a radio button is named by its answer, with its question as the nearby text)`,
   upload: t => `Upload a file using: ${t}`,
   secret: t => `Enter the password/secret into: ${t}`
 };
