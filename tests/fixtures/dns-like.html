@@ -57,6 +57,24 @@
     <div class="row"><button type="button" id="saveBtn" onclick="save()">Kaydet</button></div>
     <div id="status" role="status"></div>
     <p id="login">Devam etmek için giriş yapın.</p>
+    <h2>DNS kayıtları</h2>
+    <table id="records">
+      <thead><tr><th>Tür</th><th>Ad</th><th>Değer</th><th>TTL</th></tr></thead>
+      <tbody>
+        <tr><td>A</td><td>@</td><td>203.0.113.10</td><td>1/2 Saat</td></tr>
+        <tr><td>CNAME</td><td>www</td><td>@</td><td>1 Saat</td></tr>
+        <tr><td>A</td><td>ornek</td><td>203.0.113.10</td><td>1/2 Saat</td></tr>
+      </tbody>
+    </table>
+    <h2>Yönlendirmeler</h2>
+    <div class="grid">
+      <div class="rw"><span>eski.example</span><span>yeni.example</span><span>301</span></div>
+      <div class="rw"><span>blog.example</span><span>yeni.example/blog</span><span>302</span></div>
+      <div class="rw"><span>shop.example</span><span>magaza.example</span><span>301</span></div>
+    </div>
+    <h2>API anahtarı</h2>
+    <p>Web API anahtarı: <code id="apikey">AIzaSyTESTKEY1234567890abcdefgHIJKLMN</code></p>
+    <p><a href="data:application/json,%7B%22project_id%22%3A%22jevis-test%22%7D" download="google-services.json">google-services.json dosyasını indir</a></p>
     <div class="spacer"></div>
     <button type="button" onclick="log('bottom')">Sayfanın en altındaki düğme</button>
   </main>

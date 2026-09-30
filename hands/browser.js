@@ -308,6 +308,67 @@ function snapshotInFrame({ prefix, max }) {
   return { total: items.length, items: out };
 }
 
+// Tables on the page as rows of cells: <table>s, ARIA tables and grids, and
+// lists drawn with <div>s whose rows look alike (GoDaddy's DNS records).
+function tablesInFrame(maxRows) {
+  const clean = s => (s || '').replace(/\s+/g, ' ').trim();
+  const visible = el => { const r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2 && getComputedStyle(el).visibility !== 'hidden'; };
+  const labelOf = el => {
+    const own = clean(el.getAttribute('aria-label') || el.querySelector('caption')?.innerText || '');
+    if (own) return own;
+    for (let a = el; a && a !== document.body; a = a.parentElement) {
+      for (let p = a.previousElementSibling; p; p = p.previousElementSibling) {
+        const h = p.matches('h1,h2,h3,h4,h5,h6,[role=heading]') ? p : p.querySelector('h1,h2,h3,h4,h5,h6,[role=heading]');
+        if (h && clean(h.innerText)) return clean(h.innerText).slice(0, 80);
+      }
+    }
+    return '';
+  };
+  const out = [];
+  const seen = new Set();
+  const add = (el, kind, headers, rows) => {
+    if (rows.length < 1 || seen.has(el)) return;
+    seen.add(el);
+    out.push({ kind, label: labelOf(el), headers, rows: rows.slice(0, maxRows), total: rows.length });
+  };
+  for (const t of document.querySelectorAll('table')) {
+    if (!visible(t)) continue;
+    const trs = [...t.rows];
+    const headRow = t.tHead?.rows[0] || (trs[0] && [...trs[0].cells].every(c => c.tagName === 'TH') ? trs[0] : null);
+    const headers = headRow ? [...headRow.cells].map(c => clean(c.innerText)) : [];
+    const body = trs.filter(r => r !== headRow && visible(r)).map(r => [...r.cells].map(c => clean(c.innerText).slice(0, 200)));
+    add(t, 'table', headers, body.filter(r => r.some(Boolean)));
+  }
+  for (const g of document.querySelectorAll('[role=table], [role=grid], [role=treegrid]')) {
+    if (!visible(g) || g.tagName === 'TABLE') continue;
+    const rows = [...g.querySelectorAll('[role=row]')].filter(visible);
+    const headRow = rows.find(r => r.querySelector('[role=columnheader]'));
+    const headers = headRow ? [...headRow.querySelectorAll('[role=columnheader]')].map(c => clean(c.innerText)) : [];
+    const body = rows.filter(r => r !== headRow).map(r => [...r.querySelectorAll('[role=cell], [role=gridcell], [role=rowheader]')].map(c => clean(c.innerText).slice(0, 200)));
+    add(g, 'grid', headers, body.filter(r => r.some(Boolean)));
+  }
+  // <div> lists: at least 3 siblings that look alike, each with 2+ texts.
+  let looked = 0;
+  for (const box of document.querySelectorAll('div, ul, section, tbody')) {
+    if (++looked > 3000) break;
+    if (seen.has(box) || box.closest('table, [role=table], [role=grid]') || !visible(box)) continue;
+    const kids = [...box.children].filter(visible);
+    if (kids.length < 3) continue;
+    const sig = k => `${k.tagName}.${[...k.classList].sort().join('.')}`;
+    const common = sig(kids[1]);
+    const same = kids.filter(k => sig(k) === common);
+    if (same.length < 3 || same.length < kids.length * 0.6) continue;
+    const cellsOf = k => [...k.children].filter(visible).map(c => clean(c.innerText).slice(0, 200)).filter(Boolean);
+    const rows = same.map(cellsOf);
+    const width = rows[0]?.length || 0;
+    if (width < 2 || rows.filter(r => r.length === width).length < rows.length * 0.7) continue;
+    if ([...box.querySelectorAll('*')].some(d => seen.has(d))) continue;
+    const before = box.children[0] !== same[0] ? cellsOf(box.children[0]) : [];
+    add(box, 'list', before.length === width ? before : [], rows);
+  }
+  return out;
+}
+
 function pageTextInFrame(maxChars) {
   const text = (document.body?.innerText || '').replace(/[ \t]+/g, ' ').replace(/\n\s*\n\s*\n+/g, '\n\n').trim();
   return text.length > maxChars ? `${text.slice(0, maxChars)}\n… (${text.length - maxChars} karakter daha)` : text;
@@ -688,6 +749,33 @@ export async function download(target, saveTo) {
   return { element: item, jev: pickInfo(pick), file: dest, name, size: fs.statSync(dest).size, url: page.url(), title: await page.title().catch(() => '') };
 }
 
+/**
+ * The page's tables. With `which` (words from its heading, caption or
+ * columns) Jev picks the one meant; otherwise the biggest.
+ */
+export async function tables(which, { maxRows = 60 } = {}) {
+  const page = await activePage();
+  const found = (await withTimeout(page.mainFrame().evaluate(tablesInFrame, maxRows).catch(() => []), 5000, []))
+    .sort((a, b) => b.total - a.total);
+  if (!found.length) throw new JevisError('NOT_FOUND', 'Sayfada tablo bulunamadı.');
+  const describe = t => `${t.label || '(başlıksız)'} — ${t.headers.length ? t.headers.join(', ') : `ilk satır: ${t.rows[0].join(', ')}`} (${t.total} satır)`;
+  let index = 0;
+  if (which && found.length > 1) {
+    const pick = await jev.pickOption('table on the page', which, found.map(describe));
+    if (pick.index !== null && jev.isConfident(pick)) index = pick.index;
+  }
+  return { url: page.url(), title: await page.title().catch(() => ''), table: found[index], others: found.filter((_, i) => i !== index).map(describe) };
+}
+
+export function formatTable(r) {
+  const t = r.table;
+  const keys = t.headers.length && t.rows.every(row => row.length <= t.headers.length) ? t.headers : null;
+  const lines = [`Tablo: ${t.label || '(başlıksız)'} · ${t.total} satır${t.total > t.rows.length ? ` (ilk ${t.rows.length})` : ''}${keys ? '' : t.headers.length ? ` · sütunlar: ${t.headers.join(', ')}` : ''}`];
+  for (const row of t.rows) lines.push(JSON.stringify(keys ? Object.fromEntries(keys.map((k, i) => [k || `sütun ${i + 1}`, row[i] ?? ''])) : row));
+  if (r.others.length) lines.push('', `Sayfadaki diğer tablolar: ${r.others.join(' | ')}`);
+  return lines.join('\n');
+}
+
 /** The text a field or element shows: an input's value, else its visible text. */
 export async function valueAt(target) {
   const page = await activePage();
@@ -966,14 +1054,66 @@ export async function closeTab(ref) {
 }
 
 /** format 'jpeg' keeps images sent to an LLM small; the CLI keeps PNG. */
-export async function screenshot({ fullPage = false, format = 'png' } = {}) {
+// Numbered boxes over the elements on screen, for a screenshot. They sit in
+// their own layer (a shadow root) that the mouse passes through, and are
+// removed right after the picture is taken. Neighbours get different colours
+// and a label never covers another label.
+function drawMarksInFrame(ids) {
+  const COLORS = ['#e5383b', '#0a7cff', '#2a9d3c', '#b04cf0', '#e8820c', '#0aa2a6'];
+  const host = document.createElement('div');
+  host.id = '__jevis_marks';
+  host.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483647';
+  const root = host.attachShadow({ mode: 'closed' });
+  const placed = [];
+  const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  ids.forEach((id, n) => {
+    const el = document.querySelector(`[data-jevis-id="${CSS.escape(id)}"]`);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return;
+    const color = COLORS[n % COLORS.length];
+    const box = document.createElement('div');
+    box.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border:2px solid ${color};border-radius:3px;box-sizing:border-box`;
+    const label = document.createElement('div');
+    label.textContent = id;
+    const w = 7 * id.length + 8;
+    const h = 15;
+    // On the top-left corner, outside the box when there is room; moved along the box edge if taken.
+    let spot = { x: r.left, y: r.top - h >= 0 ? r.top - h : r.bottom, w, h };
+    for (let tries = 0; tries < 6 && placed.some(p => overlaps(p, spot)); tries++) {
+      spot = tries % 2 === 0 ? { ...spot, x: spot.x + w + 2 } : { ...spot, y: r.top + r.height - h };
+    }
+    placed.push(spot);
+    label.style.cssText = `position:fixed;left:${spot.x}px;top:${spot.y}px;height:${h}px;padding:0 4px;background:${color};color:#fff;font:bold 11px/15px -apple-system,sans-serif;border-radius:3px`;
+    root.append(box, label);
+  });
+  document.documentElement.append(host);
+}
+
+function removeMarksInFrame() {
+  document.getElementById('__jevis_marks')?.remove();
+}
+
+export async function screenshot({ fullPage = false, format = 'png', marks = false } = {}) {
   const page = await activePage();
   await page.bringToFront().catch(() => {});
   const type = format === 'jpeg' ? 'jpeg' : 'png';
-  const buf = await page.screenshot({ fullPage, scale: 'css', type, ...(type === 'jpeg' ? { quality: 70 } : {}), timeout: 15000 });
+  let legend = null;
+  if (marks) {
+    const snap = await snapshot(page);
+    const onScreen = snap.items.filter(i => i.inView && !/^f/.test(i.id)).slice(0, 150);
+    legend = onScreen.map(i => `#${i.id} ${labelOf(i)}`);
+    await page.mainFrame().evaluate(drawMarksInFrame, onScreen.map(i => i.id)).catch(() => {});
+  }
+  let buf;
+  try {
+    buf = await page.screenshot({ fullPage: fullPage && !marks, scale: 'css', type, ...(type === 'jpeg' ? { quality: 70 } : {}), timeout: 15000 });
+  } finally {
+    if (marks) await page.mainFrame().evaluate(removeMarksInFrame).catch(() => {});
+  }
   const file = path.join(homeDir('shots'), `${new Date().toISOString().replace(/[:.]/g, '-')}.${type === 'jpeg' ? 'jpg' : 'png'}`);
   fs.writeFileSync(file, buf);
-  return { path: file, base64: buf.toString('base64'), mimeType: `image/${type}`, url: page.url(), title: await page.title().catch(() => '') };
+  return { path: file, base64: buf.toString('base64'), mimeType: `image/${type}`, url: page.url(), title: await page.title().catch(() => ''), legend };
 }
 
 export async function verify(expectation) {

@@ -13,6 +13,7 @@ const MAX_CHARS = 400;
 export function siteOf(urlOrHost) {
   let host = String(urlOrHost || '').trim();
   try { host = new URL(/^[a-z]+:\/\//i.test(host) ? host : `https://${host}`).hostname; } catch { return ''; }
+  if (/^\d+(\.\d+){3}$/.test(host) || !host.includes('.')) return host; // 127.0.0.1, localhost
   const parts = host.replace(/^www\./, '').split('.');
   const twoPart = parts.length > 2 && ['co', 'com', 'org', 'net', 'gov', 'ac'].includes(parts.at(-2));
   return parts.slice(twoPart ? -3 : -2).join('.');

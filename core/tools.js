@@ -149,6 +149,15 @@ export const TOOLS = [
     }
   },
   {
+    name: 'browser_table',
+    description: 'Read a table on the page as JSON rows (one line per row, keyed by column): DNS records, TestFlight builds, user lists. Works with real tables, ARIA grids and rows drawn with <div>s. which: words from the table\'s heading or columns when there are several. Good for checking ("is the ornek record there with the right value?").',
+    inputSchema: obj({ which: { type: 'string' }, max_rows: { type: 'number' } }),
+    run: async ({ which, max_rows }) => {
+      const r = await browser.tables(which, { maxRows: Math.min(Number(max_rows) || 60, 300) });
+      return text(browser.formatTable(r), { rows: r.table.total });
+    }
+  },
+  {
     name: 'browser_download',
     description: 'Click a download link or button and save the file where it belongs, e.g. google-services.json into "~/Desktop/myapp/android/app/" or an App Store Connect .p8 key. save_to: a folder (ending with /) or a full file path inside the home folder; default ~/Downloads/JEVIS/. Never overwrites: adds a number instead. Returns the path.',
     inputSchema: obj({ target: TARGET, save_to: { type: 'string' } }, ['target']),
@@ -288,11 +297,12 @@ export const TOOLS = [
   },
   {
     name: 'browser_screenshot',
-    description: 'Screenshot of the current tab. Slower and costlier than browser_read; use it only when you need to see the layout or images.',
-    inputSchema: obj({ full_page: { type: 'boolean' } }),
-    run: async ({ full_page }) => {
-      const s = await browser.screenshot({ fullPage: Boolean(full_page), format: 'jpeg' });
-      return { content: [{ type: 'image', data: s.base64, mimeType: s.mimeType }, { type: 'text', text: `${s.title} (${s.url})` }], meta: { path: s.path } };
+    description: 'Screenshot of the current tab. Slower and costlier than browser_read; use it only when you need to see the layout or images. marks: true draws each element\'s #id on it (with the list beside it): then click with "#id". A #id is the element itself, not a spot on the screen: the click finds that element even if the page moved, and fails (instead of clicking something else) if it is gone.',
+    inputSchema: obj({ full_page: { type: 'boolean' }, marks: { type: 'boolean' } }),
+    run: async ({ full_page, marks }) => {
+      const s = await browser.screenshot({ fullPage: Boolean(full_page), format: 'jpeg', marks: Boolean(marks) });
+      const caption = s.legend ? `${s.title} (${s.url})\nNumaralı öğeler (tıklamak için "#numara"):\n${s.legend.join('\n')}` : `${s.title} (${s.url})`;
+      return { content: [{ type: 'image', data: s.base64, mimeType: s.mimeType }, { type: 'text', text: caption }], meta: { path: s.path } };
     }
   },
   {
