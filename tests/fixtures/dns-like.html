@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>DNS Yönetimi (JEVIS test sayfası)</title>
+<!-- Patterns from real sites (GoDaddy's DNS page): a styled box over an
+     invisible native <select>, custom lists (one tied to its button with
+     aria-controls, one built on click), a tree menu on the side whose items
+     share names with the options, and content far below the fold. -->
+<style>
+  body { font-family: -apple-system, sans-serif; display: flex; margin: 0; }
+  nav { width: 180px; background: #f2f2f5; min-height: 100vh; }
+  nav li { cursor: pointer; padding: 4px 0; }
+  main { flex: 1; padding: 20px; }
+  .row { margin: 14px 0; display: flex; gap: 10px; align-items: center; }
+  .fake-select { position: relative; display: inline-block; border: 1px solid #888; border-radius: 6px; padding: 6px 30px 6px 10px; min-width: 150px; cursor: pointer; }
+  .fake-select select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+  [role=listbox], [role=menu] { border: 1px solid #888; border-radius: 6px; background: #fff; position: absolute; margin-top: 70px; }
+  [role=option], [role=menuitem] { padding: 5px 12px; cursor: pointer; }
+  .spacer { height: 1800px; }
+</style>
+</head>
+<body>
+  <nav>
+    <ul role="tree" aria-label="Menü">
+      <li role="treeitem" onclick="log('tree:' + this.textContent)">Alan adları</li>
+      <li role="treeitem" onclick="log('tree:' + this.textContent)">DNS</li>
+      <li role="treeitem" onclick="log('tree:' + this.textContent)">CNAME</li>
+      <li role="treeitem" onclick="log('tree:' + this.textContent)">1 Gün</li>
+      <li role="treeitem" onclick="log('tree:' + this.textContent)">Yüksek</li>
+    </ul>
+  </nav>
+  <main>
+    <h1>DNS kaydı ekle</h1>
+    <div class="row">
+      <span id="typeLabel">Tür</span>
+      <div class="fake-select" onclick="log('box')"><span id="typeShown">A</span>
+        <select id="type" aria-labelledby="typeLabel" onchange="document.getElementById('typeShown').textContent = this.value; log('type:' + this.value)">
+          <option>A</option><option>AAAA</option><option>CNAME</option><option>MX</option><option>TXT</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <span id="ttlLabel">TTL</span>
+      <button type="button" id="ttlBtn" aria-haspopup="listbox" aria-controls="ttlList" aria-labelledby="ttlLabel ttlBtn"
+              onclick="document.getElementById('ttlList').hidden = false">1 Saat</button>
+      <div role="listbox" id="ttlList" hidden>
+        <div role="option" onclick="pickTtl(this)">30 dakika</div>
+        <div role="option" onclick="pickTtl(this)">1 Saat</div>
+        <div role="option" onclick="pickTtl(this)">1 Gün</div>
+      </div>
+    </div>
+    <div class="row">
+      <span>Öncelik</span>
+      <button type="button" id="prioBtn" onclick="openPriority(this)">Normal</button>
+    </div>
+    <div class="row"><button type="button" id="saveBtn" onclick="save()">Kaydet</button></div>
+    <div id="status" role="status"></div>
+    <p id="login">Devam etmek için giriş yapın.</p>
+    <div class="spacer"></div>
+    <button type="button" onclick="log('bottom')">Sayfanın en altındaki düğme</button>
+  </main>
+<script>
+  window.__log = [];
+  function log(x) { window.__log.push(x); }
+  function pickTtl(o) { document.getElementById('ttlBtn').textContent = o.textContent; document.getElementById('ttlList').hidden = true; log('ttl:' + o.textContent); }
+  // A menu that only exists once opened, with no link to its button.
+  function openPriority(btn) {
+    if (document.getElementById('prioMenu')) return;
+    const menu = document.createElement('div');
+    menu.id = 'prioMenu';
+    menu.setAttribute('role', 'menu');
+    for (const name of ['Düşük', 'Normal', 'Yüksek']) {
+      const item = document.createElement('div');
+      item.setAttribute('role', 'menuitem');
+      item.textContent = name;
+      item.onclick = () => { btn.textContent = name; menu.remove(); log('prio:' + name); };
+      menu.append(item);
+    }
+    btn.after(menu);
+  }
+  function save() {
+    document.getElementById('status').textContent = `Kaydedildi: ${document.getElementById('type').value} / ${document.getElementById('ttlBtn').textContent} / ${document.getElementById('prioBtn').textContent}`;
+    log('save');
+  }
+  // #login: the "user" logs in by hand 1.5 s later.
+  if (location.hash === '#login') setTimeout(() => {
+    document.getElementById('login').textContent = 'Hoş geldin, Berat';
+    history.replaceState(null, '', '#panel');
+  }, 1500);
+</script>
+</body>
+</html>
