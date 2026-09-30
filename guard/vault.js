@@ -33,6 +33,17 @@ export function addSecretInteractive(name, sites) {
   registerSecret(name, sites);
 }
 
+/**
+ * Stores a value (e.g. an API key read from a page) in the Keychain. It goes
+ * to `security` on its standard input, never as an argument a process list shows.
+ */
+export function storeSecret(name, value, sites = []) {
+  const quoted = String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const res = spawnSync('security', ['-i'], { input: `add-generic-password -a "${name}" -s ${SERVICE} -U -w "${quoted}"\n`, encoding: 'utf-8' });
+  if (res.status !== 0) throw new Error(`Anahtar Zinciri'ne yazılamadı: ${(res.stderr || '').trim()}`);
+  registerSecret(name, sites);
+}
+
 /** Records the allowed sites of a secret that is already in the Keychain. */
 export function registerSecret(name, sites) {
   const index = readIndex();

@@ -1,5 +1,6 @@
 // Asks the user before risky actions with a native macOS dialog. The dialog is
 // shown by the OS, so nothing on a web page or in an LLM reply can answer it.
+import fs from 'node:fs';
 import { execFile } from 'node:child_process';
 import { config } from '../core/config.js';
 
@@ -39,6 +40,8 @@ export function needsConfirm(element, riskP, host = '') {
  * JEVIS_TEST_CONFIRM=deny|allow skips the dialog in automated tests.
  */
 export function confirmAction(message, { timeoutSec = config().confirm.timeoutSec } = {}) {
+  // Tests can read what the dialog would have said.
+  if (process.env.JEVIS_TEST_CONFIRM && process.env.JEVIS_TEST_CONFIRM_LOG) fs.appendFileSync(process.env.JEVIS_TEST_CONFIRM_LOG, `${JSON.stringify(message)}\n`);
   if (process.env.JEVIS_TEST_CONFIRM === 'deny') return Promise.resolve(false);
   if (process.env.JEVIS_TEST_CONFIRM === 'allow') return Promise.resolve(true);
   const script = [

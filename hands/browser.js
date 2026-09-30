@@ -2,6 +2,7 @@
 // profile) through Playwright. Jev decides which element an instruction means;
 // risky clicks go through the confirmation dialog first.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
@@ -475,13 +476,25 @@ async function resolve(page, target, purpose, { withRisk = false, scope } = {}) 
  * Asks the user when the action is risky. Returns null (no question needed)
  * or { reason, screenshot } as a record of what was approved.
  */
+// What JEVIS typed, chose or ticked on each page since the last approved
+// action, so the approval shows what is about to be saved.
+const pendingChanges = new WeakMap();
+function noteChange(page, field, value) {
+  const list = (pendingChanges.get(page) || []).filter(c => c.field !== field);
+  list.push({ field: String(field || '?').slice(0, 40), value: String(value ?? '').replace(/\s+/g, ' ').slice(0, 60) });
+  pendingChanges.set(page, list);
+}
+
 async function guardRisk(page, item, riskP, actionText) {
   const host = (() => { try { return new URL(page.url()).host; } catch { return ''; } })();
   const verdict = needsConfirm(item, riskP, host);
   if (!verdict.ask) return null;
   const title = await page.title().catch(() => '');
-  const ok = await confirmAction(`JEVIS şunu yapmak istiyor:\n\n${actionText}\n\nSayfa: ${title}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`);
+  const changes = pendingChanges.get(page) || [];
+  const changed = changes.length ? `\n\nBu sayfada JEVIS'in girdikleri:\n${changes.slice(-12).map(c => `• ${c.field}: ${c.value}`).join('\n')}` : '';
+  const ok = await confirmAction(`JEVIS şunu yapmak istiyor:\n\n${actionText}${changed}\n\nSayfa: ${title}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`);
   if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
+  pendingChanges.delete(page); // approved: these are being saved now
   const shot = path.join(homeDir('logs', 'approved'), `${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`);
   await page.screenshot({ path: shot, type: 'jpeg', quality: 60, scale: 'css', timeout: 5000 }).catch(() => {});
   return { reason: verdict.reason, screenshot: shot };
@@ -643,11 +656,44 @@ export async function type(target, text, { submit = false, append = false } = {}
       await page.keyboard.type(text);
     }
   }
+  noteChange(page, item.name, /password/.test(item.role) || await loc.evaluate(el => el.type === 'password').catch(() => false) ? '••••' : text);
   if (submit) {
     await loc.press('Enter');
     await settle(page);
   }
   return { element: item, jev: pickInfo(pick), typed: text.length, approval, ...(await outcome(page, before)) };
+}
+
+/**
+ * Clicks a download link or button and puts the file where it belongs
+ * (default ~/Downloads/JEVIS; a folder or a full path, inside the home
+ * folder). An existing file is never overwritten: a number is added.
+ */
+export async function download(target, saveTo) {
+  const page = await activePage();
+  const { loc, item, pick } = await resolve(page, target, 'click');
+  const waiting = page.waitForEvent('download', { timeout: 60000 });
+  await clickLocator(loc);
+  let dl;
+  try { dl = await waiting; } catch { throw new JevisError('NO_DOWNLOAD', `"${item.name}" tıklandı ama 60 sn içinde bir indirme başlamadı.`); }
+  const name = dl.suggestedFilename();
+  const home = os.homedir();
+  const wanted = path.resolve(expandHome(saveTo || '~/Downloads/JEVIS/'));
+  if (wanted !== home && !wanted.startsWith(home + path.sep)) throw new JevisError('OUTSIDE_HOME', 'İndirilen dosya sadece ev klasörünün içine kaydedilir.');
+  const isDir = /[\\/]$/.test(String(saveTo || '/')) || (fs.existsSync(wanted) && fs.statSync(wanted).isDirectory());
+  let dest = isDir ? path.join(wanted, name) : wanted;
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  for (let n = 2; fs.existsSync(dest); n++) dest = dest.replace(/( \(\d+\))?(\.[^./]*)?$/, (m, _n, ext = '') => ` (${n})${ext}`);
+  await dl.saveAs(dest);
+  return { element: item, jev: pickInfo(pick), file: dest, name, size: fs.statSync(dest).size, url: page.url(), title: await page.title().catch(() => '') };
+}
+
+/** The text a field or element shows: an input's value, else its visible text. */
+export async function valueAt(target) {
+  const page = await activePage();
+  const { loc, item } = await resolve(page, target, 'click');
+  const value = await loc.evaluate(el => ('value' in el && typeof el.value === 'string' && el.value) || el.innerText || el.textContent || '');
+  return { element: item, value: value.trim(), host: new URL(page.url()).host };
 }
 
 const TEXT_ROLES = /^(textbox|textarea|searchbox|combobox|spinbutton)/;
@@ -715,6 +761,7 @@ export async function fill(fields) {
         row.after = value;
       } else if (CHOICE_ROLES.includes(item.role)) {
         if (!item.state.includes('checked') && !item.state.includes('selected')) await click(`#${item.id}`, { risk: false });
+        noteChange(page, field, item.name);
         row.after = item.name;
       } else if (TOGGLE_ROLES.includes(item.role) || item.role === 'label') {
         const on = NO.test(value.trim()) ? false : YES.test(value.trim()) || true;
@@ -750,6 +797,7 @@ export async function fillHidden(target, value) {
   const { loc, item, pick } = await resolve(page, target, 'secret');
   await loc.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
   await loc.fill(value, { timeout: 4000 });
+  noteChange(page, item.name, '••••');
   return { element: item, jev: pickInfo(pick), host: new URL(page.url()).host };
 }
 
@@ -775,6 +823,7 @@ export async function select(target, option) {
       index = optPick.index;
     }
     await native.selectOption({ index }, { force: true });
+    noteChange(page, item.name, options[index]);
     return { element: item, jev: pickInfo(pick), selected: options[index], ...(await outcome(page, before)) };
   }
   // Custom dropdown: open it, then pick the option among the list's entries.
@@ -788,6 +837,7 @@ export async function select(target, option) {
   await clickLocator(loc);
   await sleep(300);
   const chosen = await click(option, { risk: false, purpose: 'option', scope: { listId, opened: true } });
+  noteChange(page, item.name, chosen.element.name);
   return { element: item, jev: pickInfo(pick), selected: chosen.element.name, ...(await outcome(await activePage(), before)) };
 }
 
@@ -804,7 +854,9 @@ export async function check(target, on = true) {
   const was = await readState();
   if (was !== on) await clickLocator(loc);
   await sleep(150);
-  return { element: item, jev: pickInfo(pick), checked: await readState(), ...(await outcome(page, before)) };
+  const now = await readState();
+  if (was !== now) noteChange(page, item.ctx && ['radio'].includes(item.role) ? `${item.ctx}` : item.name, item.role === 'radio' ? item.name : now ? '✓' : '—');
+  return { element: item, jev: pickInfo(pick), checked: now, ...(await outcome(page, before)) };
 }
 
 export async function upload(target, filePath) {

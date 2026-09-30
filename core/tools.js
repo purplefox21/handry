@@ -1,6 +1,9 @@
 // Every JEVIS tool, defined once: JSON Schema input + handler. The MCP server,
 // the CLI and the API-based brains all go through callTool(), so the stop
 // switch, the action log and the page guard apply everywhere.
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import * as browser from '../hands/browser.js';
 import * as desktop from '../hands/desktop.js';
 import * as mac from '../hands/mac.js';
@@ -143,6 +146,49 @@ export const TOOLS = [
       const value = await vault.readSecret(secret);
       const res = await browser.fillHidden(target, value);
       return text(`"${secret}" "${res.element.name}" alanına yazıldı (değer gösterilmez). Site: ${res.host}`, res);
+    }
+  },
+  {
+    name: 'browser_download',
+    description: 'Click a download link or button and save the file where it belongs, e.g. google-services.json into "~/Desktop/myapp/android/app/" or an App Store Connect .p8 key. save_to: a folder (ending with /) or a full file path inside the home folder; default ~/Downloads/JEVIS/. Never overwrites: adds a number instead. Returns the path.',
+    inputSchema: obj({ target: TARGET, save_to: { type: 'string' } }, ['target']),
+    run: async ({ target, save_to }) => {
+      const r = await browser.download(target, save_to);
+      return text(`İndirildi: ${r.file} (${r.size} bayt, sayfadaki adı "${r.name}")\nÖğe: "${r.element.name}"`, r);
+    }
+  },
+  {
+    name: 'browser_save_value',
+    description: 'Save a value shown on the page (an API key, a token, an ID) straight to the macOS Keychain (to: "keychain", name = its name there) or to a .env file (to: "env", name = the variable, env_file = path). A .env inside a git repository must be ignored by git (.gitignore), so the key can\'t end up on GitHub.',
+    inputSchema: obj({
+      target: TARGET,
+      to: { type: 'string', enum: ['keychain', 'env'] },
+      name: { type: 'string', description: 'Keychain entry name, or the variable name like FIREBASE_API_KEY.' },
+      env_file: { type: 'string', description: 'For to=env: the .env file, e.g. ~/Desktop/myapp/.env' }
+    }, ['target', 'to', 'name']),
+    run: async ({ target, to, name, env_file }) => {
+      const { element, value, host } = await browser.valueAt(target);
+      if (!value) throw Object.assign(new Error(`"${element.name}" boş; kaydedilecek bir değer yok.`), { code: 'EMPTY' });
+      const preview = value.length > 12 ? `${value.slice(0, 4)}…${value.slice(-4)} (${value.length} karakter)` : value;
+      if (to === 'keychain') {
+        vault.storeSecret(name, value, [host]);
+        return text(`Anahtar Zinciri'ne kaydedildi: "${name}" = ${preview}. browser_fill_secret ile ${host} üzerinde kullanılabilir.`, { name, host });
+      }
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw Object.assign(new Error('Değişken adı harf, rakam ve _ olmalı (ör. FIREBASE_API_KEY).'), { code: 'BAD_ARGS' });
+      if (!env_file) throw Object.assign(new Error('env_file ver: hangi .env dosyası? (ör. ~/Desktop/myapp/.env)'), { code: 'BAD_ARGS' });
+      const file = files.resolvePath(env_file);
+      const inRepo = (() => { try { execFileSync('git', ['-C', path.dirname(file), 'rev-parse'], { stdio: 'ignore' }); return true; } catch { return false; } })();
+      if (inRepo) {
+        try { execFileSync('git', ['-C', path.dirname(file), 'check-ignore', '-q', file], { stdio: 'ignore' }); } catch {
+          throw Object.assign(new Error(`${files.tilde(file)} git'e giriyor; anahtar GitHub'a gidebilir. Önce bu dosyayı .gitignore'a ekle.`), { code: 'NOT_IGNORED' });
+        }
+      }
+      const old = fs.existsSync(file) ? fs.readFileSync(file, 'utf-8') : '';
+      const line = `${name}=${/[\s#"']/.test(value) ? JSON.stringify(value) : value}`;
+      const re = new RegExp(`^${name}=.*$`, 'm');
+      const next = re.test(old) ? old.replace(re, line) : `${old}${old && !old.endsWith('\n') ? '\n' : ''}${line}\n`;
+      fs.writeFileSync(file, next, { mode: 0o600 });
+      return text(`${files.tilde(file)} dosyasına yazıldı: ${name}=${preview}${re.test(old) ? ' (eski değerin yerine)' : ''}`, { name, file });
     }
   },
   {
