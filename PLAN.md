@@ -481,6 +481,8 @@ Kullanıcının isteği: "sohbet sohbet olsun, session session"; eksileri de eng
 
 ## 13. Geçmiş
 
+- **2026-10-01:** Kullanıcının isteğiyle JEVIS'in varsayılan beyni **Opus 5.5** oldu (önce Sonnet 5). Yalın mod ve effort high aynı kaldı; Sonnet 5 "Hızlı" düğmesiyle seçilebiliyor. Arayüz, varsayılan değişince bir kereye mahsus yeni varsayılana geçiyor.
+
 - **2026-10-01:** Sohbetler: her sohbetin kendi Claude oturumu, "sen yokken" ve "şu an ekranda" bilgisi, 12 turda özetle tazeleme, "yeni sohbet", sohbet listesi. 9/9 + 4/4.
 
 - **2026-10-01:** Faz 10 bitti: giriş farkındalığı + iMessage, `browser_sessions`, `browser_fill`, `jevis_teach`, site notları, `browser_download`, `browser_save_value`, onay penceresinde değişiklikler, `browser_table`, numaralı ekran görüntüsü. 15/15.

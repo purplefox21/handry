@@ -472,6 +472,7 @@ $('brainSelect').addEventListener('change', e => {
 async function loadBrains() {
   const data = await (await api('/api/brains')).json();
   const cc = data.claudeCode || {};
+  adoptDefaultModel(cc.model);
   const savedModel = store.get('model', null);
   const savedEffort = store.get('effort', null);
   chooseModel(cc.models?.includes(savedModel) ? savedModel : cc.model);

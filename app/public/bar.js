@@ -61,6 +61,7 @@ modelBtn.addEventListener('click', () => {
   input.focus();
 });
 showModel();
+api('/api/brains').then(r => r.json()).then(d => { adoptDefaultModel(d.claudeCode?.model); showModel(); }).catch(() => {});
 
 $('expandBtn').addEventListener('click', () => native({ type: 'openMain' }));
 $('micBtn').addEventListener('click', () => native({ type: 'mic' }));

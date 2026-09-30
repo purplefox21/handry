@@ -178,6 +178,15 @@ async function runStream(body, onEvent, signal) {
   }
 }
 
+// The model picked in the window or the bar is remembered. When JEVIS's
+// default model changes (jevis.config.json), both switch to it once; after
+// that the user's own pick is kept again.
+function adoptDefaultModel(defaultModel) {
+  if (!defaultModel || store.get('modelDefault', null) === defaultModel) return;
+  store.set('modelDefault', defaultModel);
+  store.set('model', defaultModel);
+}
+
 // Audio for whisper.cpp: 16 kHz mono WAV.
 
 function toWav(samples, rate) {
