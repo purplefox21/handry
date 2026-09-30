@@ -776,12 +776,58 @@ export function formatTable(r) {
   return lines.join('\n');
 }
 
-/** The text a field or element shows: an input's value, else its visible text. */
+// Things on a page that show a value: fields, and texts that look like a key,
+// token or ID (code blocks, read-only fields, one long word). Marked with
+// data-jevis-v so the chosen one can be read back.
+function valueCandidatesInFrame() {
+  const clean = s => (s || '').replace(/\s+/g, ' ').trim();
+  document.querySelectorAll('[data-jevis-v]').forEach(e => e.removeAttribute('data-jevis-v'));
+  const visible = el => { const r = el.getBoundingClientRect(); return r.width > 1 && r.height > 1 && getComputedStyle(el).visibility !== 'hidden'; };
+  const near = el => {
+    for (let a = el, d = 0; a && d < 4; a = a.parentElement, d++) {
+      const own = clean([...(a.childNodes || [])].filter(n => n.nodeType === 3).map(n => n.textContent).join(' '));
+      if (own && own.length < 120) return own;
+      const prev = a.previousElementSibling;
+      if (prev && clean(prev.innerText) && clean(prev.innerText).length < 120) return clean(prev.innerText);
+    }
+    return '';
+  };
+  const out = [];
+  const add = (el, value) => {
+    if (out.length >= 150 || !value) return;
+    const id = `v${out.length + 1}`;
+    el.setAttribute('data-jevis-v', id);
+    const label = clean(el.getAttribute('aria-label') || el.labels?.[0]?.innerText || el.getAttribute('placeholder') || '');
+    out.push({ id, label: `[value] ${value.length > 24 ? `${value.slice(0, 10)}…${value.slice(-6)}` : value}${label ? ` — ${label}` : ''}${near(el) ? ` — ${near(el).slice(0, 60)}` : ''}` });
+  };
+  for (const el of document.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]), textarea')) {
+    if (visible(el) && el.value) add(el, clean(el.value));
+  }
+  for (const el of document.querySelectorAll('code, pre, kbd, samp, [data-copy], [data-clipboard-text], td, span, div, p, dd')) {
+    if (!visible(el) || el.children.length > 0) continue;
+    const t = clean(el.innerText);
+    if (el.matches('code, pre, kbd, samp, [data-copy], [data-clipboard-text]') ? t.length >= 4 : /^[\w\-.:/+=]{12,}$/.test(t)) add(el, t);
+  }
+  return out;
+}
+
+/** The value a field or text on the page shows (an API key, a token, an ID). */
 export async function valueAt(target) {
   const page = await activePage();
-  const { loc, item } = await resolve(page, target, 'click');
-  const value = await loc.evaluate(el => ('value' in el && typeof el.value === 'string' && el.value) || el.innerText || el.textContent || '');
-  return { element: item, value: value.trim(), host: new URL(page.url()).host };
+  const candidates = await page.mainFrame().evaluate(valueCandidatesInFrame).catch(() => []);
+  if (!candidates.length) throw new JevisError('NOT_FOUND', 'Sayfada okunacak bir değer (alan, kod, anahtar) bulunamadı.');
+  const pick = await jev.pickElement(`Read the value of: ${target}`, candidates.map(c => c.label), { url: page.url(), title: await page.title().catch(() => '') });
+  if (pick.index === null || !jev.isConfident(pick)) {
+    const alternatives = pick.alternatives.filter(a => a.index !== null).map(a => ({ id: candidates[a.index].id, label: candidates[a.index].label, p: pct(a.p) }));
+    throw new JevisError(pick.index === null ? 'NOT_FOUND' : 'LOW_CONFIDENCE', `"${target}" değeri sayfada bulunamadı ya da Jev emin değil (%${pct(pick.confidence)}).`, { alternatives });
+  }
+  const chosen = candidates[pick.index];
+  const value = await page.mainFrame().evaluate(id => {
+    const el = document.querySelector(`[data-jevis-v="${id}"]`);
+    const raw = el ? (('value' in el && typeof el.value === 'string' && el.value) || el.getAttribute('data-clipboard-text') || el.getAttribute('data-copy') || el.innerText || '') : '';
+    return raw.trim();
+  }, chosen.id);
+  return { element: { name: chosen.label }, value, host: new URL(page.url()).host };
 }
 
 const TEXT_ROLES = /^(textbox|textarea|searchbox|combobox|spinbutton)/;

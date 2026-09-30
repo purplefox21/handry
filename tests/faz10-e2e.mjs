@@ -46,9 +46,11 @@ async function check(name, fn) {
 }
 
 // A small site with a login: /account sends you to /login until /enter sets the cookie.
+// The cookie name is new each run: the JEVIS Chrome keeps cookies between runs.
+const COOKIE = `session_${Date.now().toString(36)}`;
 const site = http.createServer((req, res) => {
-  const inside = /session=1/.test(req.headers.cookie || '');
-  if (req.url === '/enter') { res.writeHead(302, { 'Set-Cookie': 'session=1; Path=/', Location: '/account' }); return res.end(); }
+  const inside = new RegExp(`${COOKIE}=1`).test(req.headers.cookie || '');
+  if (req.url === '/enter') { res.writeHead(302, { 'Set-Cookie': `${COOKIE}=1; Path=/`, Location: '/account' }); return res.end(); }
   if (req.url === '/account' && !inside) { res.writeHead(302, { Location: '/login' }); return res.end(); }
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   if (req.url === '/login') return res.end('<title>Giriş</title><h1>Giriş yap</h1><label>E-posta <input name=e></label><label>Şifre <input type=password name=p></label><button>Giriş</button>');
@@ -104,7 +106,8 @@ try {
     const r = await call('browser_fill', { fields: { 'Cartoon or Fantasy Violence': 'None', 'Simulated Gambling': 'Infrequent/Mild' } });
     const s = await dom(() => [document.querySelector('[name=violence]:checked')?.value, document.querySelector('[name=gambling]:checked')?.value]);
     await call('browser_click', { target: 'Done' });
-    return { ok: s[0] === 'none' && s[1] === 'mild', note: `${r.text.split('\n')[0]} · ${s.join(', ')}` };
+    // In the test page "Infrequent/Mild" is value "mild" for violence and "some" for gambling.
+    return { ok: s[0] === 'none' && s[1] === 'some', note: `${r.text.split('\n')[0]} · ${s.join(', ')}` };
   });
 
   // 10.3 — teaching (the fill below is the task being taught)

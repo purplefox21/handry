@@ -93,14 +93,16 @@ export function waitForUser(message, { timeoutSec = config().guard.waitForUserTi
         finish(stdout.trim() === 'timeout' ? 'timeout' : 'done');
       });
     }
-    // until(): checked every second; true when the page shows the user is done.
+    // until(): checked at once, then every second; true when the page shows the user is done.
     if (until) {
       const started = Date.now();
-      timer = setInterval(async () => {
+      const look = async () => {
         if (finished) return;
         if (Date.now() - started > timeoutSec * 1000) return finish('timeout');
         if (await until().catch(() => false)) finish('done');
-      }, 1000);
+      };
+      look();
+      timer = setInterval(look, 1000);
     }
   });
 }

@@ -27,16 +27,16 @@ export function alertUser(message, { title = 'JEVIS', imessage = false } = {}) {
     fs.mkdirSync(HOME, { recursive: true });
     fs.writeFileSync(ATTENTION_FILE, JSON.stringify(entry));
   } catch {}
-  // Tests: only write down what would have been said.
+  const s = settings();
+  // Tests: write down what would have been said (the iMessage timer still runs; sendIMessage records too).
   if (process.env.JEVIS_TEST_NOTIFY === 'record') {
     fs.appendFileSync(path.join(HOME, 'notify-test.log'), `${JSON.stringify({ ...entry, imessage })}\n`);
-    return id;
-  }
-  execFile('osascript', ['-e', 'on run argv', '-e', 'display notification (item 2 of argv) with title (item 1 of argv) sound name "Glass"', '-e', 'end run', title, message], () => {});
-  const s = settings();
-  if (s.speak && Date.now() - (lastSaid.get(message) || 0) > 60000) {
-    lastSaid.set(message, Date.now());
-    speak(message).catch(() => {});
+  } else {
+    execFile('osascript', ['-e', 'on run argv', '-e', 'display notification (item 2 of argv) with title (item 1 of argv) sound name "Glass"', '-e', 'end run', title, message], () => {});
+    if (s.speak && Date.now() - (lastSaid.get(message) || 0) > 60000) {
+      lastSaid.set(message, Date.now());
+      speak(message).catch(() => {});
+    }
   }
   if (imessage && s.imessageTo) {
     pendingMessages.set(id, setTimeout(() => {
@@ -84,6 +84,7 @@ export function sendIMessage(text, to = settings().imessageTo) {
 export function siteName(url) {
   try {
     const host = new URL(url).hostname.replace(/^www\./, '');
+    if (!host) return 'Bu sayfa';
     const parts = host.split('.');
     const known = { appstoreconnect: 'App Store Connect', firebase: 'Firebase', github: 'GitHub', godaddy: 'GoDaddy', google: 'Google', apple: 'Apple' };
     const main = parts.length > 2 && ['co', 'com', 'org', 'net', 'gov'].includes(parts.at(-2)) ? parts.at(-3) : parts.at(-2) || parts[0];
