@@ -53,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         buildWindow()
         buildBar()
         setUpListener()
+        watchAttention()
         registerHotKeys()
         showBar(mode: "type")
         loadWhenReady()
@@ -335,6 +336,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         default:
             break
         }
+    }
+
+    // MARK: Attention (JEVIS needs the user: a login, a 2FA code…)
+
+    var attentionId = ""
+    var attentionHide: DispatchWorkItem?
+
+    /// Tools write ~/.jevis/attention.json when they need the user; the bar
+    /// shows it without taking the keyboard (the user may be typing a password).
+    func watchAttention() {
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self, let data = FileManager.default.contents(atPath: "\(HOME)/.jevis/attention.json"),
+                  let entry = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let id = entry["id"] as? String else { return }
+            let resolved = entry["resolved"] as? Bool ?? false
+            if id != self.attentionId, !resolved, let at = entry["at"] as? Double, Date().timeIntervalSince1970 * 1000 - at < 15000 {
+                self.attentionId = id
+                self.showBarPassive()
+                self.sendAttention(["type": "show", "title": entry["title"] ?? "JEVIS", "message": entry["message"] ?? ""])
+            } else if id == self.attentionId, resolved {
+                self.attentionId = ""
+                self.sendAttention(["type": "resolved"])
+                self.hideBarLater(2.5)
+            }
+        }
+    }
+
+    func showBarPassive() {
+        if !bar.isVisible { placeBar(height: max(bar.frame.height, BAR_HEIGHT)) }
+        bar.orderFrontRegardless()
+        hideBarLater(30)
+    }
+
+    func hideBarLater(_ seconds: Double) {
+        attentionHide?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, !self.barBusy, !self.bar.isKeyWindow, !self.listener.isActive else { return }
+            self.hideBar()
+        }
+        attentionHide = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
+    }
+
+    func sendAttention(_ event: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: event), let json = String(data: data, encoding: .utf8) else { return }
+        barWeb.evaluateJavaScript("window.jevisBar && window.jevisBar.attention(\(json))")
     }
 
     // MARK: Voice

@@ -55,6 +55,11 @@
     "injectionThreshold": 0.7,
     "waitForUserTimeoutSec": 900
   },
+  "notify": {
+    "imessageTo": "",
+    "imessageAfterSec": 60,
+    "speak": true
+  },
   "learn": {
     "enabled": true,
     "max": 60

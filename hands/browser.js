@@ -529,6 +529,58 @@ export async function open(input, { newTab = false } = {}) {
   return { url: page.url(), title: await page.title().catch(() => '') };
 }
 
+// Pages that show whether one is logged in (the home page of most sites is public).
+const ACCOUNT_PAGES = {
+  'godaddy.com': 'https://account.godaddy.com/products',
+  'appstoreconnect.apple.com': 'https://appstoreconnect.apple.com/apps',
+  'developer.apple.com': 'https://developer.apple.com/account',
+  'firebase.google.com': 'https://console.firebase.google.com/',
+  'console.firebase.google.com': 'https://console.firebase.google.com/',
+  'play.google.com': 'https://play.google.com/console',
+  'mail.google.com': 'https://mail.google.com/mail/',
+  'gmail.com': 'https://mail.google.com/mail/',
+  'github.com': 'https://github.com/settings/profile',
+  'vercel.com': 'https://vercel.com/dashboard',
+  'cloudflare.com': 'https://dash.cloudflare.com/'
+};
+const LOGIN_URL = /(login|signin|sign-in|sso\.|\/auth|accounts\.google\.com|idmsa\.apple\.com|oauth)/i;
+
+/**
+ * Is the user logged in to these sites in the JEVIS Chrome? Looks at the
+ * cookies, then (deep) opens each site's account page in a new tab, sees
+ * where it lands and what it says, and closes the tab again.
+ */
+export async function sessions(sites, { deep = true } = {}) {
+  await connect();
+  const ctx = context();
+  const check = async site => {
+    const raw = String(site).trim();
+    const url = /^https?:\/\//.test(raw) ? raw : ACCOUNT_PAGES[raw.replace(/^www\./, '')] || `https://${raw.replace(/^www\./, '')}/`;
+    const host = new URL(url).hostname;
+    const base = host.split('.').slice(-2).join('.');
+    const cookies = await ctx.cookies([`https://${host}`, `https://${base}`, `https://www.${base}`]).catch(() => []);
+    const now = Date.now() / 1000;
+    const sessionCookies = cookies.filter(c => /sess|auth|token|login|sid|jwt|remember|sso|account|user|myacinfo|dqsid/i.test(c.name) && (c.expires === -1 || c.expires > now)).length;
+    const out = { site: raw, url, host, cookies: cookies.length, sessionCookies };
+    if (!deep) return out;
+    const page = await ctx.newPage();
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+      await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
+      out.finalUrl = page.url();
+      out.title = await page.title().catch(() => '');
+      out.text = await withTimeout(page.mainFrame().evaluate(pageTextInFrame, 1500).catch(() => ''), 3000, '');
+      out.loginUrl = LOGIN_URL.test(new URL(out.finalUrl).hostname + new URL(out.finalUrl).pathname);
+    } catch (err) {
+      out.error = err.message.split('\n')[0];
+    } finally {
+      await page.close().catch(() => {});
+    }
+    return out;
+  };
+  return Promise.all(sites.slice(0, 8).map(check));
+}
+
 export async function pageText(maxChars = 1500) {
   const page = await activePage();
   return withTimeout(page.mainFrame().evaluate(pageTextInFrame, maxChars).catch(() => ''), 3000, '');

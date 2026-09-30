@@ -312,6 +312,23 @@ window.jevisBar = {
         break;
     }
   },
+  // A tool needs the user (a login, a code). Shown without taking the keyboard.
+  attention(ev) {
+    if (ev.type === 'resolved') {
+      if (bar.dataset.attention) { answer.textContent = 'Teşekkürler, devam ediyorum.'; answer.classList.remove('error'); delete bar.dataset.attention; }
+      return;
+    }
+    clearTimeout(hideTimer);
+    panel.hidden = false;
+    now.hidden = true;
+    stepsList.replaceChildren();
+    answer.hidden = false;
+    answer.classList.add('error');
+    answer.textContent = `${ev.title}: ${ev.message}`;
+    foot.replaceChildren(el('span', null, 'Bitirince JEVIS kendiliğinden devam eder.'));
+    foot.hidden = false;
+    bar.dataset.attention = '1';
+  },
   submit
 };
 

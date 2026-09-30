@@ -70,6 +70,11 @@ Uygulama ve kurulum
   secret list | secret rm <isim>
   secret fill "<hedef>" <isim>        Kayıtlı şifreyi alana yaz
 
+Haber verme (giriş ya da onay beklerken)
+  notify set <telefon|Apple ID>       1 dk cevap yoksa bu adrese iMessage gider (~/.jevis/config.json)
+  notify test                         Deneme iMessage'ı gönder
+  notify off                          iMessage'ı kapat
+
 Koruma
   stop                                Acil durdurma (10 dk ya da resume'a kadar)
   resume                              Durdurmayı kaldır
@@ -152,6 +157,28 @@ function printEvent(ev) {
   if (ev.type === 'text') console.log(`💬 ${ev.text}`);
 }
 
+// The iMessage address is personal: it goes to ~/.jevis/config.json, not the repo.
+async function notifyCommand() {
+  const file = path.join(homeDir(), 'config.json');
+  const user = (() => { try { return JSON.parse(fs.readFileSync(file, 'utf-8')); } catch { return {}; } })();
+  if (args[0] === 'set' && args[1]) {
+    user.notify = { ...(user.notify || {}), imessageTo: args[1] };
+    fs.writeFileSync(file, `${JSON.stringify(user, null, 2)}\n`);
+    return `✅ JEVIS seni 1 dakika bekleyince ${args[1]} adresine iMessage atacak. Denemek için: node cli.js notify test`;
+  }
+  if (args[0] === 'off') {
+    user.notify = { ...(user.notify || {}), imessageTo: '' };
+    fs.writeFileSync(file, `${JSON.stringify(user, null, 2)}\n`);
+    return 'iMessage kapatıldı.';
+  }
+  if (args[0] === 'test') {
+    const { sendIMessage } = await import('./guard/notify.js');
+    await sendIMessage('JEVIS deneme: bu mesaj geldiyse giriş ya da onay gerektiğinde sana buradan haber vereceğim.', user.notify?.imessageTo || config().notify?.imessageTo);
+    return '✅ Gönderildi. Telefonuna geldiyse hazır.';
+  }
+  return 'Kullanım: notify set <telefon ya da Apple ID> | notify test | notify off';
+}
+
 async function doCommand(text) {
   const out = await runCommand({ text, brainId: flagValue('--brain') || config().brain.default, fast: !flags.has('--no-fast'), model: flagValue('--model'), effort: flagValue('--effort'), onEvent: printEvent });
   if (flags.has('--say') && out.text) await speak(out.text);
@@ -222,6 +249,7 @@ async function run() {
       .map(e => `${e.ts.slice(11, 19)} ${e.ok ? '✅' : '❌'} ${e.tool} ${JSON.stringify(e.args).slice(0, 70)} (${e.ms} ms)`).join('\n') || 'Kayıt yok.';
   }
   if (cmd === 'secret') return secretCommand();
+  if (cmd === 'notify') return notifyCommand();
   if (cmd === 'shot') {
     clearStop();
     const s = await browser.screenshot({ fullPage: flags.has('--full') });
