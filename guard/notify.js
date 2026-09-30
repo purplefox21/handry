@@ -18,9 +18,10 @@ const settings = () => ({ imessageTo: '', imessageAfterSec: 60, speak: true, ...
 
 /**
  * Tells the user right away; with imessage, texts their iPhone too if the
- * alert isn't resolved within notify.imessageAfterSec. Returns the alert id.
+ * alert isn't resolved within notify.imessageAfterSec. speak: false keeps it
+ * quiet (e.g. at night). Returns the alert id.
  */
-export function alertUser(message, { title = 'JEVIS', imessage = false } = {}) {
+export function alertUser(message, { title = 'JEVIS', imessage = false, speak: sayIt } = {}) {
   const id = `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
   const entry = { id, at: Date.now(), title, message };
   try {
@@ -32,8 +33,10 @@ export function alertUser(message, { title = 'JEVIS', imessage = false } = {}) {
   if (process.env.JEVIS_TEST_NOTIFY === 'record') {
     fs.appendFileSync(path.join(HOME, 'notify-test.log'), `${JSON.stringify({ ...entry, imessage })}\n`);
   } else {
-    execFile('osascript', ['-e', 'on run argv', '-e', 'display notification (item 2 of argv) with title (item 1 of argv) sound name "Glass"', '-e', 'end run', title, message], () => {});
-    if (s.speak && Date.now() - (lastSaid.get(message) || 0) > 60000) {
+    // speak: false is for quiet moments (e.g. a timer at night): no sound with the notification either.
+    const shown = sayIt === false ? 'display notification (item 2 of argv) with title (item 1 of argv)' : 'display notification (item 2 of argv) with title (item 1 of argv) sound name "Glass"';
+    execFile('osascript', ['-e', 'on run argv', '-e', shown, '-e', 'end run', title, message], () => {});
+    if ((sayIt ?? s.speak) && Date.now() - (lastSaid.get(message) || 0) > 60000) {
       lastSaid.set(message, Date.now());
       speak(message).catch(() => {});
     }

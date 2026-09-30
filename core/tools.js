@@ -17,6 +17,9 @@ import { waitForUser } from '../guard/confirm.js';
 import { alertUser, resolveAlert, siteName } from '../guard/notify.js';
 import { notesBlock, addNote, removeNote, notesFor, siteOf } from './sites.js';
 import * as vault from '../guard/vault.js';
+import { power } from '../hands/power.js';
+import { claudeSessions, formatSessions } from '../hands/claude-sessions.js';
+import * as timers from './timers.js';
 
 // A tool returns MCP content; `meta` (the raw result) is only used for the log.
 const text = (t, meta) => ({ content: [{ type: 'text', text: t }], meta });
@@ -57,6 +60,7 @@ Logins: before work on sites that need one, call browser_sessions with those sit
 Forms: fill many fields with one browser_fill call instead of one browser_type/browser_select per field.
 For simple one-step commands (volume, music, open or quit an app, open a site, a web search, play on Spotify, a note, today's calendar) try jevis_do first: JEVIS's fast path does them in 1-3 s. If it answers that it needs thinking, do the task with the other tools.
 App shortcuts: spotify_play, music_play, notes_add / notes_find, reminders_add / reminders_list, calendar_events / calendar_add are faster and surer than clicking through those apps. The user's message ends with the current local date and time ("[Şu an: …]"); work out dates from it ("yarın 9'da", "cuma") as local "YYYY-MM-DDTHH:MM".
+Later and when: schedule_task does things later or when something happens, and JEVIS checks by itself (no LLM, even after the conversation ends): lock / sleep / restart / shut down the Mac, a reminder, or a JEVIS command, at a time, after some minutes, when the Claude Code sessions finish (claude_sessions shows them and their state), or when a text shows up in an app window or a JEVIS Chrome tab. Never wait inside a task with browser_wait / desktop_wait for more than a minute. scheduled_tasks lists them, cancel_scheduled cancels.
 Files and projects: files_list / files_search / files_recent / files_read / files_open work on the file system directly (home folder only); use them instead of clicking through Finder. For "what did we do in project X" use project_activity (git + Claude Code session logs); files_recent kind=projects finds the recently worked-on projects.`;
 
 export const TOOLS = [
@@ -550,9 +554,9 @@ export const TOOLS = [
   },
   {
     name: 'mac_action',
-    description: 'Quick system actions. action: volume (value 0-100), volume_up / volume_down (value = step, default 10), mute, unmute, play_pause, next_track, previous_track, now_playing, dark_mode (toggle), lock_screen, screenshot (whole screen, saved to the Desktop), notify (value = message), spotify_search (value = song/artist), note (value = note text, title optional).',
+    description: 'Quick system actions. action: volume (value 0-100), volume_up / volume_down (value = step, default 10), mute, unmute, play_pause, next_track, previous_track, now_playing, dark_mode (toggle), lock_screen, sleep / restart / shutdown (the Mac, right now, through the Apple menu; restart and shut down show the one-minute macOS question; only when the user asked for it), screenshot (whole screen, saved to the Desktop), notify (value = message), spotify_search (value = song/artist), note (value = note text, title optional).',
     inputSchema: obj({
-      action: { type: 'string', enum: ['volume', 'volume_up', 'volume_down', 'mute', 'unmute', 'play_pause', 'next_track', 'previous_track', 'now_playing', 'dark_mode', 'lock_screen', 'screenshot', 'notify', 'spotify_search', 'note'] },
+      action: { type: 'string', enum: ['volume', 'volume_up', 'volume_down', 'mute', 'unmute', 'play_pause', 'next_track', 'previous_track', 'now_playing', 'dark_mode', 'lock_screen', 'sleep', 'restart', 'shutdown', 'screenshot', 'notify', 'spotify_search', 'note'] },
       value: { type: 'string' },
       title: { type: 'string' }
     }, ['action']),
@@ -570,6 +574,9 @@ export const TOOLS = [
         previous_track: () => mac.mediaControl('previous'),
         dark_mode: () => mac.toggleDarkMode(),
         lock_screen: () => mac.lockScreen(),
+        sleep: () => power('sleep'),
+        restart: () => power('restart'),
+        shutdown: () => power('shutdown'),
         notify: () => mac.notify(title || 'JEVIS', value),
         spotify_search: () => mac.playSpotifySearch(value || ''),
         note: () => mac.createNote(title || 'JEVIS', value || '')
@@ -577,6 +584,72 @@ export const TOOLS = [
       const r = await actions[action]();
       if (!r.success) throw new Error(r.error || r.message);
       return text(r.message, r);
+    }
+  },
+  {
+    name: 'schedule_task',
+    description: 'Do something later or when something happens; JEVIS runs it by itself, also after this conversation ends (never wait inside a task for this). action: lock / sleep / restart / shutdown (the Mac; restart and shutdown get a countdown the user can cancel), remind (text = what to say), command (text = a JEVIS command run then, e.g. "Spotify\'ı durdur"). When: in_minutes, or at = local "HH:MM" or "YYYY-MM-DDTHH:MM"; and/or until = a condition JEVIS checks every every_minutes without an LLM: {claude_done: true} (the Claude Code sessions working now, e.g. in VS Code; sessions = names or projects to pick some), {app, contains | expect | closed: true} (a Mac app\'s window: a text shows up, Jev judges expect, or the app has quit), {page, contains | expect} (a JEVIS Chrome tab, by words in its title or address). said = the user\'s words.',
+    inputSchema: obj({
+      action: { type: 'string', enum: ['lock', 'sleep', 'restart', 'shutdown', 'remind', 'command'] },
+      text: { type: 'string' },
+      in_minutes: { type: 'number' },
+      at: { type: 'string' },
+      until: {
+        type: 'object',
+        properties: {
+          claude_done: { type: 'boolean' },
+          sessions: { type: 'array', items: { type: 'string' } },
+          app: { type: 'string' },
+          page: { type: 'string' },
+          contains: { type: 'string' },
+          expect: { type: 'string' },
+          closed: { type: 'boolean' }
+        },
+        additionalProperties: false
+      },
+      every_minutes: { type: 'number' },
+      countdown_sec: { type: 'number' },
+      said: { type: 'string' }
+    }, ['action']),
+    run: async ({ action, text: what = '', in_minutes, at, until, every_minutes, countdown_sec, said = '' }) => {
+      let condition = null;
+      if (until?.claude_done || until?.sessions?.length) {
+        const targets = timers.claudeTargets(until.sessions || []);
+        if (!targets.length) return text(until.sessions?.length ? `"${until.sessions.join('", "')}" adında açık bir Claude Code oturumu yok.\n${formatSessions(claudeSessions())}` : `Şu an çalışan bir Claude Code işi yok, o yüzden bir şey kurmadım.\n${formatSessions(claudeSessions())}`);
+        condition = { claude: targets };
+      } else if (until?.app || until?.page) {
+        if (!until.contains && !until.expect && !(until.app && until.closed)) throw new Error('until için contains, expect ya da (app ile) closed ver.');
+        condition = { app: until.app, page: until.page, contains: until.contains, expect: until.expect, closed: until.closed };
+      }
+      const when = in_minutes ? Date.now() + Math.round(in_minutes * 60000) : at ? timers.resolveAt(at) : null;
+      const job = timers.addJob({ action, text: what, at: when, until: condition, every: every_minutes ? every_minutes * 60000 : undefined, countdown: countdown_sec, said, source: process.env.JEVIS_RUN_ID?.startsWith('mcp-') ? 'mcp' : 'jevis' });
+      const running = await timers.ensureScheduler();
+      return text(`${timers.confirmText(job)}${running ? '' : '\n⚠️ JEVIS uygulaması açık değil; açık olmazsa bu iş çalışmaz.'}`, job);
+    }
+  },
+  {
+    name: 'scheduled_tasks',
+    description: 'List the waiting scheduled tasks and watches (with their ids and what JEVIS saw at the last check).',
+    inputSchema: obj({}),
+    run: async () => text(timers.formatJobs(), { jobs: timers.listJobs() })
+  },
+  {
+    name: 'cancel_scheduled',
+    description: 'Cancel a scheduled task or watch by its id, or all of them (all: true). Also stops a shutdown countdown.',
+    inputSchema: obj({ id: { type: 'string' }, all: { type: 'boolean' } }),
+    run: async ({ id, all }) => {
+      if (!id && !all) throw new Error('id ya da all: true ver.');
+      const gone = timers.cancelJobs(all ? 'all' : id);
+      return text(gone.length ? `İptal edildi:\n${gone.map(j => timers.describe(j)).join('\n')}` : 'Bekleyen böyle bir iş yoktu.', { cancelled: gone.length });
+    }
+  },
+  {
+    name: 'claude_sessions',
+    description: 'The Claude Code sessions running on this Mac (VS Code, terminal, Claude app): name, project and state (working, waiting for the user\'s answer, or finished and idle).',
+    inputSchema: obj({}),
+    run: async () => {
+      const list = claudeSessions();
+      return text(formatSessions(list), { sessions: list.filter(s => !s.jevis) });
     }
   },
   {

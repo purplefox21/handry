@@ -50,7 +50,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/app-e2e.mjs` → sohbet sunucusu: hızlı yol, Claude Code beyni, DURDUR, OpenAI uyumlu adaptör, arayüz, model seçimi (aboneliğinden iki kısa çalışma harcar)
 - `node tests/voice-e2e.mjs` → ses: whisper, sessizlik filtresi, sesli cevap (hoparlörsüz), arayüz kayıt kodu, mikrofon
 - `node tests/recipe-e2e.mjs` → tarifler: kaydet, beyinsiz oynat, değişkenler, beyne devretme
-- `node tests/router-e2e.mjs` → hızlı yol kararları (30 Türkçe komut, hiçbir şey yapmaz)
+- `node tests/router-e2e.mjs` → hızlı yol kararları ve niyet (51 Türkçe cümle, hiçbir şey yapmaz)
 - `node tests/fast-e2e.mjs` → hızlı yol uçtan uca: ses (eski seviyeye döner), Hesap Makinesi, YouTube, Google, sayfada tıklama
 - `node tests/apps-e2e.mjs` → Spotify'ı okur (dokunmaz), koordinatla tıklama, bekleme, TextEdit pencereleri arasında geçiş
 - `node tests/learn-e2e.mjs` → öğrenen tarifler (geçici bir JEVIS klasöründe; gerçek öğrenilenlere dokunmaz)
@@ -59,4 +59,5 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/listener-e2e.mjs` → "Hey Jev" ve canlı yazı: Yelda sesiyle üretilen kayıtlar JEVIS.app'in dinleyicisinden geçer (mikrofon gerekmez; JEVIS'in Konuşma Tanıma izni gerekir)
 - `node tests/chats-e2e.mjs` → sohbetler ve Claude oturumları (sahte beyin, geçici JEVIS klasörü)
 - `node tests/chats-ui-e2e.mjs` → sohbetler pencerede ve çubukta (ayrı sunucu, geçici JEVIS klasörü, sadece hızlı yol)
+- `node tests/timers-e2e.mjs` → zamanlayıcı, nöbet, "işler bitince kapat", geri sayım ve iptal, hızlı yolun sohbeti komut sanmaması (geçici klasör, sahte Claude oturumları; kapatma/kilit/iMessage sadece kaydedilir, ses yok)
 - `node tests/dispatcher-dryrun.mjs` → eski macOS komut yönlendirici (deneme modu)

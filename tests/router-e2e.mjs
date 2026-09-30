@@ -1,7 +1,7 @@
 // Fast path v2: does Jev send simple commands down the fast path (and the
 // right one) and everything else to the brain? Decisions only, nothing runs.
 // Usage: node tests/router-e2e.mjs
-import { classify } from '../core/router.js';
+import { classify, goesFast } from '../core/router.js';
 
 const CASES = [
   ['sesi yüzde 30 yap', 'volume'], ['Sesi yüzde 30 yap', 'volume'], ['sesi biraz kıs', 'volume'], ['sesi aç biraz', 'volume'], ['sesi sonuna kadar aç', 'volume'],
@@ -22,18 +22,24 @@ const CASES = [
   ["WhatsApp'ta Ali'ye geliyorum yaz", 'needs_brain'],
   ["masaüstümdeki son açılan projeleri söyle", 'needs_brain'],
   ["App Store Connect'te fiyatı ücretsiz yap ve kaydet", 'needs_brain'],
-  ["jev klasörünü VS Code'da aç ve Claude sekmesine selam yaz", 'needs_brain']
+  ["jev klasörünü VS Code'da aç ve Claude sekmesine selam yaz", 'needs_brain'],
+  // Talk is not a command (from a real chat, 2026-10-01: these used to lock the screen or get acted on)
+  ['selam', 'needs_brain'], ['anlamadın sanırım cümleyi okumadın', 'needs_brain'], ['bro son mesajlarımda ne anlattım sana', 'needs_brain'],
+  ['neler yapabilirsin', 'needs_brain'], ['böyle bir becerin var mı', 'needs_brain'], ['hayır öyle demedim', 'needs_brain'],
+  ["saat 3'te ekranı kilitle", 'needs_brain'], ['işler bitince haber ver', 'needs_brain'],
+  ['bunu bir daha yap', 'needs_brain'], ['aynısını yap', 'needs_brain'], ['tekrar dene', 'needs_brain']
 ];
 
 let ok = 0;
 const times = [];
 for (const [command, expected] of CASES) {
-  const { route, confidence, ms } = await classify(command);
-  const fast = route !== 'needs_brain' && confidence >= 0.6;
+  const decision = await classify(command);
+  const { route, confidence, ms, intent } = decision;
+  const fast = goesFast(decision);
   const good = expected === 'needs_brain' ? !fast : fast && route === expected;
   if (good) ok++;
   times.push(ms);
-  console.log(`${good ? '✅' : '❌'} ${String(ms).padStart(4)} ms  %${String(Math.round(confidence * 100)).padStart(3)} ${route.padEnd(12)} ← "${command}"${good ? '' : `  (beklenen: ${expected})`}`);
+  console.log(`${good ? '✅' : '❌'} ${String(ms).padStart(4)} ms  %${String(Math.round(confidence * 100)).padStart(3)} ${route.padEnd(12)} ${intent.padEnd(8)} ← "${command}"${good ? '' : `  (beklenen: ${expected})`}`);
 }
 console.log(`\n${ok}/${CASES.length} doğru · ortalama ${Math.round(times.reduce((a, b) => a + b, 0) / times.length)} ms`);
 process.exit(ok === CASES.length ? 0 : 1);

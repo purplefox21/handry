@@ -35,7 +35,7 @@ function silence(seconds = 2) {
 }
 
 const server = spawn(process.execPath, [new URL('../app/server.js', import.meta.url).pathname], {
-  env: { ...process.env, PORT: String(PORT), JEVIS_TEST_CONFIRM: 'deny' }, stdio: ['ignore', 'pipe', 'inherit']
+  env: { ...process.env, PORT: String(PORT), JEVIS_TEST_CONFIRM: 'deny', JEVIS_NO_TIMERS: '1' }, stdio: ['ignore', 'pipe', 'inherit']
 });
 await new Promise(r => server.stdout.once('data', r));
 const token = (await (await fetch(`${BASE}/`)).text()).match(/name="jevis-token" content="([a-f0-9]+)"/)[1];

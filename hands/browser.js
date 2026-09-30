@@ -1084,6 +1084,17 @@ async function findTab(ref) {
   return page;
 }
 
+/**
+ * A tab's text without switching to it or starting Chrome (for watches):
+ * the tab with these words in its title or address, else the current one.
+ */
+export async function tabText(ref, maxChars = 6000) {
+  if (!(await cdpUp(config().browser.cdpPort))) throw new JevisError('NO_BROWSER', "JEVIS'in Chrome penceresi kapalı.");
+  const page = ref ? await findTab(ref) : await activePage();
+  const text = await page.evaluate(() => document.body?.innerText || '').catch(() => '');
+  return { title: await page.title().catch(() => ''), url: page.url(), text: text.slice(0, maxChars) };
+}
+
 export async function switchTab(ref) {
   const page = await findTab(ref);
   await page.bringToFront();

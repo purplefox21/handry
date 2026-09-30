@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-10-01):** Faz 0-10 ✅, sohbetler ✅. Varsayılan beyin Sonnet 5.5. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
+> **Durum (2026-10-01):** Faz 0-10 ✅, sohbetler ✅, zamanlayıcı/nöbet/güç ✅, hızlı yol sohbeti komut sanmıyor ✅. Varsayılan beyin Sonnet 5.5. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -381,6 +381,19 @@ Kullanıcının isteği: "sohbet sohbet olsun, session session"; eksileri de eng
   - Sohbetler diskte duruyor, uygulama kapanıp açılınca kaybolmuyor.
 - [x] Testler: `tests/chats-e2e.mjs` **9/9** (sahte beyin), `tests/chats-ui-e2e.mjs` **4/4**. Gerçek Claude'la: önce hızlı yoldan "şu an hangi şarkı çalıyor", sonra "az önce ne sordum?" → Claude, hızlı yolun yaptığını bildi (4.5 sn).
 
+### Zamanlayıcı, nöbet, güç ve "önce anla" (2026-10-01)
+Kullanıcının gerçek sohbetinden: "saat 01:01 olunca … ekranı kilitle" dedi, hızlı yol saati görmeden hemen kilitledi; "kapatma kilitle kilitle…" diye düzeltince yine kilitledi; "anlamadın", "ne anlattım sana" mesajlarında Claude konuşmak yerine `browser_wait` ile saati beklemeye çalıştı; "selam"a "Size nasıl yardımcı olabilirim" dedi. İstekleri: iki VS Code işi bitince bilgisayarı kapatmak, "3 saat sonra kapat" gibi zamanlayıcılar, "5 dk'da bir kontrol et" gibi nöbetler, ve JEVIS'in cümleyi anlamadan iş yapmaması.
+- [x] **Hızlı yol önce niyete bakıyor.** Jev aynı istekte bir de "niyet" soruyor: şimdi yap / sonra yap / JEVIS'e cevap-düzeltme ("bunu bir daha yap" gibi geri gönderme dahil) / sohbet (selam, itiraz, JEVIS hakkında soru, "yapma" demek). Hızlı yol sadece "şimdi yap"ta çalışıyor; gerisi Claude'a gidiyor. Jev'e JEVIS'in bir önceki cevabı da veriliyor (`previous`); yol seçimi yine sadece komutun kendi kelimelerine bakıyor. Süre değişmedi (~0.3 sn). `tests/router-e2e.mjs` **51/51** (sohbetten gelen 11 yeni cümle dahil).
+- [x] **Zamanlayıcı ve nöbet** (`core/timers.js`, `~/.jevis/timers.json`): bir saatte, bir süre sonra ya da bir koşul olunca (Claude Code işleri bitince; bir uygulamada/sekmede yazı görününce, Jev'e sorarak ya da uygulama kapanınca) kilitle / uyut / yeniden başlat / kapat / hatırlat / JEVIS komutu çalıştır. Koşullara JEVIS kendisi bakıyor, LLM yok. JEVIS sunucusu çalıştırıyor (kilit dosyasıyla tek süreç); başka Claude oturumundan kurulan iş de çalışıyor, JEVIS kapalıysa arka planda açılıyor.
+  - Türkçe kurallar (`parseSchedule`, LLM'siz): "3 saat sonra", "yarım saat sonra", "bir buçuk saat", "1 saat 20 dakika sonra", "saat 3'te", "01:01 olunca", "gece 2'de", "akşam 8 gibi", "yarın sabah 9'da", "işler bitince", "bilgisayarı kapatma" (bekleyeni iptal), "zamanlayıcıyı iptal et", "zamanlayıcılar neler". Olumsuzlar ayrılıyor: "kilitle, kapatma, uykuya da alma" → kilit. "bilgisayardaki Spotify'ı kapat" bilgisayarı kapatmıyor. Karışık ya da kurallara sığmayan ("5 dakikada bir bak…", "10 dk sonra Spotify'ı durdur") Claude'a gidiyor; Claude `schedule_task` ile kuruyor.
+  - Araçlar: `schedule_task`, `scheduled_tasks`, `cancel_scheduled`, `claude_sessions`; `mac_action`'a sleep / restart / shutdown.
+- [x] **Claude Code oturumları:** Claude Code her oturum için `~/.claude/sessions/<pid>.json` tutuyor (busy / waiting + waitingFor / idle). JEVIS bunu ve oturumun hâlâ çalışan komutlarını (shell-snapshots kabukları) okuyor: çalışıyor / senden cevap bekliyor / bitti. "İşler bitince" o an çalışan oturumları hedef alıyor; hepsi 1 dk boyunca bitmiş görününce iş yapılıyor. Cevap bekleyen oturum varsa kullanıcıya haber veriliyor (1 dk sonra iMessage) ve beklemeye devam ediliyor.
+- [x] **Güç işleri Apple menüsünden** (`hands/power.js`): Finder'ın menü çubuğundaki Apple menüsü › Ekranı Kilitle / Uyut / Yeniden Başlat… / Sistemi Kapat…, arka planda AXPress ile (sadece Erişilebilirlik izni; "Bu Mac Hakkında" ile denendi). "Ekranı kilitle" artık gerçekten kilitliyor (önce ekranı uyutuyordu). Kapatma: JEVIS'in 30 sn geri sayımı (çubuk + sessiz bildirim; ⌥Esc, "dur" ya da "zamanlayıcıyı iptal et" iptal eder) → telefona iMessage → macOS'un kendi 1 dk'lık sorusu (Vazgeç denebilir). Uygulamalar önce kapanmaya çağrılıyor; kaydedilmemiş iş varsa macOS durur.
+  - Güvenlik: Mac uyurken kaçan kapatma sonradan yapılmıyor (haber veriliyor); Mac uyanınca 10 dk hiçbir şey kapanmıyor; güç işi beklerken `caffeinate -i` Mac'in kendi kendine uyumasını engelliyor; nöbet 24 saatte bırakılıyor. Gece çalışan bildirimler sessiz (konuşma ve ses yok).
+- [x] **Beyin kendini tanıyor ve konuşuyor:** BRAIN_PROMPT'a JEVIS'in kim olduğu, parçaları, nasıl ulaşıldığı ve neler yapabildiği eklendi. "sen" diye, samimi ve kısa konuşuyor; selam, sohbet, itiraz ve "ne dedim" sorularında araç kullanmadan konuşuyor; JEVIS yanlış bir şey yaptıysa söyleyip düzeltiyor; bir dakikadan uzun beklemeyi görevin içinde değil `schedule_task` ile yapıyor.
+- [x] Testler: `tests/timers-e2e.mjs` **14/14** (geçici klasör, sahte Claude oturumları; kapatma, kilit ve iMessage sadece kaydediliyor). `chats-e2e` 9/9, `mcp-smoke` 11/11. Kullanıcı uyurken ses çıkarabilecek testler (`fast-e2e`, `app-e2e`, `learn-e2e`, `recipe-e2e`, `chats-ui-e2e`) çalıştırılmadı; sıradaki oturumda çalıştırılacak.
+- Not: bu işin testi sırasında eski hâliyle "bunu bir daha yap" (önceki cevap Spotify'dı) hızlı yoldan play/pause'a gitti ve kullanıcının Spotify'ını iki kez durdurup başlattı (sonuç: eski hâli, duraklatılmış). Düzeltildi: geri gönderen cümleler Claude'a gidiyor, router-e2e'de 3 cümleyle test ediliyor.
+
 ## 7. Sınırlar ve riskler
 
 - CAPTCHA ve 2FA'yı JEVIS çözmez. Durur, sen çözersin.
@@ -480,6 +493,8 @@ Kullanıcının isteği: "sohbet sohbet olsun, session session"; eksileri de eng
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-10-01:** Zamanlayıcı, nöbet ve güç işleri (Apple menüsünden kilit/uyku/yeniden başlat/kapat); "VS Code'daki işler bitince kapat" Claude Code oturum dosyalarından; hızlı yol artık niyete bakıyor (sohbet, itiraz, cevap ve "sonra" Claude'a); beyin kendini tanıyor, "sen" diye konuşuyor. timers-e2e 14/14, router-e2e 51/51.
 
 - **2026-10-01:** Claude Sonnet 5.5 çıktı; kullanıcının isteğiyle JEVIS'in varsayılan beyni **Sonnet 5.5** oldu (önce Sonnet 5). `claude` 2.1.283 → 2.1.286. Model düğmesi: Hızlı = Sonnet 5.5 (varsayılan), Güçlü = Opus 5.5. Yalın mod ve effort high aynı. Pencere ve çubuk, varsayılan değişince bir kereye mahsus yeni varsayılana geçiyor; sonra kullanıcının seçimi korunuyor. Çubuk listede olmayan eski bir seçimi göndermiyor. Denendi: JEVIS'in beyni Sonnet 5.5 ile araçsız kısa soruda 2,9 sn; model arayüzü görünmez Chrome'da doğrulandı; app-e2e'ye model kontrolü eklendi (tamamı kullanıcı Mac'i kullanırken çalıştırılmadı: Hesap Makinesi açıyor).
 

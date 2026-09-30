@@ -2,8 +2,12 @@
 // details it needs (volume level, music action…), and whether it is a task
 // JEVIS learned before (core/learn.js). Simple commands then run straight
 // through the JEVIS tools and learned tasks replay, without asking an LLM.
-// Anything longer or unclear goes to the brain.
+// Anything longer or unclear goes to the brain, and so does anything that is
+// not a plain "do this now": chatting, a complaint or a correction, an answer
+// to what JEVIS asked, or something for later (timers are set by rules here,
+// or by the brain with schedule_task).
 import * as jev from './jev.js';
+import { parseSchedule, listJobs, cancelJobs, describe } from './timers.js';
 import { callTool } from './tools.js';
 import { installedApps, apps as runningApps } from '../hands/desktop.js';
 import { listLearned, learnedQuestion, matchLearned } from './learn.js';
@@ -11,7 +15,7 @@ import { pickSpan } from './spans.js';
 
 const ROUTE = {
   type: 'choice',
-  instructions: 'The user gave JEVIS (a Mac assistant) the spoken or typed `command`. Which kind of command is it? Choose the single best option; pick needs_brain whenever it asks for more than one thing.',
+  instructions: 'The user gave JEVIS (a Mac assistant) the spoken or typed `command`. Which kind of command is it? Judge `command` by its own words only (not `previous`). Choose the single best option; pick needs_brain whenever it asks for more than one thing or does not say what to do.',
   criteria: {
     volume: 'Change the sound volume: set a level or percentage, or make it louder or quieter. In Turkish "sesi aç" means louder, not opening an app (e.g. "sesi yüzde 30 yap", "sesi kıs", "sesi biraz aç", "sesi sonuna kadar aç")',
     mute: 'Mute the sound or unmute it (e.g. "sessize al", "sesi geri aç")',
@@ -24,12 +28,24 @@ const ROUTE = {
     web_search: 'Search the web or YouTube for something (e.g. "Google\'da hava durumu ara")',
     page_click: 'Click one visible thing (a link, tab or button) on the web page that is already open in the JEVIS browser; only a click',
     dark_mode: 'Switch between dark and light mode',
-    lock_screen: 'Lock the screen or put the display to sleep',
+    lock_screen: 'Lock the screen now (not shutting down or sleeping the Mac)',
     screenshot: 'Take a screenshot of the whole screen',
     note_add: 'Write down one short note in Notes (e.g. "not al: yarın kargo gelecek", "notlarıma süt almayı ekle")',
     calendar_show: 'Ask what is on the calendar today, tomorrow or this week (only asking, not adding)',
     reminders_show: 'Ask which reminders or to-dos are open (only asking, not adding)',
     needs_brain: 'Anything else: more than one step, writing or typing a text, sending a message, filling forms, reading or summarizing, files and folders, adding reminders or events, questions, or anything unclear'
+  }
+};
+
+// Asked in the same request: only a plain "do it now" goes down the fast path.
+const INTENT = {
+  type: 'choice',
+  instructions: 'What is the user doing with `command`? `previous` is what JEVIS said to the user just before (empty if nothing recent).',
+  criteria: {
+    do_now: 'Telling JEVIS to do something on the Mac right now, or asking it to show something now (e.g. "sesi kıs", "Spotify\'ı aç", "ekranı kilitle", "şu an hangi şarkı çalıyor", "yarın takvimde ne var"); writing a note or a reminder text now counts even if the text mentions another day (e.g. "not al: yarın kargo gelecek")',
+    do_later: 'Telling JEVIS to do something at a later time or when something happens (e.g. "saat 3\'te ekranı kilitle", "10 dakika sonra hatırlat", "işler bitince bilgisayarı kapat")',
+    reply: 'Answering, correcting or clarifying what JEVIS said or asked in `previous` (e.g. "hayır öyle değil", "ikisi de", "kapatma, sadece kilitle"), or pointing back to something earlier without naming it (e.g. "bunu bir daha yap", "aynısını yap", "onu da", "tekrar dene")',
+    chat: 'Greeting, chatting, a complaint (e.g. "anlamadın", "cümleyi okumadın"), a question about JEVIS itself or about the conversation (e.g. "ne dedim sana", "neler yapabilirsin", "böyle bir becerin var mı"), or saying what not to do'
   }
 };
 
@@ -121,10 +137,30 @@ const firstLine = text => String(text).split('\n')[0];
 // The page guard notices logins, 2FA and CAPTCHAs ("⚠️ …"): tell the user.
 const needsUserNote = text => (String(text).includes('⚠️') ? ' Sayfa giriş ya da doğrulama (CAPTCHA) istiyor; tarayıcıda senin halletmen gerekiyor.' : '');
 
-export async function classify(command, learned = listLearned()) {
+export async function classify(command, learned = listLearned(), { previous = '' } = {}) {
   const question = learnedQuestion(learned);
-  const { answers, ms } = await jev.ask({ command }, { route: ROUTE, ...DETAILS, ...(question ? { learned: question } : {}) });
-  return { route: answers.route?.choice || 'needs_brain', confidence: answers.route?.confidence ?? 0, answers, ms };
+  const { answers, ms } = await jev.ask({ command, previous }, { route: ROUTE, intent: INTENT, ...DETAILS, ...(question ? { learned: question } : {}) });
+  return { route: answers.route?.choice || 'needs_brain', confidence: answers.route?.confidence ?? 0, intent: answers.intent?.choice || 'do_now', answers, ms };
+}
+
+/** Does this decision go down the fast path? */
+export const goesFast = c => c.intent === 'do_now' && c.route !== 'needs_brain' && c.confidence >= MIN_CONFIDENCE;
+
+const localTime = t => { const d = new Date(t); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
+
+// Timers and power commands that the rules in timers.js understood.
+async function scheduleFast(parsed, command, onEvent) {
+  if (parsed.type === 'list') return { handled: true, text: await step(onEvent, 'scheduled_tasks', {}) };
+  if (parsed.type === 'cancel') return { handled: true, text: await step(onEvent, 'cancel_scheduled', { all: true }) };
+  if (parsed.type === 'negated') {
+    // "bilgisayarı kapatma": cancels a waiting shutdown; otherwise it is just talk.
+    const gone = cancelJobs(j => parsed.actions.includes(j.action));
+    return { handled: true, text: `Tamam, yapmıyorum. İptal edildi: ${gone.map(describe).join('; ')}` };
+  }
+  const args = { action: parsed.action, said: command };
+  if (parsed.at) args.at = localTime(parsed.at);
+  if (parsed.claude) args.until = { claude_done: true };
+  return { handled: true, text: await step(onEvent, 'schedule_task', args) };
 }
 
 /**
@@ -132,9 +168,43 @@ export async function classify(command, learned = listLearned()) {
  * { handled: false, learned: { recipe, vars } } for a learned task, or
  * { handled: false, note } so the caller hands the command to a brain.
  */
-export async function tryFast(command, onEvent) {
+export async function tryFast(command, onEvent, { previous = '' } = {}) {
+  const parsed = parseSchedule(command);
+  if (parsed?.type === 'brain') {
+    onEvent({ type: 'route', route: 'needs_brain', confidence: 100, ms: 0 });
+    return { handled: false };
+  }
+  if (parsed && parsed.type !== 'now') {
+    // "bilgisayarı kapatma" with nothing waiting is talk, not a command.
+    if (parsed.type === 'negated' && !listJobs().some(j => parsed.actions.includes(j.action))) {
+      onEvent({ type: 'route', route: 'needs_brain', why: 'negated', confidence: 100, ms: 0 });
+      return { handled: false };
+    }
+    onEvent({ type: 'route', route: 'timer', confidence: 100, ms: 0 });
+    try {
+      return await scheduleFast(parsed, command, onEvent);
+    } catch (err) {
+      return { handled: false, note: `Hızlı yol olmadı: ${firstLine(err.message)}` };
+    }
+  }
   const learned = listLearned();
-  const { route, confidence, answers, ms } = await classify(command, learned);
+  const decision = await classify(command, learned, { previous });
+  const { confidence, answers, ms, intent } = decision;
+  // "bilgisayarı kapat" & co. were read by the rules; Jev still has to agree that it is meant now.
+  const route = parsed?.type === 'now' ? `power_${parsed.action}` : decision.route;
+  if (intent !== 'do_now') {
+    onEvent({ type: 'route', route: 'needs_brain', why: intent, confidence: Math.round((answers.intent?.confidence ?? 0) * 100), ms });
+    return { handled: false };
+  }
+  if (parsed?.type === 'now') {
+    onEvent({ type: 'route', route, confidence: 100, ms });
+    try {
+      const action = parsed.action === 'lock' ? 'lock_screen' : parsed.action;
+      return { handled: true, text: firstLine(await step(onEvent, 'mac_action', { action })) };
+    } catch (err) {
+      return { handled: false, note: `Hızlı yol olmadı: ${firstLine(err.message)}` };
+    }
+  }
   // A learned task is more specific than any simple route ("Spotify'da X listesini çal" is not just "play").
   const match = answers.learned ? await matchLearned(command, answers.learned, learned).catch(() => null) : null;
   if (match) {

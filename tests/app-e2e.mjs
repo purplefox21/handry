@@ -16,7 +16,7 @@ const FIXTURE = new URL('./fixtures/appstore-like.html', import.meta.url).href;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const serverProc = spawn(process.execPath, [new URL('../app/server.js', import.meta.url).pathname], {
-  env: { ...process.env, PORT: String(PORT), JEVIS_TEST_CONFIRM: 'deny', JEVIS_NO_CHAT: '1' },
+  env: { ...process.env, PORT: String(PORT), JEVIS_TEST_CONFIRM: 'deny', JEVIS_NO_CHAT: '1', JEVIS_NO_TIMERS: '1' },
   stdio: ['ignore', 'pipe', 'inherit']
 });
 await new Promise(r => serverProc.stdout.once('data', r));

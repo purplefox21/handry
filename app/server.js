@@ -11,6 +11,7 @@ import { runCommand } from '../core/runner.js';
 import { listChats, peekChat, newChat, switchChat, deleteChat, IDLE_MS } from '../core/chats.js';
 import { listBrains } from '../brain/index.js';
 import { requestStop } from '../guard/stop.js';
+import { startScheduler } from '../core/timers.js';
 import { recentActions } from '../guard/log.js';
 import { sttStatus, transcribe, stripWake } from '../voice/stt.js';
 import { ttsStatus, speak, stopSpeaking } from '../voice/tts.js';
@@ -249,8 +250,25 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
+// Scheduled "command" tasks run like a command from the user, once nothing else is running.
+async function runScheduled(text) {
+  for (let i = 0; i < 300 && activeRun; i++) await new Promise(r => setTimeout(r, 2000));
+  if (activeRun) throw new Error('JEVIS 10 dakikadır başka bir işle meşgul');
+  const controller = new AbortController();
+  activeRun = { controller };
+  const entry = { at: Date.now(), source: 'timer', text, tools: 0 };
+  try {
+    const done = await runCommand({ text, source: 'timer', signal: controller.signal, onEvent: ev => { if (ev.type === 'tool') entry.tools++; } });
+    Object.assign(entry, { id: done.runId, answer: done.text, ms: done.ms, fast: done.fast, brain: done.brain });
+  } finally {
+    activeRun = null;
+    remember(entry);
+  }
+}
+
 server.listen(PORT, HOST, () => {
   console.log(`🤖 JEVIS hazır: http://localhost:${PORT}`);
+  startScheduler({ run: runScheduled });
 });
 
 export { server, PORT, SESSION_TOKEN };

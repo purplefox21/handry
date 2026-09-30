@@ -24,3 +24,13 @@ export function isStopped() {
   } catch {}
   return false;
 }
+
+/** Was the emergency stop pressed at or after `since` (ms)? For countdowns that must not see an older stop. */
+export function stopRequestedSince(since) {
+  try {
+    const { at } = JSON.parse(fs.readFileSync(STOP_FILE, 'utf-8'));
+    return at >= since;
+  } catch {
+    return false;
+  }
+}

@@ -89,11 +89,11 @@ export function labelOf(e) {
 }
 
 /** Controls (#d1, #d2…) and texts of an app's front window; menus optional. */
-export async function read({ app, menus = false } = {}) {
+export async function read({ app, menus = false, remember = true } = {}) {
   await ensureTrusted();
   const tree = await ax('tree', ...(await appArgs(app)), ...(menus ? ['--menus'] : []));
   const elements = tree.elements.map((e, i) => ({ ...e, id: `d${i + 1}`, name: clean(e.name), ctx: clean(e.ctx) }));
-  saveState({ desktop: { pid: tree.pid, app: tree.app, window: tree.window, ids: Object.fromEntries(elements.map(e => [e.id, { path: e.path, name: e.name }])) } });
+  if (remember) saveState({ desktop: { pid: tree.pid, app: tree.app, window: tree.window, ids: Object.fromEntries(elements.map(e => [e.id, { path: e.path, name: e.name }])) } });
   return {
     app: tree.app,
     pid: tree.pid,
@@ -405,6 +405,27 @@ export async function waitFor(words, { app, seconds = 10, gone = false } = {}) {
 }
 
 /** May JEVIS send Apple Events to that app? granted | denied | ask | not_running (never asks). */
+/**
+ * The Apple menu's items, read from Finder's menu bar (Finder always runs).
+ * Pressing one works in the background, like clicking it; only Accessibility is needed.
+ */
+export async function appleMenu() {
+  await ensureTrusted();
+  const finder = (await apps()).find(a => a.bundleId === 'com.apple.finder');
+  if (!finder) throw new JevisError('NO_APP', 'Finder çalışmıyor; Apple menüsüne ulaşılamadı.');
+  const tree = await ax('tree', '--pid', finder.pid, '--menus', '--max', '2000');
+  return { pid: finder.pid, items: tree.elements.filter(e => e.path.startsWith('m.0.0.')).map(e => ({ name: clean(e.name), path: e.path })) };
+}
+
+/** Presses the Apple menu item with one of these names ("Ekranı Kilitle" / "Lock Screen"). */
+export async function pressAppleMenu(names) {
+  const { pid, items } = await appleMenu();
+  const item = items.find(i => names.includes(i.name));
+  if (!item) throw new JevisError('NOT_FOUND', `Apple menüsünde "${names[0]}" yok.`);
+  await ax('press', '--pid', pid, item.path, '--expect', item.name);
+  return item.name;
+}
+
 export async function automationState(bundleId) {
   return ax('automation', bundleId);
 }

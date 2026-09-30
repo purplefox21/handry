@@ -24,7 +24,8 @@ const BRAIN_NAMES = { 'claude-code': 'Claude Code', codex: 'Codex', anthropic: '
 const ROUTE_NAMES = {
   volume: 'ses', mute: 'ses', music: 'müzik', now_playing: 'çalan şarkı', app_open: 'uygulama açma', app_quit: 'uygulama kapatma',
   web_open: 'site açma', web_search: 'arama', page_click: 'sayfada tıklama', dark_mode: 'görünüm', lock_screen: 'ekran kilidi', screenshot: 'ekran görüntüsü',
-  spotify_play: 'Spotify', note_add: 'not', calendar_show: 'takvim', reminders_show: 'anımsatıcılar'
+  spotify_play: 'Spotify', note_add: 'not', calendar_show: 'takvim', reminders_show: 'anımsatıcılar',
+  timer: 'zamanlayıcı', power_lock: 'ekran kilidi', power_sleep: 'uyku', power_restart: 'yeniden başlatma', power_shutdown: 'kapatma'
 };
 
 // Small DOM helpers

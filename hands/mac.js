@@ -222,12 +222,17 @@ export async function takeScreenshot() {
 }
 
 /**
- * Lock the Mac screen
+ * Lock the Mac screen: Apple menu › Ekranı Kilitle (a real lock, not sleep).
+ * Without Accessibility, turning the display off locks it too if a password is required.
  */
 export async function lockScreen() {
   try {
+    const { power } = await import('./power.js');
+    return await power('lock');
+  } catch {}
+  try {
     await execFileAsync('pmset', ['displaysleepnow']);
-    return { success: true, message: `🔒 Ekran kilitlendi / uyku moduna alındı.` };
+    return { success: true, message: '🔒 Ekran kapatıldı (şifre isteniyorsa kilitlendi).' };
   } catch (err) {
     return { success: false, error: `Ekran kilitlenemedi: ${err.message}` };
   }

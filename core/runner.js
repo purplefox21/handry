@@ -105,7 +105,10 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
     const brainFor = () => brainOverride || getBrain(brainId);
     const learning = fast && config().learn?.enabled !== false;
     if (fast) {
-      const quick = await tryFast(text, emit);
+      // What JEVIS said just before, so an answer to it isn't taken for a new command.
+      const before = chat?.entries.slice(0, -1).findLast(e => e.role === 'jevis');
+      const previous = before && Date.now() - before.at < 10 * 60 * 1000 ? String(before.text || '').slice(0, 400) : '';
+      const quick = await tryFast(text, emit, { previous });
       if (quick.handled) return record(finish({ text: quick.text }, { fast: true }), 'fast');
       if (quick.learned && learning) {
         const { recipe: task, vars } = quick.learned;
