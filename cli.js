@@ -24,7 +24,8 @@ import path from 'node:path';
 const HELP = `JEVIS komutları
 
 Komut ver (hızlı yol ya da beyin)
-  do "<komut>" [--brain=claude-code] [--model=claude-sonnet-5] [--effort=high] [--no-fast] [--say]
+  do "<komut>" [--new] [--brain=claude-code] [--model=claude-sonnet-5] [--effort=high] [--no-fast] [--say]
+                                      Çubuk ve pencereyle aynı sohbete yazılır (--new: yeni sohbet)
   listen [saniye] [--do] [--say]       Mikrofonu dinle, yazıya çevir (--do: çalıştır)
 
 Tarayıcı
@@ -180,7 +181,9 @@ async function notifyCommand() {
 }
 
 async function doCommand(text) {
-  const out = await runCommand({ text, brainId: flagValue('--brain') || config().brain.default, fast: !flags.has('--no-fast'), model: flagValue('--model'), effort: flagValue('--effort'), onEvent: printEvent });
+  // The same chat as the JEVIS bar and window (--new starts a fresh one).
+  if (flags.has('--new')) (await import('./core/chats.js')).newChat();
+  const out = await runCommand({ text, brainId: flagValue('--brain') || config().brain.default, fast: !flags.has('--no-fast'), model: flagValue('--model'), effort: flagValue('--effort'), onEvent: printEvent, source: 'cli' });
   if (flags.has('--say') && out.text) await speak(out.text);
   return `✅ ${out.text || 'Bitti.'}\n(${(out.ms / 1000).toFixed(1)} sn${out.fast ? ', beyin kullanılmadı' : ''})`;
 }

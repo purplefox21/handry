@@ -8,6 +8,7 @@ import { ROOT, config, homeDir } from '../core/config.js';
 import { getApiKey } from '../core/jev.js';
 import { findBinary } from '../brain/common.js';
 import { runCommand } from '../core/runner.js';
+import { listChats, peekChat, newChat, switchChat, deleteChat, IDLE_MS } from '../core/chats.js';
 import { listBrains } from '../brain/index.js';
 import { requestStop } from '../guard/stop.js';
 import { recentActions } from '../guard/log.js';
@@ -81,7 +82,7 @@ const remember = entry => { HISTORY.push(entry); if (HISTORY.length > 50) HISTOR
 
 async function handleRun(req, res) {
   if (activeRun) return sendJson(res, 409, { error: 'JEVIS şu an başka bir işi yapıyor. Bitmesini bekle ya da DURDUR\'a bas.' });
-  const { text, brain: brainId = config().brain.default, sessionId, fast = true, model, effort, source = 'window' } = JSON.parse((await readBody(req)).toString() || '{}');
+  const { text, brain: brainId = config().brain.default, fast = true, model, effort, source = 'window', chatId } = JSON.parse((await readBody(req)).toString() || '{}');
   if (!text?.trim()) return sendJson(res, 400, { error: 'Boş komut.' });
 
   res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -91,7 +92,7 @@ async function handleRun(req, res) {
   const entry = { at: Date.now(), source, text, tools: 0 };
   const onEvent = ev => { if (ev.type === 'tool') entry.tools++; send(ev); };
   try {
-    const done = await runCommand({ text, brainId, sessionId, fast, model, effort, onEvent, signal: controller.signal });
+    const done = await runCommand({ text, brainId, fast, model, effort, onEvent, signal: controller.signal, chatId, source });
     Object.assign(entry, { id: done.runId, answer: done.text, ms: done.ms, fast: done.fast, learnedReplay: done.learnedReplay, recipe: done.recipe, brain: done.brain, model: done.model, stopped: done.stopped, learned: done.learned });
     send(done);
   } catch (err) {
@@ -162,6 +163,19 @@ const ROUTES = {
   'POST /api/voice': handleVoice,
   'POST /api/voice/file': handleVoiceFile,
   'GET /api/history': (req, res) => sendJson(res, 200, { runs: HISTORY }),
+  // Chats: the list, the current one (entries included), a new one, switching, deleting.
+  'GET /api/chats': (req, res) => sendJson(res, 200, { current: peekChat()?.id || null, chats: listChats() }),
+  'GET /api/chats/current': (req, res) => {
+    const chat = peekChat();
+    // A chat that went quiet 2 hours ago is shown until the next command starts a new one.
+    sendJson(res, 200, { chat, stale: Boolean(chat && chat.entries.length && Date.now() - chat.updated >= IDLE_MS) });
+  },
+  'POST /api/chats/new': (req, res) => sendJson(res, 200, { chat: newChat() }),
+  'POST /api/chats/switch': async (req, res) => sendJson(res, 200, { chat: switchChat(JSON.parse((await readBody(req)).toString()).id) }),
+  'POST /api/chats/delete': async (req, res) => {
+    deleteChat(JSON.parse((await readBody(req)).toString()).id);
+    sendJson(res, 200, { ok: true });
+  },
   'POST /api/say': handleSay,
   'GET /api/recipes': (req, res) => sendJson(res, 200, { recipes: listRecipes() }),
   'POST /api/recipes': async (req, res) => {

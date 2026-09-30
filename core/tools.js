@@ -595,7 +595,7 @@ export const TOOLS = [
       // No brain: whatever needs thinking comes back to the caller instead of starting another LLM.
       const noBrain = { id: 'none', label: 'JEVIS', run: async () => { throw Object.assign(new Error('needs brain'), { code: 'NEEDS_BRAIN' }); } };
       try {
-        const out = await runCommand({ text: command, fast: true, onEvent, brainOverride: noBrain });
+        const out = await runCommand({ text: command, fast: true, onEvent, brainOverride: noBrain, chat: false });
         const how = out.fast ? 'hızlı yol' : out.learnedReplay ? 'öğrenilmiş iş' : out.recipe ? `tarif: ${out.recipe}` : 'JEVIS';
         return text([`Yapıldı (${how}, ${(out.ms / 1000).toFixed(1)} sn): ${out.text || 'tamam'}`, ...steps].join('\n'), { how, ms: out.ms });
       } catch (err) {

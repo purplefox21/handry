@@ -6,10 +6,31 @@ import { runRecipe, listRecipes, slug } from './recipes.js';
 import { learnFromRun, recordOutcome } from './learn.js';
 import { getBrain } from '../brain/index.js';
 import { clearStop } from '../guard/stop.js';
+import { currentChat, newChat, addUser, addAnswer, brainTurn, brainDone, stepText, NEW_CHAT } from './chats.js';
+import * as desktop from '../hands/desktop.js';
 
 // Brains get the local date and time with each message ("yarın 9'da" needs
 // it). It rides in the message, not the system prompt, so prompt caching holds.
 const withNow = text => `${text}\n\n[Şu an: ${new Date().toLocaleString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}]`;
+
+const clip = (s, n) => { const t = String(s ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
+
+/**
+ * What is on screen now, told to the brain with each message: the front app
+ * and window, and the JEVIS Chrome tab (Chrome is only asked, never started).
+ */
+async function screenNow() {
+  const parts = [];
+  const front = await desktop.frontmost().catch(() => null);
+  if (front?.app) parts.push(`önde ${front.app}${front.window ? ` — "${clip(front.window, 60)}"` : ''}`);
+  try {
+    const tabs = await (await fetch(`http://127.0.0.1:${config().browser.cdpPort}/json/list`, { signal: AbortSignal.timeout(600) })).json();
+    const ui = process.env.JEVIS_UI_PORT ? `:${process.env.JEVIS_UI_PORT}/` : null;
+    const tab = tabs.find(t => t.type === 'page' && !/^(devtools|chrome-extension|chrome):/.test(t.url) && !(ui && t.url.includes(ui)));
+    if (tab) parts.push(`JEVIS Chrome'da açık sekme "${clip(tab.title, 60)}" (${clip(tab.url, 90)})`);
+  } catch {}
+  return parts.join('; ');
+}
 
 // "Claude (Sonnet 5)" rather than the name of the program Claude runs in.
 const MODEL_NAMES = { 'claude-sonnet-5': 'Sonnet 5', 'claude-opus-5-5': 'Opus 5.5', 'claude-haiku-4-5': 'Haiku 4.5' };
@@ -48,45 +69,71 @@ export async function runRecipeWithHandoff({ name, vars, brain, sessionId, onEve
   return { text: out.text, sessionId: out.sessionId, handedOff: true };
 }
 
-export async function runCommand({ text, brainId = config().brain.default, sessionId, fast = true, model, effort, onEvent, signal, brainOverride }) {
+/**
+ * chat: false keeps the command out of the chats (tests, jevis_do from other
+ * Claude sessions). chatId picks a chat; otherwise the current one is used.
+ */
+export async function runCommand({ text, brainId = config().brain.default, sessionId, fast = true, model, effort, onEvent = () => {}, signal, brainOverride, chatId, source, chat: useChat = process.env.JEVIS_NO_CHAT !== '1' }) {
   const started = Date.now();
   const runId = `run-${Date.now().toString(36)}`;
+  const finish = (out, extra = {}) => ({ type: 'done', runId, ms: Date.now() - started, ...out, ...extra });
+  // "Yeni sohbet": a clean page, nothing else to do.
+  if (useChat && NEW_CHAT.test(text)) {
+    const fresh = newChat();
+    return finish({ text: 'Yeni sohbet açıldı. Ne yapayım?' }, { newChat: true, chat: { id: fresh.id, title: 'Yeni sohbet' } });
+  }
   const previousRun = process.env.JEVIS_RUN_ID;
   process.env.JEVIS_RUN_ID = runId; // every logged action of this run carries it
   saveState({ lastRunId: runId });
   clearStop(); // a new command from the user means "go on"
-  const finish = (out, extra = {}) => ({ type: 'done', runId, ms: Date.now() - started, ...out, ...extra });
+  const chat = useChat ? currentChat(chatId) : null;
+  if (chat) addUser(chat, text, source);
+  const steps = [];
+  const emit = ev => { if (ev.type === 'tool') steps.push(stepText(ev.name, ev.args)); onEvent(ev); };
+  // Into the chat, with how it was done; the answer names the chat.
+  const record = (done, via) => {
+    if (!chat) return done;
+    addAnswer(chat, { text: done.text || '', via, steps, ms: done.ms, runId, model: done.model, ok: !done.stopped });
+    return { ...done, chat: { id: chat.id, title: chat.title } };
+  };
   try {
     const recipe = recipeCall(text);
     if (recipe) {
-      const out = await runRecipeWithHandoff({ ...recipe, brain: getBrain(brainId), sessionId, onEvent, signal, model, effort });
-      return finish(out, { recipe: recipe.name, brain: brainId, stopped: Boolean(out.stopped) });
+      const out = await runRecipeWithHandoff({ ...recipe, brain: getBrain(brainId), onEvent: emit, signal, model, effort });
+      return record(finish(out, { recipe: recipe.name, brain: brainId, stopped: Boolean(out.stopped) }), 'recipe');
     }
     const brainFor = () => brainOverride || getBrain(brainId);
     const learning = fast && config().learn?.enabled !== false;
     if (fast) {
-      const quick = await tryFast(text, onEvent);
-      if (quick.handled) return finish({ text: quick.text }, { fast: true });
+      const quick = await tryFast(text, emit);
+      if (quick.handled) return record(finish({ text: quick.text }, { fast: true }), 'fast');
       if (quick.learned && learning) {
-        const { recipe, vars } = quick.learned;
+        const { recipe: task, vars } = quick.learned;
         const brain = brainFor();
-        const out = await runRecipeWithHandoff({ name: recipe.name, vars, brain, sessionId, onEvent, signal, model, effort, doneText: 'Tamam, öğrendiğim yoldan yaptım.' });
-        if (!out.stopped) recordOutcome(recipe.name, Boolean(out.ok));
-        return finish(out, { recipe: recipe.name, learnedReplay: true, brain: out.handedOff ? brain.id : undefined, stopped: Boolean(out.stopped) });
+        const out = await runRecipeWithHandoff({ name: task.name, vars, brain, onEvent: emit, signal, model, effort, doneText: 'Tamam, öğrendiğim yoldan yaptım.' });
+        if (!out.stopped) recordOutcome(task.name, Boolean(out.ok));
+        return record(finish(out, { recipe: task.name, learnedReplay: true, brain: out.handedOff ? brain.id : undefined, stopped: Boolean(out.stopped) }), 'learned');
       }
-      if (quick.note) onEvent({ type: 'status', text: quick.note });
+      if (quick.note) emit({ type: 'status', text: quick.note });
     }
     const brain = brainFor();
-    onEvent({ type: 'status', text: `${thinker(brain, model)} düşünüyor…` });
-    const out = await brain.run({ text: withNow(text), sessionId, onEvent, signal, model, effort });
     const usedModel = brain.id === 'claude-code' ? (model || config().brain.providers['claude-code']?.model) : undefined;
+    emit({ type: 'status', text: `${thinker(brain, model)} düşünüyor…` });
+    // The chat's own session, told what happened without it and what is on screen now.
+    const key = `${brain.id}|${usedModel || model || ''}`;
+    const turn = chat ? brainTurn(chat, text, { key, screen: await screenNow() }) : { message: text, sessionId, fresh: !sessionId };
+    const out = await brain.run({ text: withNow(turn.message), sessionId: turn.sessionId, onEvent: emit, signal, model, effort });
+    if (chat) brainDone(chat, { sessionId: out.sessionId, key, fresh: turn.fresh });
     // Next time the same task (with other details) runs without the brain.
     let learned;
     if (learning && !out.stopped && !signal?.aborted) {
       const res = await learnFromRun({ command: text, runId, answer: out.text }).catch(err => ({ skipped: err.message }));
       learned = res.recipe ? { name: res.recipe.name, pattern: res.recipe.pattern, updated: res.updated } : { skipped: res.skipped };
     }
-    return finish({ text: out.text, sessionId: out.sessionId }, { brain: brain.id, model: usedModel, stopped: Boolean(out.stopped), learned });
+    return record(finish({ text: out.text, sessionId: out.sessionId }, { brain: brain.id, model: usedModel, stopped: Boolean(out.stopped), learned }), 'brain');
+  } catch (err) {
+    if (chat) addAnswer(chat, { text: signal?.aborted ? 'Durduruldu.' : `Olmadı: ${err.message}`, via: 'error', steps, runId, ok: false });
+    throw err;
   } finally {
     if (previousRun === undefined) delete process.env.JEVIS_RUN_ID;
     else process.env.JEVIS_RUN_ID = previousRun;
