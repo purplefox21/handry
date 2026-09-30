@@ -370,6 +370,17 @@ Kullanıcının kararları:
 **Sonuç:** `node tests/faz10-e2e.mjs` **15/15**. Tarayıcı 27/27 (iki kez), formlar 9/9, MCP 11/11, koruma 12/12, tarif 7/7, öğrenme 10/10.
 **Öğrenilen:** JEVIS sadece tıklanabilir öğeleri tanıyordu; sayfada düz yazı olarak duran bir API anahtarını göremiyordu. `browser_save_value` artık anahtar/token gibi görünen yazıları da aday yapıyor.
 
+### Sohbetler ve oturumlar (2026-10-01)
+Kullanıcının isteği: "sohbet sohbet olsun, session session"; eksileri de engellensin.
+- [x] Her sohbetin kendi Claude oturumu (`core/chats.js`, `~/.jevis/chats/`). Çubuk, büyük pencere, ses ve terminal (`do`) aynı, o anki sohbete yazıyor. Büyük pencerede sohbet listesi var (geç, sil, yeni).
+- [x] Eksilere karşı:
+  - Claude'suz yapılanlar (hızlı yol, öğrenilmiş iş, tarif) bir sonraki Claude mesajında "[Sen yokken …]" diye gidiyor.
+  - Her mesajda taze "[Şu an ekranda …]" bilgisi gidiyor; beyin talimatında "ekran değişmiş olabilir, işlemden önce bak" kuralı var.
+  - 12 turda bir ya da model değişince Claude tarafı JEVIS'in kendi özetiyle tazeleniyor. Ek LLM çağrısı yok; sohbet uzadıkça yavaşlamıyor ve pahalılaşmıyor.
+  - "yeni sohbet" / "yeni konu" komutu var; 2 saat sessizlikte yeni sohbet açılıyor, eskisi listede kalıyor.
+  - Sohbetler diskte duruyor, uygulama kapanıp açılınca kaybolmuyor.
+- [x] Testler: `tests/chats-e2e.mjs` **9/9** (sahte beyin), `tests/chats-ui-e2e.mjs` **4/4**. Gerçek Claude'la: önce hızlı yoldan "şu an hangi şarkı çalıyor", sonra "az önce ne sordum?" → Claude, hızlı yolun yaptığını bildi (4.5 sn).
+
 ## 7. Sınırlar ve riskler
 
 - CAPTCHA ve 2FA'yı JEVIS çözmez. Durur, sen çözersin.
@@ -469,6 +480,8 @@ Kullanıcının kararları:
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-10-01:** Sohbetler: her sohbetin kendi Claude oturumu, "sen yokken" ve "şu an ekranda" bilgisi, 12 turda özetle tazeleme, "yeni sohbet", sohbet listesi. 9/9 + 4/4.
 
 - **2026-10-01:** Faz 10 bitti: giriş farkındalığı + iMessage, `browser_sessions`, `browser_fill`, `jevis_teach`, site notları, `browser_download`, `browser_save_value`, onay penceresinde değişiklikler, `browser_table`, numaralı ekran görüntüsü. 15/15.
 

@@ -57,4 +57,6 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/files-e2e.mjs` → dosya ve proje araçları (~/Library/Caches altında geçici klasör; TextEdit'i açıp kapatır)
 - `node tests/appshortcuts-e2e.mjs` → Spotify'da gerçekten çalar ve sonra duraklatır; Müzik/Notlar/Anımsatıcılar/Takvim betiklerini sadece derler (macOS izni verilmişse okur)
 - `node tests/listener-e2e.mjs` → "Hey Jev" ve canlı yazı: Yelda sesiyle üretilen kayıtlar JEVIS.app'in dinleyicisinden geçer (mikrofon gerekmez; JEVIS'in Konuşma Tanıma izni gerekir)
+- `node tests/chats-e2e.mjs` → sohbetler ve Claude oturumları (sahte beyin, geçici JEVIS klasörü)
+- `node tests/chats-ui-e2e.mjs` → sohbetler pencerede ve çubukta (ayrı sunucu, geçici JEVIS klasörü, sadece hızlı yol)
 - `node tests/dispatcher-dryrun.mjs` → eski macOS komut yönlendirici (deneme modu)
