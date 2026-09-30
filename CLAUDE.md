@@ -9,7 +9,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - Kullanıcıyla Türkçe konuş.
 - Değişiklikten önce ve sonra git commit al. Bir şeyi silmeden önce mutlaka commit olsun; kullanıcı fikrini değiştirebilir.
 - `.env` (JEV_KEY) asla commit edilmez ve içeriği ekrana yazdırılmaz.
-- Şifreler hiçbir zaman LLM'e ya da kayıtlara gitmez. Anahtar Zinciri'nden kod okuyup yazar.
+- Kullanıcı Claude'dan bir şey gizlenmesini istemiyor (2026-09-30): Claude sayfadaki değerleri, API anahtarlarını, indirilen dosyaları görebilir. Şifreler kolaylık için Anahtar Zinciri'nden doldurulur; kayıt dosyalarına (log) şifre yazılmaz.
 - Claude in Chrome önerme. Kullanıcı denedi ve reddetti: yavaş, şifre girmiyor.
 - Bir faz bitince PLAN.md'deki kutuları işaretle, en üstteki "Durum" satırını ve "Geçmiş" bölümünü güncelle, commit al.
 - Kullanıcının adına macOS izin pencerelerine (TCC) asla "İzin Ver" deme; bu onun kararı.

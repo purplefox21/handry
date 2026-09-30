@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-09-28):** Faz 0-8 ✅ hepsi tamam. Faz 9 (kompakt çubuk, canlı ses, "Hey Jev") planlandı; kullanıcı "başla" deyince başlanacak. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
+> **Durum (2026-09-30):** Faz 0-9 ✅. Faz 10 (gerçek işlerden gelenler: giriş farkındalığı + iMessage, toplu form, Claude'un JEVIS'e öğretmesi, indirme, tablo, numaralı ekran görüntüsü) yapılıyor. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -349,6 +349,22 @@ Yapılan ölçümler (2026-09-28): Apple'ın konuşma tanıması Türkçeyi ciha
   - JEVIS konuşurken ve ekran kilitliyken dinleme durur. Açıkken macOS menü çubuğunda turuncu mikrofon noktası sürekli görünür (sesin hiçbiri bilgisayardan çıkmaz).
   - Ölçülecek: yanlış uyanma (30 dk podcast/YouTube açıkken), kaçırma (20 deneme), gecikme, işlemci/pil. Yetersizse B planı: "hey jev" için openWakeWord ile küçük özel bir model eğitmek.
 - [ ] **9.4 Cilalama:** uyanma/gönderme sesleri, sesle verilen komuta sesli cevap (yazılana değil), ayarlar (dinleme açık/kapalı, sessizlik süresi), uygulama logolu yeniden kurulum.
+
+### Faz 10 — Gerçek işlerden gelenler (2026-09-30)
+Kaynak: Başka bir Claude oturumu JEVIS'le GoDaddy'de DNS değiştirdi ve takıldığı yerleri raporladı; kullanıcı da istediklerini ekledi.
+
+Kullanıcının kararları:
+- Claude'dan bir şey gizlenmesin: Claude sayfadaki değerleri, anahtarları, indirilen dosyaları görebilir. Şifreler kolaylık için Anahtar Zinciri'nden doldurulmaya devam eder; kayıt dosyalarına şifre yazılmaz.
+- "Göstererek öğretme"yi kullanıcı yapmaz: Claude işi yapar ve JEVIS'e öğretir.
+- Giriş gerekince JEVIS hemen söylemeli (sesli, çubukta, bildirimle, başında değilse iPhone'a iMessage).
+
+- [ ] **10.1 Giriş farkındalığı:** giriş/2FA/CAPTCHA çıkınca ses + çubuk + bildirim; 1 dakika cevap yoksa iMessage. İşin başında `browser_sessions`: hangi sitede oturum açık?
+- [ ] **10.2 Toplu form doldurma (`browser_fill`):** bir listeyle bütün alanlar tek çağrıda; "önce → sonra" tablosu.
+- [ ] **10.3 Claude JEVIS'e öğretir:** `jevis_teach` (bu oturumda yapılanı öğren), site notları (`site_note`, siteyi her okuyuşta gelir).
+- [ ] **10.4 İndirme ve değer kaydetme:** `browser_download` (dosyayı istenen klasöre), `browser_save_value` (sayfadaki anahtarı Anahtar Zinciri'ne ya da `.env`'e).
+- [ ] **10.5 Onay penceresinde değişiklikler:** "Kaydet"e basmadan önce o sayfada yazılan/seçilen değerler pencerede görünür.
+- [ ] **10.6 Tablo okuma (`browser_table`):** tablo satırları JSON olarak.
+- [ ] **10.7 Numaralı ekran görüntüsü:** ekran görüntüsünde her öğenin #numarası. Numara bir piksel yeri değil, öğenin kendisi: #14'e tıklamak o öğeye tıklar, sayfa kaymış olsa bile. Öğe kaybolduysa JEVIS başka bir şeye tıklamaz, "yeniden oku" der. Tıklamadan sonra neye tıkladığını adıyla söyler.
 
 ## 7. Sınırlar ve riskler
 
