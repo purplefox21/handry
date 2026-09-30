@@ -96,6 +96,15 @@ export const TOOLS = [
     run: async ({ target, text: value, press_enter, append }) => outcome(await browser.type(target, value, { submit: Boolean(press_enter), append: Boolean(append) }))
   },
   {
+    name: 'browser_fill',
+    description: 'Fill many form fields in one call: text fields, dropdowns, radio-button questions, checkboxes. fields: {"Name": "Ornek", "Price": "Free", "Cartoon or Fantasy Violence": "None", "Sign-in required": "evet"}, each field named as the page names it. Jev finds all fields at once; you get a before → after table and, for fields it was not sure about, candidates to fix with #id. Never presses Save or Submit. Prefer it over several browser_type/browser_select calls.',
+    inputSchema: obj({ fields: { type: 'object', additionalProperties: { type: ['string', 'number', 'boolean'] } } }, ['fields']),
+    run: async ({ fields }) => {
+      const r = await browser.fill(fields);
+      return text(browser.formatFill(r), r);
+    }
+  },
+  {
     name: 'browser_select',
     description: 'Choose an option in a dropdown (native <select> or a custom list). The option may be given in Turkish; Jev matches it to the page\'s wording.',
     inputSchema: obj({ target: TARGET, option: { type: 'string' } }, ['target', 'option']),

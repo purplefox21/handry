@@ -230,6 +230,8 @@ function snapshotInFrame({ prefix, max }) {
     if (ariaChecked !== null) s.push(ariaChecked === 'true' ? 'checked' : 'unchecked');
     const expanded = el.getAttribute('aria-expanded');
     if (expanded !== null) s.push(expanded === 'true' ? 'expanded' : 'collapsed');
+    const popup = el.getAttribute('aria-haspopup');
+    if (popup && popup !== 'false') s.push('opens a list');
     if (el.getAttribute('aria-selected') === 'true') s.push('selected');
     if (el.getAttribute('aria-invalid') === 'true') s.push('invalid');
     if (el.tagName === 'SELECT') s.push(`value: ${cut(clean(el.selectedOptions?.[0]?.text), 40)}`);
@@ -646,6 +648,100 @@ export async function type(target, text, { submit = false, append = false } = {}
     await settle(page);
   }
   return { element: item, jev: pickInfo(pick), typed: text.length, approval, ...(await outcome(page, before)) };
+}
+
+const TEXT_ROLES = /^(textbox|textarea|searchbox|combobox|spinbutton)/;
+const CHOICE_ROLES = ['radio', 'option', 'menuitemradio', 'tab'];
+const TOGGLE_ROLES = ['checkbox', 'switch', 'menuitemcheckbox'];
+const YES = /^(evet|açık|acik|true|on|yes|işaretle|isaretle|seçili|secili|var|✓|x|1)$/i;
+const NO = /^(hayır|hayir|kapalı|kapali|false|off|no|kaldır|kaldir|yok|0)$/i;
+const valueOf = item => {
+  const v = item.state.find(x => x.startsWith('value:'));
+  if (v) return v.replace(/^value:\s*/, '').replace(/^"|"$/g, '');
+  if (item.state.includes('checked')) return '✓';
+  if (item.state.includes('unchecked')) return '—';
+  if (item.state.includes('empty')) return '';
+  return item.name;
+};
+
+/**
+ * Fills many fields in one go. fields: { "Name": "Ornek", "Price": "Free",
+ * "Cartoon or Fantasy Violence": "None", "Sign-in required": "evet" }. Jev
+ * matches every field at once (in parallel), then each is filled the way its
+ * control needs. Nothing is saved or submitted. Returns a row per field.
+ */
+export async function fill(fields) {
+  const page = await activePage();
+  const snap = await snapshot(page);
+  const items = snap.items.filter(i => i.role !== 'link');
+  if (!items.length) throw new JevisError('NOT_FOUND', 'Sayfada doldurulacak alan bulunamadı.');
+  const labels = items.map(labelOf);
+  const entries = Object.entries(fields).map(([field, value]) => [field, String(value)]);
+
+  // Jev looks for every field at the same time (a few requests at once).
+  const picks = new Array(entries.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(5, entries.length) }, async () => {
+    while (next < entries.length) {
+      const i = next++;
+      const [field, value] = entries[i];
+      const instruction = `Set the form field "${field}" to "${value}": pick the text field or dropdown for "${field}", or, when "${field}" is answered with radio buttons or checkboxes, the one for "${value}"`;
+      picks[i] = await jev.pickElement(instruction, labels, { url: snap.url, title: snap.title }).catch(err => ({ index: null, confidence: 0, alternatives: [], error: err.message }));
+    }
+  }));
+
+  const rows = [];
+  const used = new Set();
+  for (let i = 0; i < entries.length; i++) {
+    const [field, value] = entries[i];
+    const pick = picks[i];
+    const row = { field, value, ok: false };
+    rows.push(row);
+    if (pick.index === null || !jev.isConfident(pick)) {
+      row.problem = pick.error || (pick.index === null ? 'bulunamadı' : `Jev emin değil (%${pct(pick.confidence)})`);
+      row.candidates = pick.alternatives.filter(a => a.index !== null).map(a => `#${items[a.index].id} ${labels[a.index]}`);
+      continue;
+    }
+    const item = items[pick.index];
+    Object.assign(row, { id: item.id, label: labels[pick.index], before: valueOf(item) });
+    if (used.has(item.id) && !CHOICE_ROLES.includes(item.role)) { row.problem = 'bu öğe başka bir alan için zaten dolduruldu'; continue; }
+    used.add(item.id);
+    try {
+      if (item.role === 'select' || item.state.includes('opens a list')) {
+        const r = await select(`#${item.id}`, value);
+        row.after = r.selected;
+      } else if (TEXT_ROLES.test(item.role)) {
+        await type(`#${item.id}`, value);
+        row.after = value;
+      } else if (CHOICE_ROLES.includes(item.role)) {
+        if (!item.state.includes('checked') && !item.state.includes('selected')) await click(`#${item.id}`, { risk: false });
+        row.after = item.name;
+      } else if (TOGGLE_ROLES.includes(item.role) || item.role === 'label') {
+        const on = NO.test(value.trim()) ? false : YES.test(value.trim()) || true;
+        const r = await check(`#${item.id}`, on);
+        row.after = r.checked === null ? '?' : r.checked ? '✓' : '—';
+      } else {
+        row.problem = `bu bir ${item.role}; doldurulacak bir alan değil (Kaydet gibi düğmelere browser_click ile bas)`;
+        continue;
+      }
+      row.ok = true;
+    } catch (err) {
+      row.problem = err.message.split('\n')[0];
+    }
+  }
+  return { url: page.url(), title: await page.title().catch(() => ''), rows };
+}
+
+export function formatFill(r) {
+  const lines = [`${r.rows.filter(x => x.ok).length}/${r.rows.length} alan dolduruldu (kaydedilmedi):`];
+  for (const x of r.rows) {
+    if (x.ok) lines.push(`✓ ${x.field}: "${x.before}" → "${x.after}"  (#${x.id})`);
+    else {
+      lines.push(`✗ ${x.field} = "${x.value}": ${x.problem}${x.id ? ` (#${x.id})` : ''}`);
+      if (x.candidates?.length) lines.push(`    adaylar: ${x.candidates.join(' | ')}`);
+    }
+  }
+  return lines.join('\n');
 }
 
 /** Fills a field with a value the caller must never see (passwords). */
