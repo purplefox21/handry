@@ -21,6 +21,8 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - Yeni sayfada önce `browser_read`. Hedefi sayfadaki kelimelerle ver ("Save", "None under Cartoon or Fantasy Violence") ya da `#id` kullan.
 - Jev emin olmazsa adayları listeler; tahmin etme, `#id` ile seç.
 - Onay penceresinde kullanıcı "Hayır" derse dur ve bildir. Başka bir yol arama.
+- Dosya değiştirme: `files_make_folder`, `files_move` (yeniden adlandırma da), `files_copy`, `files_trash` (kalıcı silme yok, Çöp Sepeti; Finder'ın "Geri Koy"u çalışır), `files_undo`. Sadece ev klasöründe; Library, gizli ve anahtar klasörleri, ana klasörler (Masaüstü, Belgeler…) ve projenin kendisi yasak; üstüne yazmaz; klasör ya da 3'ten fazla öğe çöpe atma, git projesi taşıma, 20'den fazla öğe sorar.
+- Kayıt: her araç çağrısını kod `~/.jevis/logs/<gün>.jsonl`'a yazar (kim: uygulamanın kendisi ve kaynağı ya da hangi Claude oturumu; ne, sonuç, sorulduysa cevap). Büyük pencerede "Yapılanlar". Onay penceresi açıkken masaüstü araçları ekrana dokunmaz (`~/.jevis/confirming.json`).
 
 ### App Store işi akışı
 1. `appstore/bilgi-karti.md`'yi oku, eksik bilgileri kullanıcıya sor.
@@ -59,6 +61,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/listener-e2e.mjs` → "Hey Foxie", "Hey Fox", "Inaro, …" ve canlı yazı: Yelda sesiyle üretilen kayıtlar Inaro.app'in dinleyicisinden geçer (mikrofon ve hoparlör gerekmez; uygulamanın Konuşma Tanıma izni gerekir)
 - `node tests/chats-e2e.mjs` → sohbetler ve Claude oturumları (sahte beyin, geçici JEVIS klasörü)
 - `node tests/chats-ui-e2e.mjs` → sohbetler pencerede ve çubukta (ayrı sunucu, geçici JEVIS klasörü, sadece hızlı yol)
+- `node tests/files-change-e2e.mjs` → dosya değiştirme ve geri alma, yasak yerler, önce sorma ("hayır" = hiçbir şey olmaz), onay penceresi açıkken ekrana dokunmama, kayıtta "kim" (geçici klasör; Çöp Sepeti'ne atılanlar geri alınır; ekran ve ses yok)
 - `node tests/timers-ui-e2e.mjs` → zamanlayıcı listesi pencerede ve çubukta, iptal, geri sayımda İptal (görünmez Chrome, ayrı sunucu, geçici klasör; ses ve ekran yok)
 - `node tests/timers-e2e.mjs` → zamanlayıcı, nöbet, "işler bitince kapat", geri sayım ve iptal, hızlı yolun sohbeti komut sanmaması (geçici klasör, sahte Claude oturumları; kapatma/kilit/iMessage sadece kaydedilir, ses yok)
 - `node tests/dispatcher-dryrun.mjs` → eski macOS komut yönlendirici (deneme modu)

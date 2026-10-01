@@ -309,7 +309,7 @@ function submit() {
 // Chats: this window shows one; the bar, voice and the terminal write into the current one
 // ---------------------------------------------------------------------------
 
-const SOURCES = { bar: 'Çubuktan', cli: 'Terminalden', voice: 'Sesle' };
+const SOURCES = { bar: 'Çubuktan', cli: 'Terminalden', voice: 'Sesle', timer: 'Zamanlayıcıdan' };
 const VIA_ROUTE = { fast: { fast: true }, learned: { learnedReplay: true }, recipe: { recipe: 'tarif' } };
 
 function showChatTitle(title) {
@@ -521,6 +521,7 @@ function openDrawer(id) {
   $('scrim').hidden = false;
   $(id).hidden = false;
   if (id === 'timersDrawer') { renderTimers(); refreshTimers(); }
+  if (id === 'logDrawer') loadLog().catch(err => toast(err.message));
   if (id === 'recipesDrawer') loadRecipes();
   if (id === 'chatsDrawer') loadChats().catch(err => toast(err.message));
   if (id === 'settingsDrawer') loadStatus().catch(() => {});
@@ -535,6 +536,7 @@ function closeDrawer() {
 
 $('settingsBtn').addEventListener('click', () => openDrawer('settingsDrawer'));
 $('timersBtn').addEventListener('click', () => openDrawer('timersDrawer'));
+$('logBtn').addEventListener('click', () => openDrawer('logDrawer'));
 $('recipesBtn').addEventListener('click', () => openDrawer('recipesDrawer'));
 $('scrim').addEventListener('click', closeDrawer);
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeDrawer));
@@ -632,6 +634,78 @@ twoStep($('cancelAllTimers'), 'Hepsi iptal olsun mu?', async () => {
 setInterval(() => { if (openDrawerId === 'timersDrawer') updateTimerTexts(); }, 1000);
 setInterval(refreshTimers, 4000);
 window.addEventListener('focus', () => refreshTimers());
+
+// ---------------------------------------------------------------------------
+// Yapılanlar: the action log the code writes (not the AI's own account), one
+// day at a time, grouped by who did it; the last file change can be undone.
+// ---------------------------------------------------------------------------
+
+let logDay = null;
+const hhmmOf = ts => new Date(ts).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+function dayLabel(day) {
+  const d = new Date(`${day}T12:00:00`);
+  const today = new Date();
+  const diff = Math.round((new Date(today.toDateString()) - new Date(d.toDateString())) / 86400000);
+  return diff === 0 ? 'Bugün' : diff === 1 ? 'Dün' : d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+}
+
+// Older entries have no "who": the run id still tells the app from a Claude session.
+const whoOf = e => e.who || (String(e.run).startsWith('mcp-') ? 'Claude oturumu' : String(e.run).startsWith('run-') ? APP_NAME : 'elle');
+
+function logRow(e) {
+  const row = el('div', `log-row${e.ok ? '' : ' failed'}`);
+  const line = el('button', 'log-line');
+  line.type = 'button';
+  const mark = el('span', 'log-icon');
+  mark.append(icon(stepIcon(e.tool)));
+  const what = el('span', 'log-what', describe(e.tool, e.args));
+  line.append(el('span', 'log-time', hhmmOf(e.ts)), mark, what);
+  const summary = String(e.summary || '');
+  if (/Kullanıcı onayladı/.test(summary)) line.append(el('span', 'log-badge asked', 'sen onayladın'));
+  if (/izin vermedi|DENIED/.test(summary)) line.append(el('span', 'log-badge denied', 'sen reddettin'));
+  line.append(el('span', `log-badge ${e.ok ? 'ok' : 'err'}`, e.ok ? '✓' : '✗'));
+  const detail = el('pre', 'log-detail', `${e.tool} ${JSON.stringify(e.args || {})}\n\n${summary}${e.ms !== undefined ? `\n\n${e.ms} ms` : ''}`);
+  detail.hidden = true;
+  line.addEventListener('click', () => { detail.hidden = !detail.hidden; });
+  row.append(line, detail);
+  return row;
+}
+
+async function loadLog(day = logDay) {
+  const data = await (await api(`/api/log${day ? `?day=${day}` : ''}`)).json();
+  logDay = data.day;
+  $('logDays').replaceChildren(...data.days.slice(0, 7).map(d => {
+    const chip = el('button', `log-day${d === data.day ? ' active' : ''}`, dayLabel(d));
+    chip.type = 'button';
+    chip.addEventListener('click', () => loadLog(d));
+    return chip;
+  }));
+  const list = $('logList');
+  if (!data.entries.length) { list.replaceChildren(el('div', 'empty', 'Bu gün kayıt yok.')); return; }
+  // Newest first; one group per run (one command, or one Claude session's work).
+  const groups = [];
+  for (const e of data.entries) {
+    const g = groups.at(-1);
+    if (g && g.run === e.run) g.items.push(e);
+    else groups.push({ run: e.run, who: whoOf(e), items: [e] });
+  }
+  list.replaceChildren(...groups.map(g => {
+    const box = el('section', 'log-group');
+    const failed = g.items.filter(e => !e.ok).length;
+    const head = el('div', 'log-head');
+    head.append(el('span', 'log-who', g.who), el('span', 'log-meta', `${hhmmOf(g.items.at(-1).ts).slice(0, 5)}–${hhmmOf(g.items[0].ts).slice(0, 5)} · ${g.items.length} işlem${failed ? ` · ${failed} olmadı` : ''}`));
+    box.append(head, ...[...g.items].reverse().map(logRow));
+    return box;
+  }));
+}
+
+$('undoFilesBtn').addEventListener('click', async () => {
+  const r = await (await api('/api/files/undo', { method: 'POST' })).json();
+  toast(r.text);
+  if (openDrawerId === 'logDrawer') loadLog();
+});
+setInterval(() => { if (openDrawerId === 'logDrawer' && logDay === new Date().toISOString().slice(0, 10)) loadLog().catch(() => {}); }, 5000);
 
 async function loadRecipes() {
   const { recipes } = await (await api('/api/recipes')).json();

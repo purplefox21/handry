@@ -544,3 +544,29 @@ kbd {
 .timer-cancel.sure, #cancelAllTimers.sure { background: var(--red); color: #fff; }
 .timer-item.linked { cursor: pointer; }
 .timer-item.linked:hover { border-color: var(--border-strong); }
+
+/* Yapılanlar: the action log, grouped by who did it. */
+.drawer-wide { width: min(560px, 100vw); }
+.log-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.log-days { display: flex; gap: 6px; flex-wrap: wrap; }
+.log-day { border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); border-radius: 999px; padding: 4px 10px; font: 600 12px var(--font); cursor: pointer; }
+.log-day.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.log-list { display: flex; flex-direction: column; gap: 12px; }
+.log-group { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface-2); }
+.log-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.log-who { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.log-meta { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.log-row + .log-row { border-top: 1px solid var(--border); }
+.log-line { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 12px; background: none; border: 0; text-align: left; color: var(--text); font: 13px var(--font); cursor: pointer; }
+.log-line:hover { background: var(--surface-3, rgba(127, 127, 127, 0.08)); }
+.log-time { flex: none; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.log-icon { flex: none; display: grid; place-items: center; width: 20px; height: 20px; color: var(--text-2); }
+.log-icon svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.log-what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-badge { flex: none; font: 700 11px var(--font); padding: 2px 7px; border-radius: 999px; }
+.log-badge.ok { color: var(--green, #28a745); }
+.log-badge.err { color: var(--red); }
+.log-badge.asked { background: var(--accent-soft); color: var(--accent); }
+.log-badge.denied { background: var(--red-soft); color: var(--red); }
+.log-row.failed .log-what { color: var(--red); }
+.log-detail { margin: 0; padding: 8px 12px 10px 40px; font: 12px/1.5 ui-monospace, "SF Mono", Menlo, monospace; color: var(--text-2); white-space: pre-wrap; overflow-wrap: anywhere; }

@@ -71,6 +71,8 @@ export async function runRecipeWithHandoff({ name, vars, brain, sessionId, onEve
   return { text: out.text, sessionId: out.sessionId, handedOff: true };
 }
 
+const SOURCES = { bar: 'çubuk', window: 'pencere', voice: 'ses', cli: 'terminal', timer: 'zamanlayıcı' };
+
 /**
  * chat: false keeps the command out of the chats (tests, jevis_do from other
  * Claude sessions). chatId picks a chat; otherwise the current one is used.
@@ -89,6 +91,9 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
   saveState({ lastRunId: runId });
   clearStop(); // a new command from the user means "go on"
   const chat = useChat ? currentChat(chatId, { switchTo: switchChat }) : null;
+  // Who is asking, for the action log: the app itself and where the command came from.
+  const previousCaller = process.env.JEVIS_CALLER;
+  process.env.JEVIS_CALLER = `${APP_NAME} · ${SOURCES[source] || source || 'komut'}`;
   const previousChat = process.env.JEVIS_CHAT_ID;
   if (chat) process.env.JEVIS_CHAT_ID = chat.id; // a timer set now remembers the chat it was asked in
   else delete process.env.JEVIS_CHAT_ID;
@@ -150,5 +155,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
     else process.env.JEVIS_RUN_ID = previousRun;
     if (previousChat === undefined) delete process.env.JEVIS_CHAT_ID;
     else process.env.JEVIS_CHAT_ID = previousChat;
+    if (previousCaller === undefined) delete process.env.JEVIS_CALLER;
+    else process.env.JEVIS_CALLER = previousCaller;
   }
 }

@@ -96,7 +96,7 @@ const MAC_ACTIONS = {
   volume: a => `Ses %${a.value} yapılıyor`, volume_up: () => 'Ses açılıyor', volume_down: () => 'Ses kısılıyor', mute: () => 'Ses kapatılıyor', unmute: () => 'Ses açılıyor',
   now_playing: () => 'Çalan şarkıya bakılıyor', screenshot: () => 'Ekran görüntüsü alınıyor',
   play_pause: () => 'Müzik başlat/durdur', next_track: () => 'Sonraki şarkı', previous_track: () => 'Önceki şarkı',
-  dark_mode: () => 'Görünüm değiştiriliyor', lock_screen: () => 'Ekran kilitleniyor', notify: a => `Bildirim: ${short(a.value)}`,
+  dark_mode: () => 'Görünüm değiştiriliyor', lock_screen: () => 'Ekran kilitleniyor', sleep: () => 'Mac uyutuluyor', restart: () => 'Mac yeniden başlatılıyor', shutdown: () => 'Mac kapatılıyor', notify: a => `Bildirim: ${short(a.value)}`,
   spotify_search: a => `Spotify'da aranıyor: ${short(a.value)}`, note: a => `Not ekleniyor: ${short(a.title || a.value)}`
 };
 
@@ -144,7 +144,24 @@ const STEPS = {
   calendar_events: [a => (a.from === 1 ? 'Yarının takvimine bakılıyor' : (a.days || 1) > 1 ? 'Haftanın takvimine bakılıyor' : 'Bugünün takvimine bakılıyor'), 'clock'],
   calendar_add: [a => `Takvime ekleniyor: ${short(a.title, 40)}`, 'clock'],
   mac_action: [a => (MAC_ACTIONS[a.action] || (() => a.action))(a), 'sliders'],
-  jev_ask: [() => 'Jev\'e soruluyor', 'zap']
+  jev_ask: [() => 'Jev\'e soruluyor', 'zap'],
+  files_make_folder: [a => `Klasör oluşturuluyor: ${short(a.path, 50)}`, 'folder'],
+  files_move: [a => `Taşınıyor: ${short([].concat(a.from || []).map(p => String(p).split('/').pop()).join(', '), 40)} → ${short(a.to, 40)}`, 'folder'],
+  files_copy: [a => `Kopyalanıyor: ${short([].concat(a.from || []).map(p => String(p).split('/').pop()).join(', '), 40)} → ${short(a.to, 40)}`, 'folder'],
+  files_trash: [a => `Çöp Sepeti'ne atılıyor: ${short([].concat(a.paths || []).map(p => String(p).split('/').pop()).join(', '), 50)}`, 'trash'],
+  files_undo: [() => 'Son dosya işi geri alınıyor', 'back'],
+  schedule_task: [a => `Zamanlayıcı kuruluyor: ${short(a.said || a.text || a.action, 50)}`, 'clock'],
+  scheduled_tasks: [() => 'Zamanlayıcılara bakılıyor', 'clock'],
+  cancel_scheduled: [() => 'Zamanlayıcı iptal ediliyor', 'clock'],
+  claude_sessions: [() => 'Açık Claude oturumlarına bakılıyor', 'layers'],
+  inaro_do: [a => `Hızlı yola veriliyor: “${short(a.command, 50)}”`, 'zap'],
+  inaro_teach: [a => `Öğreniliyor: “${short(a.command, 50)}”`, 'bookmark'],
+  browser_fill: [a => `Form dolduruluyor (${Object.keys(a.fields || {}).length} alan)`, 'type'],
+  browser_sessions: [() => 'Girişlere bakılıyor', 'user'],
+  browser_download: [a => `İndiriliyor: ${short(a.target, 40)}`, 'arrow-down'],
+  browser_save_value: [a => `Değer kaydediliyor: ${short(a.target, 40)}`, 'lock'],
+  browser_table: [a => `Tablo okunuyor${a.which ? `: ${short(a.which, 30)}` : ''}`, 'list'],
+  site_note: [a => `Site notu: ${short(a.note || a.site, 50)}`, 'bookmark']
 };
 
 function describe(name, args = {}) {

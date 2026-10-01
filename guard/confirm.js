@@ -1,8 +1,34 @@
 // Asks the user before risky actions with a native macOS dialog. The dialog is
 // shown by the OS, so nothing on a web page or in an LLM reply can answer it.
 import fs from 'node:fs';
+import path from 'node:path';
 import { execFile } from 'node:child_process';
-import { config } from '../core/config.js';
+import { config, HOME } from '../core/config.js';
+import { APP_NAME } from '../core/brand.js';
+
+// While one of these dialogs is up, the hands must not touch the screen: a
+// click could otherwise answer "Evet" itself. The mark is a file, so it holds
+// for every process (other Claude sessions use the tools too).
+const PENDING = () => path.join(HOME, 'confirming.json');
+const alive = pid => { try { process.kill(pid, 0); return true; } catch (err) { return err.code === 'EPERM'; } };
+
+function markDialog(seconds) {
+  try { fs.mkdirSync(HOME, { recursive: true }); fs.writeFileSync(PENDING(), JSON.stringify({ pid: process.pid, until: Date.now() + (seconds + 5) * 1000 })); } catch {}
+}
+
+function unmarkDialog() {
+  try { if (JSON.parse(fs.readFileSync(PENDING(), 'utf-8')).pid === process.pid) fs.rmSync(PENDING(), { force: true }); } catch {}
+}
+
+/** Is a confirmation or "waiting for you" dialog open right now (in any process)? */
+export function dialogOpen() {
+  try {
+    const { pid, until } = JSON.parse(fs.readFileSync(PENDING(), 'utf-8'));
+    return until > Date.now() && alive(pid);
+  } catch {
+    return false;
+  }
+}
 
 const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const hasWord = (text, word) => new RegExp(`(^|[^\\p{L}])${escapeRe(word)}($|[^\\p{L}])`, 'iu').test(text);
@@ -35,7 +61,7 @@ export function needsConfirm(element, riskP, host = '') {
 }
 
 /**
- * Shows "JEVIS … İzin veriyor musun?" and resolves true only on "Evet".
+ * Shows "Inaro … İzin veriyor musun?" and resolves true only on "Evet".
  * No answer within the timeout counts as "Hayır".
  * JEVIS_TEST_CONFIRM=deny|allow skips the dialog in automated tests.
  */
@@ -46,13 +72,15 @@ export function confirmAction(message, { timeoutSec = config().confirm.timeoutSe
   if (process.env.JEVIS_TEST_CONFIRM === 'allow') return Promise.resolve(true);
   const script = [
     'on run argv',
-    'set r to display dialog (item 1 of argv) with title "JEVIS" buttons {"Hayır", "Evet"} default button "Hayır" cancel button "Hayır" with icon caution giving up after ((item 2 of argv) as integer)',
+    'set r to display dialog (item 1 of argv) with title (item 3 of argv) buttons {"Hayır", "Evet"} default button "Hayır" cancel button "Hayır" with icon caution giving up after ((item 2 of argv) as integer)',
     'if gave up of r then return "timeout"',
     'return button returned of r',
     'end run'
   ].join('\n');
+  markDialog(timeoutSec);
   return new Promise(resolve => {
-    execFile('osascript', ['-e', script, message, String(timeoutSec)], (err, stdout) => {
+    execFile('osascript', ['-e', script, message, String(timeoutSec), APP_NAME], (err, stdout) => {
+      unmarkDialog();
       resolve(!err && stdout.trim() === 'Evet');
     });
   });
@@ -68,7 +96,7 @@ export function waitForUser(message, { timeoutSec = config().guard.waitForUserTi
   // No default button: an Enter meant for the web page must not say "done".
   const script = [
     'on run argv',
-    'set r to display dialog (item 1 of argv) with title "JEVIS seni bekliyor" buttons {"Vazgeç", "Tamam"} cancel button "Vazgeç" with icon note giving up after ((item 2 of argv) as integer)',
+    'set r to display dialog (item 1 of argv) with title (item 3 of argv) buttons {"Vazgeç", "Tamam"} cancel button "Vazgeç" with icon note giving up after ((item 2 of argv) as integer)',
     'if gave up of r then return "timeout"',
     'return button returned of r',
     'end run'
@@ -83,11 +111,13 @@ export function waitForUser(message, { timeoutSec = config().guard.waitForUserTi
       finished = true;
       clearInterval(timer);
       dialog?.kill();
+      if (dialog) unmarkDialog();
       resolve(answer);
     };
     // Tests: no dialog at all, only the page can end the wait.
     if (process.env.JEVIS_TEST_CONFIRM !== 'watch') {
-      dialog = execFile('osascript', ['-e', script, text, String(timeoutSec)], (err, stdout) => {
+      markDialog(timeoutSec);
+      dialog = execFile('osascript', ['-e', script, text, String(timeoutSec), `${APP_NAME} seni bekliyor`], (err, stdout) => {
         if (finished) return;
         if (err) return finish('cancel');
         finish(stdout.trim() === 'timeout' ? 'timeout' : 'done');

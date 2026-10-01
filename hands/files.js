@@ -1,8 +1,9 @@
 // Files and projects: folders, search, recently used files and apps
 // (Spotlight), recently worked-on projects (VS Code + Claude Code) and what
-// was done in a project (git + Claude Code session logs). Everything stays
-// inside the home folder and is read-only, except opening a file; a file that
-// would run as a program asks the user first. Key and password files are
+// was done in a project (git + Claude Code session logs), and careful changes
+// (new folder, move, copy, to the Trash, undo; see below). Everything stays
+// inside the home folder; a file that would run as a program asks the user
+// first before it is opened. Key and password files are
 // never read, and secrets in texts are masked before they reach a brain.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -11,6 +12,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { JevisError } from '../core/errors.js';
 import { confirmAction } from '../guard/confirm.js';
+import { HOME as JEVIS_HOME, ROOT as PROJECT } from '../core/config.js';
+import { APP_NAME } from '../core/brand.js';
 
 const execFileAsync = promisify(execFile);
 const HOME = os.homedir();
@@ -54,7 +57,7 @@ export function resolvePath(input = '~') {
   p = path.resolve(p);
   let real = p;
   try { real = fs.realpathSync(p); } catch {}
-  if (real !== HOME && !real.startsWith(HOME + path.sep)) throw new JevisError('OUTSIDE_HOME', 'JEVIS sadece ev klasöründeki (~) dosyalara bakar.');
+  if (real !== HOME && !real.startsWith(HOME + path.sep)) throw new JevisError('OUTSIDE_HOME', `${APP_NAME} sadece ev klasöründeki (~) dosyalarla çalışır.`);
   return p;
 }
 
@@ -145,7 +148,7 @@ export async function open(target, { app } = {}) {
   if (!st) throw new JevisError('NOT_FOUND', `Böyle bir dosya ya da klasör yok: ${tilde(p)}`);
   const runs = st.isFile() && (RUNS_CODE.test(p) || (st.mode & 0o111) !== 0) || p.endsWith('.app');
   if (runs && (!app || TERMINALS.test(app))) {
-    const ok = await confirmAction(`JEVIS şunu açmak istiyor:\n\n${tilde(p)}${app ? `\n(${app} ile)` : ''}\n\nBu dosya açılınca program ya da komut olarak çalışabilir. İzin veriyor musun?`);
+    const ok = await confirmAction(`${APP_NAME} şunu açmak istiyor:\n\n${tilde(p)}${app ? `\n(${app} ile)` : ''}\n\nBu dosya açılınca program ya da komut olarak çalışabilir. İzin veriyor musun?`);
     if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${tilde(p)} açılmadı.`);
   }
   await execFileAsync('open', [...(app ? ['-a', app] : []), p], { timeout: 20000 });
@@ -340,4 +343,181 @@ export function formatActivity(r) {
     if (s.lastReply) lines.push(`  Claude'un son cevabı: ${s.lastReply}`);
   });
   return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Changing files: a new folder, move / rename, copy, to the Trash, undo.
+// Nothing is ever deleted for good: things go to the Trash (Finder's "Put
+// Back" works). Only inside the home folder, never in Library, hidden folders
+// or key folders, never the standard folders themselves (Desktop, Documents…)
+// or this project. Never overwrites. Bigger steps ask the user first: a folder
+// or more than 3 items to the Trash, a git project moved or thrown away, more
+// than 20 items at once. Each change goes to a journal so "geri al" can turn
+// the last one back.
+// ---------------------------------------------------------------------------
+
+const JOURNAL = () => path.join(JEVIS_HOME, 'files-journal.jsonl');
+const STANDARD = new Set(['', 'Desktop', 'Documents', 'Downloads', 'Pictures', 'Music', 'Movies', 'Applications', 'Library', 'Public'].map(n => path.join(HOME, n)));
+
+/** May this path be changed (created, moved, copied to, thrown away)? Throws if not. */
+function changeable(p, { source = false } = {}) {
+  const rel = path.relative(HOME, p);
+  const testRoot = process.env.JEVIS_FILES_TEST_ROOT;
+  const inTest = testRoot && (p === testRoot || p.startsWith(testRoot + path.sep));
+  if (!inTest) {
+    if (rel === 'Library' || rel.startsWith(`Library${path.sep}`) || rel.split(path.sep).some(part => part.startsWith('.'))) {
+      throw new JevisError('PROTECTED', `${tilde(p)}: sistem ve gizli klasörlere dokunmam (Library, .ssh, .config…).`);
+    }
+    if (SECRET_DIR.test(p) || SECRET_FILE.test(p)) throw new JevisError('PROTECTED', `${tilde(p)}: anahtar ve şifre dosyalarına dokunmam.`);
+  }
+  if (source && STANDARD.has(p)) throw new JevisError('PROTECTED', `${tilde(p)} ana klasörlerden biri; onu taşımam ya da çöpe atmam.`);
+  if (source && (p === PROJECT || PROJECT.startsWith(p + path.sep) || p.startsWith(PROJECT + path.sep + '.git'))) {
+    throw new JevisError('PROTECTED', `${tilde(p)}: asistanın kendi dosyaları; onları taşımam ya da çöpe atmam.`);
+  }
+}
+
+const isGitProject = p => statOf(path.join(p, '.git')) !== null;
+
+function countFiles(p, limit = 5000) {
+  let n = 0;
+  const walk = d => {
+    for (const name of readdir(d)) {
+      if (n >= limit) return;
+      const full = path.join(d, name);
+      const st = statOf(full);
+      if (st?.isDirectory()) walk(full); else n++;
+    }
+  };
+  if (statOf(p)?.isDirectory()) walk(p); else n = 1;
+  return n;
+}
+
+function journal(entry) {
+  const line = { id: `f${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`, at: Date.now(), ...entry };
+  fs.mkdirSync(JEVIS_HOME, { recursive: true });
+  fs.appendFileSync(JOURNAL(), `${JSON.stringify(line)}\n`);
+  return line;
+}
+
+function journalEntries() {
+  try { return fs.readFileSync(JOURNAL(), 'utf-8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)); } catch { return []; }
+}
+
+async function askFirst(what, items) {
+  const list = items.slice(0, 12).map(p => `• ${tilde(p)}`).join('\n') + (items.length > 12 ? `\n… ve ${items.length - 12} tane daha` : '');
+  const ok = await confirmAction(`${APP_NAME} şunu yapmak istiyor: ${what}\n\n${list}\n\nİzin veriyor musun?`);
+  if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${what} yapılmadı.`);
+}
+
+/** Moves within the home folder; across disks it copies, then removes the original. */
+function moveOne(from, to) {
+  try {
+    fs.renameSync(from, to);
+  } catch (err) {
+    if (err.code !== 'EXDEV') throw err;
+    fs.cpSync(from, to, { recursive: true, errorOnExist: true, force: false });
+    fs.rmSync(from, { recursive: true });
+  }
+}
+
+export async function makeFolder(target) {
+  const p = resolvePath(target);
+  changeable(p);
+  if (statOf(p)) throw new JevisError('EXISTS', `Zaten var: ${tilde(p)}`);
+  fs.mkdirSync(p, { recursive: true });
+  journal({ op: 'mkdir', path: p });
+  return { made: tilde(p) };
+}
+
+/** Where each of `sources` would go: into `dest` if it is a folder (or several are moved), else to `dest` itself (a rename). */
+function destinations(sources, dest) {
+  const intoFolder = statOf(dest)?.isDirectory() || sources.length > 1;
+  return sources.map(s => [s, intoFolder ? path.join(dest, path.basename(s)) : dest]);
+}
+
+function prepare(from, to) {
+  const sources = [].concat(from).map(resolvePath);
+  const dest = resolvePath(to);
+  for (const s of sources) {
+    if (!statOf(s)) throw new JevisError('NOT_FOUND', `Böyle bir dosya ya da klasör yok: ${tilde(s)}`);
+    changeable(s, { source: true });
+  }
+  changeable(dest);
+  const pairs = destinations(sources, dest);
+  for (const [s, t] of pairs) {
+    if (t === s) throw new JevisError('SAME', `${tilde(s)} zaten orada.`);
+    if (t.startsWith(s + path.sep)) throw new JevisError('INSIDE_ITSELF', `${tilde(s)} kendi içine taşınamaz.`);
+    if (statOf(t)) throw new JevisError('EXISTS', `Orada aynı adla bir şey var: ${tilde(t)}. Üstüne yazmıyorum; başka bir ad ver.`);
+  }
+  return { sources, dest, pairs };
+}
+
+export async function move(from, to) {
+  const { sources, dest, pairs } = prepare(from, to);
+  const projects = sources.filter(isGitProject);
+  if (projects.length || sources.length > 20) await askFirst(`${sources.length} öğeyi ${tilde(dest)} içine taşımak${projects.length ? ' (git projesi var)' : ''}`, sources);
+  let made = null;
+  if (sources.length > 1 && !statOf(dest)) { fs.mkdirSync(dest, { recursive: true }); made = dest; }
+  for (const [s, t] of pairs) moveOne(s, t);
+  journal({ op: 'move', pairs, made });
+  return { moved: pairs.map(([s, t]) => [tilde(s), tilde(t)]) };
+}
+
+export async function copy(from, to) {
+  const { sources, dest, pairs } = prepare(from, to);
+  const files = sources.reduce((n, s) => n + countFiles(s), 0);
+  if (sources.length > 20 || files > 500) await askFirst(`${files} dosyayı ${tilde(dest)} içine kopyalamak`, sources);
+  let made = null;
+  if (sources.length > 1 && !statOf(dest)) { fs.mkdirSync(dest, { recursive: true }); made = dest; }
+  for (const [s, t] of pairs) fs.cpSync(s, t, { recursive: true, errorOnExist: true, force: false });
+  journal({ op: 'copy', pairs, made });
+  return { copied: pairs.map(([s, t]) => [tilde(s), tilde(t)]) };
+}
+
+/** To the Trash (never deleted for good); Finder's "Put Back" and files_undo bring it back. */
+export async function trash(targets) {
+  const paths = [].concat(targets).map(resolvePath);
+  for (const p of paths) {
+    if (!statOf(p)) throw new JevisError('NOT_FOUND', `Böyle bir dosya ya da klasör yok: ${tilde(p)}`);
+    changeable(p, { source: true });
+  }
+  const folders = paths.filter(p => statOf(p).isDirectory());
+  if (folders.length || paths.length > 3) {
+    const files = paths.reduce((n, p) => n + countFiles(p), 0);
+    await askFirst(`${paths.length} öğeyi Çöp Sepeti'ne atmak (${files} dosya${paths.some(isGitProject) ? ', git projesi var' : ''})`, paths);
+  }
+  const { stdout } = await execFileAsync('/usr/bin/trash', ['-v', ...paths], { timeout: 60000 });
+  const pairs = [...stdout.matchAll(/Moved "(.+)" to "(.+)"/g)].map(m => [m[1], m[2]]);
+  journal({ op: 'trash', pairs });
+  return { trashed: pairs.map(([s]) => tilde(s)) };
+}
+
+/** Turns the last file change back (from this journal; one step at a time). */
+export async function undo() {
+  const entries = journalEntries();
+  const undone = new Set(entries.filter(e => e.op === 'undo').map(e => e.of));
+  const last = [...entries].reverse().find(e => e.op !== 'undo' && !undone.has(e.id));
+  if (!last) throw new JevisError('NOTHING', 'Geri alınacak bir dosya işi yok.');
+  const done = [];
+  if (last.op === 'mkdir') {
+    if (readdir(last.path).length) throw new JevisError('NOT_EMPTY', `${tilde(last.path)} artık boş değil; geri almıyorum.`);
+    fs.rmdirSync(last.path);
+    done.push(`${tilde(last.path)} kaldırıldı`);
+  } else if (last.op === 'move' || last.op === 'trash') {
+    for (const [s, t] of [...last.pairs].reverse()) {
+      if (statOf(s)) throw new JevisError('EXISTS', `${tilde(s)} yerinde artık başka bir şey var; geri almıyorum.`);
+      if (!statOf(t)) throw new JevisError('NOT_FOUND', `${tilde(t)} artık yok; geri alınamıyor.`);
+      fs.mkdirSync(path.dirname(s), { recursive: true });
+      moveOne(t, s);
+      done.push(`${tilde(s)} geri geldi`);
+    }
+    if (last.made && !readdir(last.made).length) fs.rmdirSync(last.made);
+  } else if (last.op === 'copy') {
+    const copies = last.pairs.map(([, t]) => t).filter(t => statOf(t));
+    if (copies.length) await execFileAsync('/usr/bin/trash', copies, { timeout: 60000 });
+    if (last.made && !readdir(last.made).length) fs.rmdirSync(last.made);
+    done.push(`${copies.length} kopya Çöp Sepeti'ne atıldı`);
+  }
+  journal({ op: 'undo', of: last.id });
+  return { undone: last.op, done };
 }

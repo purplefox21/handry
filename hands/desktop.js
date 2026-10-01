@@ -9,7 +9,7 @@ import { promisify } from 'node:util';
 import { ROOT, homeDir, loadState, saveState } from '../core/config.js';
 import { JevisError } from '../core/errors.js';
 import * as jev from '../core/jev.js';
-import { needsConfirm, confirmAction } from '../guard/confirm.js';
+import { needsConfirm, confirmAction, dialogOpen } from '../guard/confirm.js';
 import { isStopped } from '../guard/stop.js';
 import { APP_NAME } from '../core/brand.js';
 
@@ -166,7 +166,13 @@ async function after(pid) {
   return { app: f.app, window: f.window, changedApp: f.pid !== pid };
 }
 
+/** No touching the screen while a confirmation dialog waits for the user (a click could answer it). */
+function notDuringDialog() {
+  if (dialogOpen()) throw new JevisError('WAIT_USER', 'Ekranda kullanıcıya soru soran bir onay penceresi açık. Cevabını bekle; o sırada ekrana dokunmuyorum.');
+}
+
 export async function click(target, { app } = {}) {
+  notDuringDialog();
   await ensureTrusted();
   const el = await resolve(target, 'click', { app, withRisk: true });
   const approval = await guard(el, el.pick.risk, `"${el.name}" öğesine basmak`, (await frontmost()).app);
@@ -176,6 +182,7 @@ export async function click(target, { app } = {}) {
 
 /** With a target: fills that field. Without: types into whatever has focus. */
 export async function type(target, text, { app, submit = false } = {}) {
+  notDuringDialog();
   await ensureTrusted();
   if (!target) {
     const front = await ensureFront(app);
@@ -217,6 +224,7 @@ async function ensureFront(app) {
 }
 
 export async function key(combo, { app } = {}) {
+  notDuringDialog();
   await ensureTrusted();
   const normalized = combo.toLowerCase().replace(/\s+/g, '');
   const front = await ensureFront(app);
@@ -326,6 +334,7 @@ const SHOT_MAX_AGE_MS = 5 * 60 * 1000;
  * any click, together with what the Mac reports under that point.
  */
 export async function clickAt(x, y, { description = '', double = false, right = false } = {}) {
+  notDuringDialog();
   await ensureTrusted();
   const shot = loadState().shot;
   if (!shot || Date.now() - shot.at > SHOT_MAX_AGE_MS) throw new JevisError('NO_SHOT', 'Önce desktop_screenshot al; x ve y o görüntünün piksel koordinatları olmalı.');
@@ -359,6 +368,7 @@ export async function windows(app) {
 
 /** Brings one window of an app to the front: its number from windows(), or words from its title. */
 export async function focusWindow(app, which) {
+  notDuringDialog();
   const { app: name, pid, windows: list } = await windows(app);
   if (!list.length) throw new JevisError('NOT_FOUND', `${name} uygulamasının açık penceresi yok.`);
   const wanted = clean(which).toLocaleLowerCase('tr');

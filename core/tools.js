@@ -63,7 +63,7 @@ Forms: fill many fields with one browser_fill call instead of one browser_type/b
 For simple one-step commands (volume, music, open or quit an app, open a site, a web search, play on Spotify, a note, today's calendar) try inaro_do first: ${APP_NAME}'s fast path does them in 1-3 s. If it answers that it needs thinking, do the task with the other tools.
 App shortcuts: spotify_play, music_play, notes_add / notes_find, reminders_add / reminders_list, calendar_events / calendar_add are faster and surer than clicking through those apps. The user's message ends with the current local date and time ("[Şu an: …]"); work out dates from it ("yarın 9'da", "cuma") as local "YYYY-MM-DDTHH:MM".
 Later and when: schedule_task does things later or when something happens, and ${APP_NAME} checks by itself (no LLM, even after the conversation ends): lock / sleep / restart / shut down the Mac, a reminder, or a ${APP_NAME} command, at a time, after some minutes, when the Claude Code sessions finish (claude_sessions shows them and their state), or when a text shows up in an app window or a ${APP_NAME} Chrome tab. Never wait inside a task with browser_wait / desktop_wait for more than a minute. scheduled_tasks lists them, cancel_scheduled cancels.
-Files and projects: files_list / files_search / files_recent / files_read / files_open work on the file system directly (home folder only); use them instead of clicking through Finder. For "what did we do in project X" use project_activity (git + Claude Code session logs); files_recent kind=projects finds the recently worked-on projects.`;
+Files and projects: files_list / files_search / files_recent / files_read / files_open work on the file system directly (home folder only); use them instead of clicking through Finder. files_make_folder / files_move (also rename) / files_copy / files_trash change files: nothing is deleted for good (the Trash), nothing is overwritten, bigger steps ask the user, and files_undo turns the last change back. Before throwing things away or moving many, say what you will do in one sentence. For "what did we do in project X" use project_activity (git + Claude Code session logs); files_recent kind=projects finds the recently worked-on projects.`;
 
 export const TOOLS = [
   {
@@ -492,6 +492,51 @@ export const TOOLS = [
     run: async ({ path: target, app }) => {
       const r = await files.open(target, { app });
       return text(`Açıldı: ${r.opened}${r.app ? ` (${r.app})` : ''}`, r);
+    }
+  },
+  {
+    name: 'files_make_folder',
+    description: 'Make a new folder (inside the home folder), e.g. "~/Desktop/Faturalar 2026" or "Masaüstü/Yeni".',
+    inputSchema: obj({ path: { type: 'string' } }, ['path']),
+    run: async ({ path: target }) => {
+      const r = await files.makeFolder(target);
+      return text(`Klasör oluşturuldu: ${r.made}`, r);
+    }
+  },
+  {
+    name: 'files_move',
+    description: 'Move or rename files and folders inside the home folder. from: a path or a list of paths; to: a folder to move them into (made if several are moved and it does not exist), or a new name/path for one item (rename). Never overwrites; moving a git project or more than 20 items asks the user first. files_undo turns it back.',
+    inputSchema: obj({ from: { anyOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }] }, to: { type: 'string' } }, ['from', 'to']),
+    run: async ({ from, to }) => {
+      const r = await files.move(from, to);
+      return text(`Taşındı:\n${r.moved.map(([a, b]) => `${a} → ${b}`).join('\n')}`, r);
+    }
+  },
+  {
+    name: 'files_copy',
+    description: 'Copy files and folders inside the home folder (from: a path or a list; to: a folder, or a new path for one item). Never overwrites; big copies ask the user first. files_undo removes the copies (to the Trash).',
+    inputSchema: obj({ from: { anyOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }] }, to: { type: 'string' } }, ['from', 'to']),
+    run: async ({ from, to }) => {
+      const r = await files.copy(from, to);
+      return text(`Kopyalandı:\n${r.copied.map(([a, b]) => `${a} → ${b}`).join('\n')}`, r);
+    }
+  },
+  {
+    name: 'files_trash',
+    description: 'Throw files or folders away: they go to the Trash (never deleted for good; Finder\'s "Put Back" and files_undo bring them back). A folder or more than 3 items asks the user first. Library, hidden and key folders, the standard folders and the assistant\'s own project are refused.',
+    inputSchema: obj({ paths: { anyOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }] } }, ['paths']),
+    run: async ({ paths }) => {
+      const r = await files.trash(paths);
+      return text(`Çöp Sepeti'ne atıldı (geri alınabilir):\n${r.trashed.join('\n')}`, r);
+    }
+  },
+  {
+    name: 'files_undo',
+    description: 'Turn the last file change (new folder, move, rename, copy, to the Trash) back. Call it again for the one before.',
+    inputSchema: obj({}),
+    run: async () => {
+      const r = await files.undo();
+      return text(`Geri alındı: ${r.done.join('; ')}`, r);
     }
   },
   {

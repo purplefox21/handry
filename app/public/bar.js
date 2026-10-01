@@ -277,7 +277,7 @@ async function submit(text, { fromVoice = false } = {}) {
       text,
       brain,
       fast: store.get('fast', true),
-      source: 'bar',
+      source: run.fromVoice ? 'voice' : 'bar',
       ...(brain === 'claude-code' ? { model: currentModel(), effort: store.get('effort', undefined) } : {})
     }, handle);
     if (run.active) fail('Bağlantı yarıda kesildi.');

@@ -14,6 +14,7 @@ import { requestStop } from '../guard/stop.js';
 import { startScheduler, sortedJobs, jobView, cancelJobs } from '../core/timers.js';
 import { APP, FOX, WAKE_LABEL } from '../core/brand.js';
 import { recentActions } from '../guard/log.js';
+import { undo as undoFiles } from '../hands/files.js';
 import { sttStatus, transcribe, stripWake } from '../voice/stt.js';
 import { ttsStatus, speak, stopSpeaking } from '../voice/tts.js';
 import { listRecipes, loadRecipe, saveFromRun, deleteRecipe } from '../core/recipes.js';
@@ -179,6 +180,28 @@ const ROUTES = {
     deleteChat(JSON.parse((await readBody(req)).toString()).id);
     sendJson(res, 200, { ok: true });
   },
+  // The action log (written by the code, not told by the AI): one day, newest first, and which days there are.
+  'GET /api/log': (req, res) => {
+    const dir = homeDir('logs');
+    const days = fs.readdirSync(dir).filter(f => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(f)).map(f => f.slice(0, 10)).sort().reverse();
+    const asked = new URL(req.url, 'http://x').searchParams.get('day');
+    const day = days.includes(asked) ? asked : days[0];
+    let entries = [];
+    if (day) {
+      entries = fs.readFileSync(path.join(dir, `${day}.jsonl`), 'utf-8').split('\n').filter(Boolean)
+        .map(line => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean).reverse().slice(0, 2000);
+    }
+    sendJson(res, 200, { day: day || null, days: days.slice(0, 30), entries });
+  },
+  // The last file change (new folder, move, copy, to the Trash) turned back.
+  'POST /api/files/undo': async (req, res) => {
+    try {
+      const r = await undoFiles();
+      sendJson(res, 200, { ok: true, text: `Geri alındı: ${r.done.join('; ')}` });
+    } catch (err) {
+      sendJson(res, 200, { ok: false, text: err.message });
+    }
+  },
   // Timers and watches: the list (with what JEVIS saw last) and cancelling one or all.
   'GET /api/timers': (req, res) => sendJson(res, 200, { now: Date.now(), jobs: sortedJobs().map(jobView) }),
   'POST /api/timers/cancel': async (req, res) => {
@@ -251,7 +274,7 @@ const server = http.createServer(async (req, res) => {
       // The app's name (core/brand.js) goes into the page: {{APP}}, {{APP_DAT}}, {{FOX}}, and a meta tag for the scripts.
       const brand = encodeURIComponent(JSON.stringify({ ...APP, fox: FOX.name, wake: WAKE_LABEL }));
       const html = fs.readFileSync(filePath, 'utf-8')
-        .replaceAll('{{APP}}', APP.name).replaceAll('{{APP_DAT}}', APP.dative).replaceAll('{{FOX}}', FOX.name)
+        .replaceAll('{{APP}}', APP.name).replaceAll('{{APP_DAT}}', APP.dative).replaceAll('{{APP_GEN}}', APP.genitive).replaceAll('{{FOX}}', FOX.name)
         .replace('</head>', `  <meta name="jevis-token" content="${SESSION_TOKEN}">\n  <meta name="app-brand" content="${brand}">\n</head>`);
       res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-store' });
       res.end(html);
