@@ -57,6 +57,12 @@ try {
     return { ok: events.some(e => e.type === 'wake') && f?.woke && /ses/.test(norm(f.text)) && /(30|otuz)/.test(norm(f.text)) && partials > 0, note: `${describe(events)} · ${partials} canlı parça` };
   });
 
+  await check('"Hey Fox" da uyandırıyor', async () => {
+    const events = listen(speak('fox', '[[slnc 700]] Hey Fox, ekran görüntüsü al. [[slnc 300]]'));
+    const f = final(events);
+    return { ok: events.some(e => e.type === 'wake') && f?.woke && /ekran/.test(norm(f.text)), note: describe(events) };
+  });
+
   await check('whisper, "Hey Foxie" kesilmiş sesi doğru yazıyor', async () => {
     const events = listen(speak('spotify', '[[slnc 700]] Hey Foxie. Spotify\'da Tarkan çal. [[slnc 300]]'));
     const f = final(events);

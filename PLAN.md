@@ -411,6 +411,7 @@ Kullanıcının istekleri: uygulamanın adı ve ikonu tilkiyle ilgili olsun; ark
 - [x] İzinler ekranı (`app/macos/Permissions.swift`, SwiftUI): Erişilebilirlik, Ekran Kaydı, Mikrofon, Konuşma Tanıma, klasörler, uygulama izinleri (System Events, Spotify, Müzik, Notlar, Anımsatıcılar, Takvim, Mesajlar); canlı ✅/❌, her satırda "İzin Ver"; ilk açılışta ve eksik izin varken kendiliğinden.
 - [x] Ekranda gezen tilki (`app/macos/Fox.swift`; şeffaf, sadece tilkinin pikselleri fareyi alıyor; varsayılan boyut Retina'da 0.5 = her sprite pikseli bir ekran pikseli; tam ekran uygulamada saklanıyor; asistan olayları `~/.jevis/activity.json` ile — `core/activity.js`, her araç çağrısı, beyin, uyarılar; VS Code'daki Claude JEVIS araçlarını kullanınca da): tarifteki davranışlar (yürüme, oturma, sıkılma, uyuma, pencere üstüne zıplama ve onunla gitme, köşede sarkma, kuyruğundan/ensesinden tutup taşıma, düşme) + asistan olayları (çağrılınca `ears_up` → `listen`, düşünürken `desk`, işin yapıldığı yere `run`, bitince `happy`, olmayınca `sad`). Menü çubuğundan göster/gizle/uyut, boyut.
 - [x] "Hey Foxie" (foxie, foxy, foksi, fox… varyantları; Listener.swift ve voice/stt.js), "Hey Jev" de kalır. Uçtan uca ses testi (listener-e2e) kullanıcı Foxie'ye Konuşma Tanıma iznini verince çalıştırılacak.
+- **Ad Inaro** (kullanıcı, 2026-10-01): Foxie adı tilkide kaldı, uygulama Inaro oldu (Zorro, Kitsune, Inari, Inary, Kumiho, Vulpi, Foxel, Kitsumi başka ürünlerde kullanılıyor ya da korunuyor; Inaro için aramada ürün çıkmadı — hukuki kontrol değil). Uyandırma yalnız "Hey Foxie" / "Hey Fox" (kullanıcı: "jev kalmasın"). Ad, Türkçe ekleri (ünlü uyumuyla: Inaro'ya, Inaro'dan…), tilkinin adı ve uyandırma deseni tek yerde: `core/brand.js`; sayfalara sunucu (`{{APP}}`, meta), Swift'e Info.plist taşıyor. Kimlik `studio.purpfox.foxie` aynı kaldı: yeniden adlandırmadan sonra izinler yerinde (İzinler penceresi açılmadı). listener-e2e **6/6** ("Hey Fox" dahil).
 - Kuruldu (2026-10-01 16:20): eski JEVIS.app Çöp Sepeti'nde; Foxie ilk açılışta İzinler penceresini açtı; tilki Dock'un üstünde yürüyor. Kullanıcının denemesi bekleniyor: sevme, kuyruktan taşıma, pencere üstüne zıplama, "Hey Foxie". Eski kimliğin (com.jevis.menubar) izin kayıtları Sistem Ayarları'nda duruyor; silmek kullanıcıya soruldu.
 
 ## 7. Sınırlar ve riskler
@@ -512,6 +513,8 @@ Kullanıcının istekleri: uygulamanın adı ve ikonu tilkiyle ilgili olsun; ark
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-10-01:** Uygulamanın adı Inaro (tilki Foxie); uyandırma "Hey Foxie" / "Hey Fox", "Hey Jev" kalktı; ad tek yerde (`core/brand.js`); izinler korunarak yeniden kuruldu. listener-e2e 6/6.
 
 - **2026-10-01:** Faz 11 — Foxie: yeni ad, kimlik ve tilkiden ikon; İzinler penceresi; kullanıcının Blender piksel tilkisi ekranda geziyor (pencerelere zıplama, taşıma, köşede sarkma, uyku; düşünürken masada, iş bitince sevinç); "Hey Foxie".
 
