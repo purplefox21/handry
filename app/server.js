@@ -17,6 +17,7 @@ import { recentActions } from '../guard/log.js';
 import { sttStatus, transcribe, stripWake } from '../voice/stt.js';
 import { ttsStatus, speak, stopSpeaking } from '../voice/tts.js';
 import { listRecipes, loadRecipe, saveFromRun, deleteRecipe } from '../core/recipes.js';
+import { APP_NAME } from '../core/brand.js';
 
 const PORT = Number(process.env.PORT) || config().server.port || 3000;
 process.env.JEVIS_UI_PORT = String(PORT); // browser hands skip this app's own tab
@@ -83,7 +84,7 @@ const HISTORY = [];
 const remember = entry => { HISTORY.push(entry); if (HISTORY.length > 50) HISTORY.shift(); };
 
 async function handleRun(req, res) {
-  if (activeRun) return sendJson(res, 409, { error: 'JEVIS şu an başka bir işi yapıyor. Bitmesini bekle ya da DURDUR\'a bas.' });
+  if (activeRun) return sendJson(res, 409, { error: `${APP_NAME} şu an başka bir işi yapıyor. Bitmesini bekle ya da DURDUR'a bas.` });
   const { text, brain: brainId = config().brain.default, fast = true, model, effort, source = 'window', chatId } = JSON.parse((await readBody(req)).toString() || '{}');
   if (!text?.trim()) return sendJson(res, 400, { error: 'Boş komut.' });
 
@@ -214,7 +215,7 @@ export function registerRoute(key, handler) {
 
 const server = http.createServer(async (req, res) => {
   if (!isTrustedRequest(req)) {
-    sendJson(res, 403, { error: 'Bu sunucuya sadece bu bilgisayardaki JEVIS arayüzünden erişilebilir.' });
+    sendJson(res, 403, { error: `Bu sunucuya sadece bu bilgisayardaki ${APP_NAME} arayüzünden erişilebilir.` });
     return;
   }
   const urlPath = req.url.split('?')[0];
@@ -264,7 +265,7 @@ const server = http.createServer(async (req, res) => {
 // Scheduled "command" tasks run like a command from the user, once nothing else is running.
 async function runScheduled(text, job = {}) {
   for (let i = 0; i < 300 && activeRun; i++) await new Promise(r => setTimeout(r, 2000));
-  if (activeRun) throw new Error('JEVIS 10 dakikadır başka bir işle meşgul');
+  if (activeRun) throw new Error(`${APP_NAME} 10 dakikadır başka bir işle meşgul`);
   const controller = new AbortController();
   activeRun = { controller };
   const entry = { at: Date.now(), source: 'timer', text, tools: 0 };
@@ -278,7 +279,7 @@ async function runScheduled(text, job = {}) {
 }
 
 server.listen(PORT, HOST, () => {
-  console.log(`🤖 JEVIS hazır: http://localhost:${PORT}`);
+  console.log(`🤖 ${APP_NAME} hazır: http://localhost:${PORT}`);
   startScheduler({ run: runScheduled });
 });
 

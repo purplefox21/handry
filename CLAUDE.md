@@ -14,10 +14,10 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - Bir faz bitince PLAN.md'deki kutuları işaretle, en üstteki "Durum" satırını ve "Geçmiş" bölümünü güncelle, commit al.
 - Kullanıcının adına macOS izin pencerelerine (TCC) asla "İzin Ver" deme; bu onun kararı.
 
-## JEVIS araçları (sen beyin olduğunda)
+## Inaro araçları (sen beyin olduğunda)
 
-`jevis` MCP sunucusu (`mcp/server.js`) `mcp__jevis__*` araçlarını verir. Bu klasörde `.mcp.json` ile, ayrıca kullanıcı kapsamında bütün Claude Code oturumlarında ve Claude masaüstü uygulamasında kurulu. Kullanım kuralları sunucunun kendi talimatında yazıyor; özetle:
-- Basit tek adımlık işler (ses, müzik, uygulama aç/kapat, site, arama, Spotify, not, takvim) için önce `jevis_do`: JEVIS'in hızlı yolu 1-3 sn'de yapar. "Kendi başına yapamıyor" derse işi diğer araçlarla yap.
+`inaro` MCP sunucusu (`mcp/server.js`) `mcp__inaro__*` araçlarını verir (2026-10-01'e kadar adı `jevis` idi; `jevis_do` / `jevis_teach` eski adlarıyla da çalışır). Bu klasörde `.mcp.json` ile, ayrıca kullanıcı kapsamında bütün Claude Code oturumlarında ve Claude masaüstü uygulamasında kurulu. Kullanım kuralları sunucunun kendi talimatında yazıyor; özetle:
+- Basit tek adımlık işler (ses, müzik, uygulama aç/kapat, site, arama, Spotify, not, takvim) için önce `inaro_do`: Inaro'nun hızlı yolu 1-3 sn'de yapar. "Kendi başına yapamıyor" derse işi diğer araçlarla yap.
 - Yeni sayfada önce `browser_read`. Hedefi sayfadaki kelimelerle ver ("Save", "None under Cartoon or Fantasy Violence") ya da `#id` kullan.
 - Jev emin olmazsa adayları listeler; tahmin etme, `#id` ile seç.
 - Onay penceresinde kullanıcı "Hayır" derse dur ve bildir. Başka bir yol arama.
@@ -33,7 +33,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 
 - `npm start` → http://localhost:3000 — JEVIS sohbeti: Hızlı (Sonnet 5.5, varsayılan) / Güçlü (Opus 5.5) model düğmesi, sohbet listesi, ⏰ zamanlayıcı listesi, katlanan adım listesi, tarifler ve ayarlar paneli, bas-konuş, DURDUR
 - `node cli.js` → JEVIS komutları: `do "…"` (komut ver), `listen --do` (sesle), tarayıcı (open, read, click, type…), masaüstü (`desk …`, `app`, `mac`), `recipe …`, `secret`, `stop`, `doctor`
-- `node cli.js app install && node cli.js app open` → **Inaro.app** (eski adları JEVIS.app, Foxie.app; kimlik hep `studio.purpfox.foxie`, izinler kalsın diye değişmez): ⌥Space üstten inen kompakt çubuk, ⌥⇧Space bas-konuş, "Hey Foxie" / "Hey Fox" ile sesli uyandırma, ⌥Esc acil durdur; ekranda gezen piksel tilki Foxie (menü › Tilki: göster/gizle, uyut, boyut); menü › İzinler… bütün macOS izinleri tek pencerede; Dock simgesi büyük pencereyi açar. Ad, Türkçe ekleri, tilkinin adı ve uyandırma kelimesi tek yerde: `core/brand.js` (sayfalara sunucu, Swift'e Info.plist taşır). İçerideki adlar (`~/.jevis`, MCP sunucusu `jevis`, araçlar) JEVIS olarak kaldı.
+- `node cli.js app install && node cli.js app open` → **Inaro.app** (eski adları JEVIS.app, Foxie.app; kimlik hep `studio.purpfox.foxie`, izinler kalsın diye değişmez): ⌥Space üstten inen kompakt çubuk, ⌥⇧Space bas-konuş, "Hey Foxie" / "Hey Fox" / "Inaro, …" ile sesli uyandırma ("Hey Inaro"yu Türkçe ses tanıma "Hayır", "Hüseyin" diye duyuyor; ad tek başına iyi duyuluyor), ⌥Esc acil durdur; ekranda gezen piksel tilki Foxie (menü › Tilki: göster/gizle, uyut, boyut); menü › İzinler… bütün macOS izinleri tek pencerede; Dock simgesi büyük pencereyi açar. Ad, Türkçe ekleri, tilkinin adı ve uyandırma kelimesi tek yerde: `core/brand.js` (sayfalara sunucu, Swift'e Info.plist taşır). MCP sunucusu `inaro` (Claude Code kullanıcı kapsamı, proje `.mcp.json`, Claude masaüstü ayarı). İçeride kalan adlar: `~/.jevis` klasörü, Anahtar Zinciri servisi `jevis` (kayıtlı şifreler buna bağlı, değiştirilmez), `JEVIS_*` ortam değişkenleri.
 - `node appstore/privacy-scan.js <klasör>` → App Privacy taslağı
 - `node demo.js` → destek bileti yönlendirme örneği
 - `node macos-cli.js "komut"` → eski tek adımlı macOS komutları (Jev dispatcher)
@@ -56,7 +56,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/learn-e2e.mjs` → öğrenen tarifler (geçici bir JEVIS klasöründe; gerçek öğrenilenlere dokunmaz)
 - `node tests/files-e2e.mjs` → dosya ve proje araçları (~/Library/Caches altında geçici klasör; TextEdit'i açıp kapatır)
 - `node tests/appshortcuts-e2e.mjs` → Spotify'da gerçekten çalar ve sonra duraklatır; Müzik/Notlar/Anımsatıcılar/Takvim betiklerini sadece derler (macOS izni verilmişse okur)
-- `node tests/listener-e2e.mjs` → "Hey Foxie", "Hey Fox" ve canlı yazı: Yelda sesiyle üretilen kayıtlar Inaro.app'in dinleyicisinden geçer (mikrofon ve hoparlör gerekmez; uygulamanın Konuşma Tanıma izni gerekir)
+- `node tests/listener-e2e.mjs` → "Hey Foxie", "Hey Fox", "Inaro, …" ve canlı yazı: Yelda sesiyle üretilen kayıtlar Inaro.app'in dinleyicisinden geçer (mikrofon ve hoparlör gerekmez; uygulamanın Konuşma Tanıma izni gerekir)
 - `node tests/chats-e2e.mjs` → sohbetler ve Claude oturumları (sahte beyin, geçici JEVIS klasörü)
 - `node tests/chats-ui-e2e.mjs` → sohbetler pencerede ve çubukta (ayrı sunucu, geçici JEVIS klasörü, sadece hızlı yol)
 - `node tests/timers-ui-e2e.mjs` → zamanlayıcı listesi pencerede ve çubukta, iptal, geri sayımda İptal (görünmez Chrome, ayrı sunucu, geçici klasör; ses ve ekran yok)

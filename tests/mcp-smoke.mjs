@@ -43,8 +43,8 @@ await call('jev_ask', {
     second_positive: { type: 'noul', instructions: 'Is `reviews[1]` positive?' }
   }
 }, (r, t) => { const a = JSON.parse(t).answers; return a.first_positive.noul > 0.5 && a.second_positive.noul < 0.5; });
-await call('jevis_do', { command: 'şu an hangi şarkı çalıyor' }, (r, t) => !r.isError && t.startsWith('Yapıldı (hızlı yol'));
-await call('jevis_do', { command: "Hacker News'i aç ve ilk 5 başlığı özetle" }, (r, t) => !r.isError && t.includes('kendi başına yapamıyor'));
+await call('inaro_do', { command: 'şu an hangi şarkı çalıyor' }, (r, t) => !r.isError && t.startsWith('Yapıldı (hızlı yol'));
+await call('inaro_do', { command: "Hacker News'i aç ve ilk 5 başlığı özetle" }, (r, t) => !r.isError && t.includes('kendi başına yapamıyor'));
 await call('olmayan_arac', {}, r => r.isError);
 
 console.log(`\n${passed}/${total} geçti`);

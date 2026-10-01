@@ -15,6 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { homeDir, loadState, saveState } from './config.js';
+import { APP } from './brand.js';
 
 export const ROTATE_TURNS = 12;
 export const IDLE_MS = 2 * 60 * 60 * 1000;
@@ -132,11 +133,11 @@ export function brainTurn(chat, text, { key, screen }) {
   const all = exchanges(chat);
   if (fresh) {
     const earlier = all.slice(-SUMMARY_EXCHANGES).map(line);
-    if (earlier.length) parts.push(`[Bu sohbette daha önce (JEVIS'in özeti):\n${earlier.join('\n')}]`);
+    if (earlier.length) parts.push(`[Bu sohbette daha önce (${APP.genitive} özeti):\n${earlier.join('\n')}]`);
   } else {
     const lastBrain = all.findLastIndex(x => x.answer.via === 'brain');
     const without = all.slice(lastBrain + 1).map(line);
-    if (without.length) parts.push(`[Sen yokken JEVIS'in Claude'suz yaptıkları:\n${without.join('\n')}]`);
+    if (without.length) parts.push(`[Sen yokken ${APP.genitive} Claude'suz yaptıkları:\n${without.join('\n')}]`);
   }
   if (screen) parts.push(`[Şu an ekranda: ${screen}]`);
   parts.push(text);
@@ -151,7 +152,7 @@ export function brainDone(chat, { sessionId, key, fresh }) {
 
 /** A short line for one tool call: "browser_open(godaddy.com)", "browser_fill(3 alan)". */
 export function stepText(name, args = {}) {
-  const tool = String(name).replace(/^mcp__jevis__/, '');
+  const tool = String(name).replace(/^mcp__.+?__/, '');
   const arg = args.url || args.target || args.name || args.what || args.command || args.query || args.text || args.action
     || (args.fields && typeof args.fields === 'object' ? `${Object.keys(args.fields).length} alan` : '');
   return `${tool}${arg ? `(${clip(arg, 40)})` : ''}`;

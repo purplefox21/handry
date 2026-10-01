@@ -1,9 +1,11 @@
 {
   "mcpServers": {
-    "jevis": {
+    "inaro": {
       "type": "stdio",
       "command": "/opt/homebrew/bin/node",
-      "args": ["/Users/purplefox/Desktop/jev/mcp/server.js"]
+      "args": [
+        "/Users/purplefox/Desktop/jev/mcp/server.js"
+      ]
     }
   }
 }

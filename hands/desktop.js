@@ -11,6 +11,7 @@ import { JevisError } from '../core/errors.js';
 import * as jev from '../core/jev.js';
 import { needsConfirm, confirmAction } from '../guard/confirm.js';
 import { isStopped } from '../guard/stop.js';
+import { APP_NAME } from '../core/brand.js';
 
 const execFileAsync = promisify(execFile);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -50,7 +51,7 @@ async function ensureTrusted() {
   if (trustedChecked) return;
   const { trusted } = await ax('trusted');
   if (!trusted) {
-    throw new JevisError('NO_PERMISSION', 'Erişilebilirlik izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik bölümünde Inaro\'yu (ya da JEVIS\'i çalıştıran Terminal / VS Code\'u) aç. Inaro menüsündeki "İzinler…" penceresi doğru sayfayı açar.');
+    throw new JevisError('NO_PERMISSION', `Erişilebilirlik izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik bölümünde ${APP_NAME} uygulamasını (ya da onu çalıştıran Terminal / VS Code'u) aç. ${APP_NAME} menüsündeki "İzinler…" penceresi doğru sayfayı açar.`);
   }
   trustedChecked = true;
 }
@@ -148,14 +149,14 @@ async function resolve(target, purpose, { app, withRisk = false } = {}) {
 async function guard(el, riskP, actionText, app) {
   const verdict = needsConfirm({ name: el.name, role: el.role }, riskP, app || '');
   if (!verdict.ask) return null;
-  const ok = await confirmAction(`JEVIS şunu yapmak istiyor:\n\n${actionText}\n\nUygulama: ${app}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`);
+  const ok = await confirmAction(`${APP_NAME} şunu yapmak istiyor:\n\n${actionText}\n\nUygulama: ${app}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`);
   if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
   return { reason: verdict.reason };
 }
 
 async function shellGuard(bundleId, what) {
   if (!SHELL_APPS.has(bundleId)) return;
-  const ok = await confirmAction(`JEVIS bir terminale şunu yapmak istiyor:\n\n${what}\n\nTerminale yazılanlar komut olarak çalışabilir. İzin veriyor musun?`);
+  const ok = await confirmAction(`${APP_NAME} bir terminale şunu yapmak istiyor:\n\n${what}\n\nTerminale yazılanlar komut olarak çalışabilir. İzin veriyor musun?`);
   if (!ok) throw new JevisError('DENIED', `Kullanıcı terminal işlemine izin vermedi: ${what}`);
 }
 
@@ -220,7 +221,7 @@ export async function key(combo, { app } = {}) {
   const normalized = combo.toLowerCase().replace(/\s+/g, '');
   const front = await ensureFront(app);
   if (DANGEROUS_KEYS.has(normalized)) {
-    const ok = await confirmAction(`JEVIS "${front.app}" içinde ${combo} kısayoluna basmak istiyor (uygulama kapanabilir ya da veri silinebilir).\n\nİzin veriyor musun?`);
+    const ok = await confirmAction(`${APP_NAME} "${front.app}" içinde ${combo} kısayoluna basmak istiyor (uygulama kapanabilir ya da veri silinebilir).\n\nİzin veriyor musun?`);
     if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${combo}`);
   }
   if (['return', 'enter'].includes(normalized)) await shellGuard(front.bundleId, 'Enter\'a basmak (yazılı komut çalışır)');
@@ -304,7 +305,7 @@ export async function screenshot({ app, fullScreen = false } = {}) {
   } catch (err) {
     const { screenRecording } = await ax('trusted').catch(() => ({}));
     if (screenRecording === false) {
-      throw new JevisError('NO_PERMISSION', 'Ekran Kaydı izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi Kaydı bölümünde JEVIS\'i çalıştıran uygulamayı aç, sonra o uygulamayı kapatıp yeniden aç.');
+      throw new JevisError('NO_PERMISSION', `Ekran Kaydı izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi Kaydı bölümünde ${APP_NAME} uygulamasını (ya da onu çalıştıran Terminal / VS Code'u) aç, sonra kapatıp yeniden aç.`);
     }
     throw err;
   }

@@ -5,13 +5,14 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { TOOLS, INSTRUCTIONS, callTool } from '../core/tools.js';
+import { MCP_NAME } from '../core/brand.js';
 
-// One Claude session = one run in the action log (jevis_teach learns from it),
+// One Claude session = one run in the action log (inaro_teach learns from it),
 // unless JEVIS started this server for one of its own runs.
 process.env.JEVIS_RUN_ID ||= `mcp-${Date.now().toString(36)}`;
 
 const server = new Server(
-  { name: 'jevis', version: '0.2.0' },
+  { name: MCP_NAME, version: '0.3.0' },
   { capabilities: { tools: {} }, instructions: INSTRUCTIONS }
 );
 

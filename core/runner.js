@@ -9,6 +9,7 @@ import { clearStop } from '../guard/stop.js';
 import { setActivity } from './activity.js';
 import { currentChat, newChat, addUser, addAnswer, brainTurn, brainDone, stepText, NEW_CHAT } from './chats.js';
 import * as desktop from '../hands/desktop.js';
+import { APP_NAME } from './brand.js';
 
 // Brains get the local date and time with each message ("yarın 9'da" needs
 // it). It rides in the message, not the system prompt, so prompt caching holds.
@@ -28,7 +29,7 @@ async function screenNow() {
     const tabs = await (await fetch(`http://127.0.0.1:${config().browser.cdpPort}/json/list`, { signal: AbortSignal.timeout(600) })).json();
     const ui = process.env.JEVIS_UI_PORT ? `:${process.env.JEVIS_UI_PORT}/` : null;
     const tab = tabs.find(t => t.type === 'page' && !/^(devtools|chrome-extension|chrome):/.test(t.url) && !(ui && t.url.includes(ui)));
-    if (tab) parts.push(`JEVIS Chrome'da açık sekme "${clip(tab.title, 60)}" (${clip(tab.url, 90)})`);
+    if (tab) parts.push(`${APP_NAME} Chrome'da açık sekme "${clip(tab.title, 60)}" (${clip(tab.url, 90)})`);
   } catch {}
   return parts.join('; ');
 }

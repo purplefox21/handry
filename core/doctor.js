@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ROOT, config, expandHome } from './config.js';
-import { APP_NAME } from './brand.js';
+import { APP_NAME, MCP_NAME } from './brand.js';
 import * as jev from './jev.js';
 import { listBrains } from '../brain/index.js';
 import { findBinary } from '../brain/common.js';
@@ -37,8 +37,8 @@ export async function doctor() {
 
   lines.push(fs.existsSync(c.browser.chromePath) ? ok('Chrome', c.browser.chromePath) : warn('Chrome', `bulunamadı: ${c.browser.chromePath}`));
   lines.push(await reachable(`http://127.0.0.1:${c.browser.cdpPort}/json/version`)
-    ? ok('JEVIS Chrome penceresi', 'açık')
-    : ok('JEVIS Chrome penceresi', 'kapalı; ilk tarayıcı komutunda kendiliğinden açılır'));
+    ? ok(`${APP_NAME} Chrome penceresi`, 'açık')
+    : ok(`${APP_NAME} Chrome penceresi`, 'kapalı; ilk tarayıcı komutunda kendiliğinden açılır'));
 
   try {
     const helper = path.join(ROOT, 'bin', 'jevis-ax');
@@ -56,8 +56,8 @@ export async function doctor() {
   if (fs.existsSync(vscodeSettings)) {
     const text = fs.readFileSync(vscodeSettings, 'utf-8');
     lines.push(/"editor\.accessibilitySupport"\s*:\s*"off"/.test(text)
-      ? ok('VS Code ekran okuyucu modu', 'kapalı (JEVIS VS Code\'u okuyunca editör değişmez)')
-      : warn('VS Code ekran okuyucu modu', 'JEVIS VS Code\'u okuyunca editör "Screen Reader Optimized" olur. Önlemek için VS Code ayarlarına "editor.accessibilitySupport": "off" ekle.'));
+      ? ok('VS Code ekran okuyucu modu', `kapalı (${APP_NAME} VS Code'u okuyunca editör değişmez)`)
+      : warn('VS Code ekran okuyucu modu', `${APP_NAME} VS Code'u okuyunca editör "Screen Reader Optimized" olur. Önlemek için VS Code ayarlarına "editor.accessibilitySupport": "off" ekle.`));
   }
 
   const stt = sttStatus();
@@ -72,16 +72,16 @@ export async function doctor() {
   lines.push(fs.existsSync(path.join(ROOT, '.mcp.json')) && findBinary('claude')
     ? ok('Claude Code MCP bağlantısı', '.mcp.json (bu klasörde açılan oturumlar)')
     : warn('Claude Code MCP bağlantısı', '.mcp.json ya da claude komutu yok'));
-  // Other Claude sessions using JEVIS's hands: every Claude Code session, and the Claude app.
+  // Other Claude sessions using the app's hands: every Claude Code session, and the Claude app.
   const readJson = f => { try { return JSON.parse(fs.readFileSync(f, 'utf-8')); } catch { return null; } };
-  lines.push(readJson(path.join(os.homedir(), '.claude.json'))?.mcpServers?.jevis
-    ? ok('JEVIS her Claude Code oturumunda', 'kullanıcı kapsamında MCP')
-    : `➖ JEVIS her Claude Code oturumunda — kapalı (claude mcp add --scope user jevis -- ${process.execPath} ${path.join(ROOT, 'mcp', 'server.js')})`);
+  lines.push(readJson(path.join(os.homedir(), '.claude.json'))?.mcpServers?.[MCP_NAME]
+    ? ok(`${APP_NAME} her Claude Code oturumunda`, `kullanıcı kapsamında MCP "${MCP_NAME}"`)
+    : `➖ ${APP_NAME} her Claude Code oturumunda — kapalı (claude mcp add --scope user ${MCP_NAME} -- ${process.execPath} ${path.join(ROOT, 'mcp', 'server.js')})`);
   const desktopConfig = path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
   if (fs.existsSync(desktopConfig)) {
-    lines.push(readJson(desktopConfig)?.mcpServers?.jevis
-      ? ok('JEVIS Claude uygulamasında', 'ayarlı (Claude uygulamasına Erişilebilirlik ve Ekran Kaydı izni gerekir)')
-      : '➖ JEVIS Claude uygulamasında — ayarlı değil');
+    lines.push(readJson(desktopConfig)?.mcpServers?.[MCP_NAME]
+      ? ok(`${APP_NAME} Claude uygulamasında`, 'ayarlı (Claude uygulamasına Erişilebilirlik ve Ekran Kaydı izni gerekir)')
+      : `➖ ${APP_NAME} Claude uygulamasında — ayarlı değil`);
   }
 
   lines.push(await reachable(`http://127.0.0.1:${c.server.port}/`)

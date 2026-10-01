@@ -3,6 +3,7 @@
 import { spawn } from 'node:child_process';
 import { homeDir, config } from '../core/config.js';
 import { BRAIN_PROMPT, findBinary, mcpConfigFile, shortName, resultText } from './common.js';
+import { MCP_NAME } from '../core/brand.js';
 
 export const id = 'claude-code';
 export const label = 'Claude Code (abonelik)';
@@ -24,7 +25,7 @@ export function run({ text, sessionId, onEvent, signal, model, effort }) {
     '-p', text,
     '--output-format', 'stream-json', '--verbose',
     '--mcp-config', mcpConfigFile(), '--strict-mcp-config',
-    '--allowedTools', 'mcp__jevis'
+    '--allowedTools', `mcp__${MCP_NAME}`
   ];
   if (settings.lean === false) args.push('--append-system-prompt', BRAIN_PROMPT);
   else args.push('--tools', '', '--system-prompt', BRAIN_PROMPT);
@@ -60,7 +61,7 @@ export function run({ text, sessionId, onEvent, signal, model, effort }) {
             if (block.type === 'text' && block.text.trim()) onEvent({ type: 'text', text: block.text });
             if (block.type === 'tool_use') {
               names.set(block.id, shortName(block.name));
-              if (block.name.startsWith('mcp__jevis__')) onEvent({ type: 'tool', name: shortName(block.name), args: block.input });
+              if (block.name.startsWith(`mcp__${MCP_NAME}__`)) onEvent({ type: 'tool', name: shortName(block.name), args: block.input });
             }
           }
         } else if (ev.type === 'user') {

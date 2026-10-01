@@ -3,16 +3,25 @@
 // Turkish endings the name takes ("Inaro'ya söyle", "Inaro'dan çık").
 // Pages get it from the server, Swift from Info.plist (app/macos/build.js
 // writes it there), the voice code from WAKE_VARIANTS. Inside, the project
-// keeps its own name (JEVIS: ~/.jevis, the MCP server "jevis", the tools).
+// keeps its own name (JEVIS: ~/.jevis, the Keychain service "jevis").
 export const APP_NAME = 'Inaro';
 export const FOX_NAME = 'Foxie';
 export const WAKE_LABEL = 'Hey Foxie';
+/** The MCP server's name: Claude sessions see the tools as mcp__inaro__…. */
+export const MCP_NAME = 'inaro';
 
-/** How the speech recognizer may write the wake word after "hey" (lower case). */
+/** How the speech recognizer may write the fox's name after "hey" (lower case). */
 export const WAKE_VARIANTS = ['foxie', 'foxy', 'foxi', 'foksi', 'foksy', 'foksie', 'fogsi', 'fuksi', 'focsi', 'fox', 'foks'];
+/**
+ * The app's own name wakes it too, with or without "hey": the Turkish
+ * recognizer turns "Hey Inaro" into "Hayır", "Hey Mero" or "Hüseyin", but
+ * hears "Inaro, sesi kıs" well (tried with the Yelda voice, 2026-10-01).
+ */
+export const NAME_VARIANTS = ['inaro', 'ınaro', 'i̇naro', 'İnaro'];
 
-/** "hey foxie, …" at the start of what was heard (the same pattern runs in Listener.swift). */
-export const WAKE_SOURCE = `^\\s*(?:hey|hei|hay|hi|ey|ay|he)[\\s,.!]*(?:${WAKE_VARIANTS.join('|')})(?![\\p{L}\\p{N}])[\\s,.!?:;-]*`;
+/** "hey foxie, …" / "inaro, …" at the start of what was heard (the same pattern runs in Listener.swift). */
+const HEY = '(?:hey|hei|hay|hi|ey|ay|he)[\\s,.!]*';
+export const WAKE_SOURCE = `^\\s*(?:${HEY}(?:${WAKE_VARIANTS.join('|')})|(?:${HEY})?(?:${NAME_VARIANTS.join('|')}))(?![\\p{L}\\p{N}])[\\s,.!?:;-]*`;
 
 const VOWELS = 'aeıioöuü';
 

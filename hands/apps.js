@@ -8,6 +8,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { JevisError } from '../core/errors.js';
 import * as desktop from './desktop.js';
+import { APP } from '../core/brand.js';
 
 const execFileAsync = promisify(execFile);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -30,7 +31,7 @@ async function script(appKey, lines, args = []) {
   await execFileAsync('open', ['-gjb', app.id], { timeout: 15000 }).catch(() => {});
   const { state } = await desktop.automationState(app.id).catch(() => ({ state: 'unknown' }));
   if (state === 'denied') {
-    throw new JevisError('NO_PERMISSION', `JEVIS'in ${app.name} uygulamasını kullanma izni kapalı. Sistem Ayarları › Gizlilik ve Güvenlik › Otomasyon bölümünde JEVIS'i çalıştıran uygulamanın altında ${app.name}'ı aç.`);
+    throw new JevisError('NO_PERMISSION', `${APP.genitive} ${app.name} uygulamasını kullanma izni kapalı. Sistem Ayarları › Gizlilik ve Güvenlik › Otomasyon bölümünde JEVIS'i çalıştıran uygulamanın altında ${app.name}'ı aç.`);
   }
   try {
     const { stdout } = await execFileAsync('osascript', ['-e', lines.join('\n'), ...args.map(String)], { timeout: 90000, maxBuffer: 20 * 1024 * 1024 });

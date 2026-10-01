@@ -63,6 +63,13 @@ try {
     return { ok: events.some(e => e.type === 'wake') && f?.woke && /ekran/.test(norm(f.text)), note: describe(events) };
   });
 
+  // "Hey Inaro" is heard as "Hayır" / "Hey Mero" by the Turkish recognizer; the name alone is heard well.
+  await check('"Inaro, …" (adıyla) uyandırıyor', async () => {
+    const events = listen(speak('inaro', '[[slnc 700]] İnaro, karanlık moda geç. [[slnc 300]]'));
+    const f = final(events);
+    return { ok: events.some(e => e.type === 'wake') && f?.woke && /karanl/.test(norm(f.text)), note: describe(events) };
+  });
+
   await check('whisper, "Hey Foxie" kesilmiş sesi doğru yazıyor', async () => {
     const events = listen(speak('spotify', '[[slnc 700]] Hey Foxie. Spotify\'da Tarkan çal. [[slnc 300]]'));
     const f = final(events);
