@@ -404,6 +404,14 @@ Kullanıcının gerçek sohbetinden: "saat 01:01 olunca … ekranı kilitle" ded
   - Testler: timers-e2e **15/15**, timers-ui-e2e **10/10**, chats-e2e 9/9, mcp-smoke 11/11.
 - Not: bu işin testi sırasında eski hâliyle "bunu bir daha yap" (önceki cevap Spotify'dı) hızlı yoldan play/pause'a gitti ve kullanıcının Spotify'ını iki kez durdurup başlattı (sonuç: eski hâli, duraklatılmış). Düzeltildi: geri gönderen cümleler Claude'a gidiyor, router-e2e'de 3 cümleyle test ediliyor.
 
+### Faz 11 — Foxie: yeni ad, izinler ekranı, ekranda gezen tilki (2026-10-01, başladı)
+Kullanıcının istekleri: uygulamanın adı ve ikonu tilkiyle ilgili olsun; arkadaki kimlik de değişsin (sıfırdan kurulum ve izinlerin testi için); tıkla tıkla bütün izinlerin verildiği bir ekran olsun; ekranda arka planı olmayan bir piksel tilki gezsin (yatsın, uyusun, kuyruk sallasın; "Hey Foxie" deyince kulakları dikilsin; iş yaparken ekranın o tarafına koşsun, düşünürken masada kod yazsın); kapatma ve gizleme menü çubuğundan.
+- Görseller kullanıcının Blender → piksel art hattından geldi (`app/foxie/sprites`, tarif `app/foxie/TARIF.md`): 21 animasyon, 878 kare, 180×146 (tutulma 180×190), 24 kare/sn, `manifest.json` (zemin 128, yürüme 36.8 px/sn, koşu 245 px/sn, tutma noktaları). Kontrol: yarı saydam piksel yok, palet sabit (20-28 renk). Görseller değiştirilmez; eksik ya da yanlış olursa kullanıcıya söylenir.
+- [ ] Ad **Foxie**, kimlik `studio.purpfox.foxie`, ikon bu tilkiden. İç adlar (`~/.jevis`, MCP sunucusu `jevis`, araç adları) aynı kalır; kullanıcının gördüğü her yerde Foxie.
+- [ ] İzinler ekranı: Erişilebilirlik, Ekran Kaydı, Mikrofon, Konuşma Tanıma, klasörler, uygulama izinleri (System Events, Spotify, Müzik, Notlar, Anımsatıcılar, Takvim, Mesajlar); canlı ✅/❌, her satırda "İzin Ver"; ilk açılışta ve eksik izin varken kendiliğinden.
+- [ ] Ekranda gezen tilki (Swift, şeffaf ve tıklamaları geçiren pencere): tarifteki davranışlar (yürüme, oturma, sıkılma, uyuma, pencere üstüne zıplama ve onunla gitme, köşede sarkma, kuyruğundan/ensesinden tutup taşıma, düşme) + asistan olayları (çağrılınca `ears_up` → `listen`, düşünürken `desk`, işin yapıldığı yere `run`, bitince `happy`, olmayınca `sad`). Menü çubuğundan göster/gizle/uyut, boyut.
+- [ ] "Hey Foxie" (Türkçe ses tanıma varyantlarıyla), "Hey Jev" de kalır.
+
 ## 7. Sınırlar ve riskler
 
 - CAPTCHA ve 2FA'yı JEVIS çözmez. Durur, sen çözersin.

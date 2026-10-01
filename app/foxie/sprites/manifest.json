@@ -1,0 +1,153 @@
+{
+  "frame": [
+    180,
+    146
+  ],
+  "ground": 128,
+  "facing": "right",
+  "animations": {
+    "idle": {
+      "fps": 24,
+      "loop": true,
+      "frames": 96
+    },
+    "walk": {
+      "fps": 24,
+      "loop": true,
+      "frames": 24,
+      "speed": 36.8
+    },
+    "run": {
+      "fps": 24,
+      "loop": true,
+      "frames": 12,
+      "speed": 245.0
+    },
+    "stop": {
+      "fps": 24,
+      "loop": false,
+      "frames": 30,
+      "next": "idle"
+    },
+    "turn": {
+      "fps": 24,
+      "loop": false,
+      "frames": 12,
+      "next": "idle",
+      "mirror_after": true
+    },
+    "ears_up": {
+      "fps": 24,
+      "loop": false,
+      "frames": 14,
+      "next": "listen"
+    },
+    "listen": {
+      "fps": 24,
+      "loop": true,
+      "frames": 72
+    },
+    "desk": {
+      "fps": 24,
+      "loop": true,
+      "frames": 48
+    },
+    "petted": {
+      "fps": 24,
+      "loop": false,
+      "frames": 36,
+      "next": "idle"
+    },
+    "happy": {
+      "fps": 24,
+      "loop": false,
+      "frames": 32,
+      "next": "idle"
+    },
+    "sad": {
+      "fps": 24,
+      "loop": false,
+      "frames": 60,
+      "next": "idle"
+    },
+    "bored": {
+      "fps": 24,
+      "loop": true,
+      "frames": 96
+    },
+    "lie_down": {
+      "fps": 24,
+      "loop": false,
+      "frames": 40,
+      "next": "sleep"
+    },
+    "sleep": {
+      "fps": 24,
+      "loop": true,
+      "frames": 96
+    },
+    "wake_up": {
+      "fps": 24,
+      "loop": false,
+      "frames": 48,
+      "next": "idle"
+    },
+    "jump": {
+      "fps": 24,
+      "loop": false,
+      "frames": 16,
+      "next": "fall",
+      "liftoff_frame": 11
+    },
+    "fall": {
+      "fps": 24,
+      "loop": true,
+      "frames": 12
+    },
+    "land": {
+      "fps": 24,
+      "loop": false,
+      "frames": 14,
+      "next": "idle"
+    },
+    "held_tail": {
+      "fps": 24,
+      "loop": true,
+      "frames": 24,
+      "frame": [
+        180,
+        190
+      ],
+      "anchor": [
+        90,
+        38
+      ],
+      "anchor_type": "grab"
+    },
+    "held_scruff": {
+      "fps": 24,
+      "loop": true,
+      "frames": 48,
+      "frame": [
+        180,
+        190
+      ],
+      "anchor": [
+        90,
+        59
+      ],
+      "anchor_type": "grab"
+    },
+    "edge_hang": {
+      "fps": 24,
+      "loop": true,
+      "frames": 48,
+      "anchor": [
+        124,
+        91
+      ],
+      "anchor_type": "edge_corner"
+    }
+  },
+  "scale_note": "Tüm değerler 1x içindir (piksel). Ekranda N kat büyütülürse speed, anchor ve ground da N ile çarpılır."
+}
