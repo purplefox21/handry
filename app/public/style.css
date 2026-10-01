@@ -98,10 +98,10 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  background: linear-gradient(135deg, #3d8bff 0%, #8a5cf6 100%);
-  box-shadow: var(--shadow-sm);
 }
-.brand-mark svg, .welcome-mark svg { width: 17px; height: 17px; fill: #fff; stroke: none; }
+/* Foxie's icon (the fox from its own sprite); it has its own rounded square and shadow. */
+.brand-mark img { width: 41px; height: 41px; max-width: none; flex: none; }
+.welcome-mark img { width: 66px; height: 66px; max-width: none; flex: none; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
 .brand-name { font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
 .chat-title { font-weight: 500; color: var(--text-2); letter-spacing: 0; }
