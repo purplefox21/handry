@@ -1,8 +1,9 @@
-// Foxie (JEVIS's app): starts the JEVIS server and shows it three ways:
+// Inaro, JEVIS's app (the name comes from core/brand.js): starts the JEVIS
+// server and shows it three ways:
 //   - the bar: a compact field that drops from the top of the screen
 //     (app/public/bar.html on a floating panel), and
 //   - the big window: the full chat with details and history,
-//   - the fox on the screen (Fox.swift), which shows what Foxie is doing.
+//   - Foxie, the fox on the screen (Fox.swift), which shows what it is doing.
 // The permissions window (Permissions.swift) asks for everything in one place.
 // It also owns the microphone (Listener.swift): push to talk, the bar's mic
 // button and "Hey Jev". Built by `node cli.js app build`.
@@ -23,6 +24,12 @@ let NODE = env["JEVIS_NODE"] ?? info["JEVISNode"] as? String ?? "/opt/homebrew/b
 let PORT = env["JEVIS_PORT"] ?? info["JEVISPort"] as? String ?? "3000"
 let HOME = FileManager.default.homeDirectoryForCurrentUser.path
 let URL_BASE = "http://127.0.0.1:\(PORT)/"
+// The app's name and its Turkish endings, the fox's name and the wake word (core/brand.js, via Info.plist).
+let APP_NAME = info["CFBundleDisplayName"] as? String ?? "Inaro"
+let APP_ACC = info["AppAccusative"] as? String ?? "\(APP_NAME)'yu"
+let APP_ABL = info["AppAblative"] as? String ?? "\(APP_NAME)'dan"
+let APP_GEN = info["AppGenitive"] as? String ?? "\(APP_NAME)'nun"
+let WAKE_LABEL = info["WakeLabel"] as? String ?? "Hey Foxie"
 let BAR_WIDTH: CGFloat = 680
 let BAR_HEIGHT: CGFloat = 58
 
@@ -66,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         watchActivity()
         showBar(mode: "type")
         loadWhenReady()
-        // First launch, or something Foxie needs is missing: the permissions window.
+        // First launch, or something the app needs is missing: the permissions window.
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             guard let self else { return }
             if !UserDefaults.standard.bool(forKey: "permissionsShown") || self.permissions.missingNeeded {
@@ -96,14 +103,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         let waiting = """
         <meta name="color-scheme" content="light dark">
         <body style="font:15px -apple-system;margin:0;display:flex;align-items:center;gap:10px;height:\(Int(BAR_HEIGHT))px;padding:0 18px;color:#8e8e93;background:transparent">
-        <b style="color:CanvasText;font-weight:600">Foxie başlıyor…</b> macOS bir izin soruyorsa <b>İzin Ver</b>'e bas.</body>
+        <b style="color:CanvasText;font-weight:600">\(APP_NAME) başlıyor…</b> macOS bir izin soruyorsa <b>İzin Ver</b>'e bas.</body>
         """
         barReady = false
         barWeb.loadHTMLString(waiting, baseURL: nil)
         webView.loadHTMLString("""
         <meta name="color-scheme" content="light dark">
         <body style="font:15px -apple-system;display:grid;place-items:center;height:90vh;text-align:center;color:#8e8e93">
-        <div><h2 style="color:CanvasText;font-weight:600">Foxie başlıyor…</h2>
+        <div><h2 style="color:CanvasText;font-weight:600">\(APP_NAME) başlıyor…</h2>
         <p>macOS bir izin soruyorsa (ör. Masaüstü klasörü) <b>İzin Ver</b>'e bas.</p></div></body>
         """, baseURL: nil)
         startServer { [weak self] ok in
@@ -113,8 +120,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
                 self.webView.load(URLRequest(url: URL(string: URL_BASE)!))
                 self.barWeb.load(URLRequest(url: URL(string: URL_BASE + "bar.html")!))
             } else {
-                self.webView.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:15px -apple-system;padding:2em'><h2>Foxie sunucusu başlamadı</h2><p>Kayıt: ~/.jevis/logs/app-server.log</p><p>Menüden Foxie › Sunucuyu Yeniden Başlat'ı dene.</p></body>", baseURL: nil)
-                self.barWeb.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:14px -apple-system;margin:0;padding:18px;color:#e5383b;background:transparent'>Foxie sunucusu başlamadı. Menüden “Sunucuyu Yeniden Başlat”ı dene.</body>", baseURL: nil)
+                self.webView.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:15px -apple-system;padding:2em'><h2>\(APP_NAME) sunucusu başlamadı</h2><p>Kayıt: ~/.jevis/logs/app-server.log</p><p>Menüden \(APP_NAME) › Sunucuyu Yeniden Başlat'ı dene.</p></body>", baseURL: nil)
+                self.barWeb.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:14px -apple-system;margin:0;padding:18px;color:#e5383b;background:transparent'>\(APP_NAME) sunucusu başlamadı. Menüden “Sunucuyu Yeniden Başlat”ı dene.</body>", baseURL: nil)
             }
         }
     }
@@ -124,10 +131,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     func buildMainMenu() {
         let main = NSMenu()
         let appItem = NSMenuItem()
-        let appMenu = NSMenu(title: "Foxie")
-        appMenu.addItem(NSMenuItem(title: "Foxie Hakkında", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+        let appMenu = NSMenu(title: APP_NAME)
+        appMenu.addItem(NSMenuItem(title: "\(APP_NAME) Hakkında", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
         appMenu.addItem(.separator())
-        appMenu.addItem(item("Foxie Çubuğu   ⌥Space", #selector(toggleBar)))
+        appMenu.addItem(item("\(APP_NAME) Çubuğu   ⌥Space", #selector(toggleBar)))
         appMenu.addItem(item("Büyük Pencere", #selector(openWindow)))
         appMenu.addItem(wakeItem())
         appMenu.addItem(.separator())
@@ -137,8 +144,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         appMenu.addItem(.separator())
         appMenu.addItem(item("⛔ Acil Durdur   ⌥Esc", #selector(emergencyStop)))
         appMenu.addItem(.separator())
-        appMenu.addItem(NSMenuItem(title: "Foxie'yi Gizle", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
-        appMenu.addItem(NSMenuItem(title: "Foxie'den Çık", action: #selector(quit), keyEquivalent: "q"))
+        appMenu.addItem(NSMenuItem(title: "\(APP_ACC) Gizle", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
+        appMenu.addItem(NSMenuItem(title: "\(APP_ABL) Çık", action: #selector(quit), keyEquivalent: "q"))
         appItem.submenu = appMenu
         main.addItem(appItem)
 
@@ -179,11 +186,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         } else {
             statusItem.button?.title = "🦊"
         }
-        statusItem.button?.toolTip = "Foxie"
+        statusItem.button?.toolTip = APP_NAME
         statusItem.button?.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         let menu = NSMenu()
         menu.delegate = self // the timers are put at the top each time it opens
-        menu.addItem(item("Foxie Çubuğu   ⌥Space", #selector(toggleBar)))
+        menu.addItem(item("\(APP_NAME) Çubuğu   ⌥Space", #selector(toggleBar)))
         menu.addItem(item("Büyük Pencere", #selector(openWindow)))
         menu.addItem(wakeItem())
         menu.addItem(item("Bas-Konuş   ⌥⇧Space (basılı tut)", #selector(toggleBar)))
@@ -195,7 +202,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         menu.addItem(item("İzinler…", #selector(checkPermissions)))
         menu.addItem(item("Sunucuyu Yeniden Başlat", #selector(restartServer)))
         menu.addItem(.separator())
-        menu.addItem(item("Foxie'den Çık", #selector(quit)))
+        menu.addItem(item("\(APP_ABL) Çık", #selector(quit)))
         statusItem.menu = menu
     }
 
@@ -206,7 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     }
 
     func wakeItem() -> NSMenuItem {
-        let i = item("“Hey Jev” ile Dinle", #selector(toggleWake))
+        let i = item("“\(WAKE_LABEL)” ile Dinle", #selector(toggleWake))
         i.state = UserDefaults.standard.bool(forKey: "heyJev") ? .on : .off
         wakeItems.append(i)
         return i
@@ -254,7 +261,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         fox?.scale = CGFloat(value)
     }
 
-    /// ~/.jevis/activity.json: what Foxie is doing (written by the server and the JEVIS tools, also in other Claude sessions).
+    /// ~/.jevis/activity.json: what the assistant is doing (written by the server and the JEVIS tools, also in other Claude sessions).
     func watchActivity() {
         Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
             guard let self, let data = FileManager.default.contents(atPath: "\(HOME)/.jevis/activity.json"),
@@ -314,7 +321,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
                 title = "\(mark) 👀 \(jobs.count)"
             }
             if self.statusItem.button?.title != title { self.statusItem.button?.title = title }
-            self.statusItem.button?.toolTip = jobs.isEmpty ? "Foxie" : "Foxie · \(jobs.count) zamanlanmış iş"
+            self.statusItem.button?.toolTip = jobs.isEmpty ? APP_NAME : "\(APP_NAME) · \(jobs.count) zamanlanmış iş"
         }
     }
 
@@ -389,7 +396,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         webView.uiDelegate = self
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 920, height: 760),
                           styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
-        window.title = "Foxie"
+        window.title = APP_NAME
         window.contentView = webView
         window.delegate = self
         window.isReleasedWhenClosed = false
@@ -553,7 +560,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             if id != self.attentionId, !resolved, let at = entry["at"] as? Double, Date().timeIntervalSince1970 * 1000 - at < 15000 {
                 self.attentionId = id
                 self.showBarPassive()
-                self.sendAttention(["type": "show", "title": entry["title"] ?? "Foxie", "message": entry["message"] ?? ""])
+                self.sendAttention(["type": "show", "title": entry["title"] ?? APP_NAME, "message": entry["message"] ?? ""])
             } else if id == self.attentionId, resolved {
                 self.attentionId = ""
                 self.sendAttention(["type": "resolved"])
@@ -619,7 +626,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             guard let self else { return }
             guard mic else {
                 self.showBar(mode: "voice")
-                self.sendVoice(["type": "error", "message": "Mikrofon izni yok: Sistem Ayarları › Gizlilik ve Güvenlik › Mikrofon'da Foxie'yi aç."])
+                self.sendVoice(["type": "error", "message": "Mikrofon izni yok: Sistem Ayarları › Gizlilik ve Güvenlik › Mikrofon'da \(APP_ACC) aç."])
                 return
             }
             self.showBar(mode: "voice")

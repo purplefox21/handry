@@ -21,6 +21,7 @@ import { power } from '../hands/power.js';
 import { claudeSessions, formatSessions } from '../hands/claude-sessions.js';
 import * as timers from './timers.js';
 import { setActivity, appOfTool } from './activity.js';
+import { APP_NAME } from './brand.js';
 
 // A tool returns MCP content; `meta` (the raw result) is only used for the log.
 const text = (t, meta) => ({ content: [{ type: 'text', text: t }], meta });
@@ -578,9 +579,9 @@ export const TOOLS = [
         sleep: () => power('sleep'),
         restart: () => power('restart'),
         shutdown: () => power('shutdown'),
-        notify: () => mac.notify(title || 'Foxie', value),
+        notify: () => mac.notify(title || APP_NAME, value),
         spotify_search: () => mac.playSpotifySearch(value || ''),
-        note: () => mac.createNote(title || 'Foxie', value || '')
+        note: () => mac.createNote(title || APP_NAME, value || '')
       };
       const r = await actions[action]();
       if (!r.success) throw new Error(r.error || r.message);

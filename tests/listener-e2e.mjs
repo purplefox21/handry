@@ -1,8 +1,8 @@
-// "Hey Jev" and live speech in JEVIS.app, without a microphone: phrases are
+// "Hey Foxie" and live speech in the app (Inaro.app), without a microphone: phrases are
 // spoken by macOS (Yelda) into files and run through the app's own listener
 // (JEVIS --test-listener), the same steps the microphone goes through. Then
 // the phrase audio it keeps goes through whisper, as in the bar.
-// Needs JEVIS.app installed and its Speech Recognition permission.
+// Needs the app (Inaro.app) installed and its Speech Recognition permission.
 // Usage: node tests/listener-e2e.mjs
 import fs from 'node:fs';
 import os from 'node:os';
@@ -50,15 +50,15 @@ try {
     process.exit(0);
   }
 
-  await check('"Hey Jev, sesi yüzde otuz yap": uyanıyor, komut canlı yazılıyor', async () => {
-    const events = listen(speak('volume', '[[slnc 700]] Hey Jev, sesi yüzde otuz yap. [[slnc 300]]'));
+  await check('"Hey Foxie, sesi yüzde otuz yap": uyanıyor, komut canlı yazılıyor', async () => {
+    const events = listen(speak('volume', '[[slnc 700]] Hey Foxie, sesi yüzde otuz yap. [[slnc 300]]'));
     const f = final(events);
     const partials = events.filter(e => e.type === 'partial').length;
     return { ok: events.some(e => e.type === 'wake') && f?.woke && /ses/.test(norm(f.text)) && /(30|otuz)/.test(norm(f.text)) && partials > 0, note: `${describe(events)} · ${partials} canlı parça` };
   });
 
-  await check('whisper, "Hey Jev" kesilmiş sesi doğru yazıyor', async () => {
-    const events = listen(speak('spotify', '[[slnc 700]] Hey Jev. Spotify\'da Tarkan çal. [[slnc 300]]'));
+  await check('whisper, "Hey Foxie" kesilmiş sesi doğru yazıyor', async () => {
+    const events = listen(speak('spotify', '[[slnc 700]] Hey Foxie. Spotify\'da Tarkan çal. [[slnc 300]]'));
     const f = final(events);
     if (!f?.wav) return { ok: false, note: describe(events) };
     const t0 = Date.now();
@@ -71,8 +71,8 @@ try {
     return { ok: !events.some(e => e.type === 'wake' || e.type === 'final'), note: describe(events) || 'hiçbir şey olmadı' };
   });
 
-  await check('"Hey Jev" … (duraklama) … komut: arada susunca da komutu bekliyor', async () => {
-    const events = listen(speak('pause', '[[slnc 700]] Hey Jev. [[slnc 1300]] bugün takvimimde ne var? [[slnc 300]]'));
+  await check('"Hey Foxie" … (duraklama) … komut: arada susunca da komutu bekliyor', async () => {
+    const events = listen(speak('pause', '[[slnc 700]] Hey Foxie. [[slnc 1300]] bugün takvimimde ne var? [[slnc 300]]'));
     const f = final(events);
     return { ok: f?.woke && /takvim/.test(norm(f.text)), note: describe(events) };
   });

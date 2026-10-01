@@ -19,6 +19,11 @@ const store = {
   }
 };
 
+// The app's name and its Turkish endings (core/brand.js, put into the page by the server).
+const BRAND = (() => { try { return JSON.parse(decodeURIComponent(document.querySelector('meta[name="app-brand"]').content)); } catch { return {}; } })();
+const APP_NAME = BRAND.name || 'Inaro';
+const SAY_TO = `${BRAND.dative || "Inaro'ya"} söyle…`;
+
 const MODEL_NAMES = { 'claude-sonnet-5-5': 'Sonnet 5.5', 'claude-sonnet-5': 'Sonnet 5', 'claude-opus-5-5': 'Opus 5.5', 'claude-haiku-4-5': 'Haiku 4.5' };
 const BRAIN_NAMES = { 'claude-code': 'Claude Code', codex: 'Codex', anthropic: 'Claude API', openai: 'OpenAI uyumlu', ollama: 'Ollama' };
 const ROUTE_NAMES = {

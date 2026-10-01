@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ROOT, config, expandHome } from './config.js';
+import { APP_NAME } from './brand.js';
 import * as jev from './jev.js';
 import { listBrains } from '../brain/index.js';
 import { findBinary } from '../brain/common.js';
@@ -11,7 +12,7 @@ import { sttStatus } from '../voice/stt.js';
 import { listRecipes } from './recipes.js';
 import { listSecrets } from '../guard/vault.js';
 import { isStopped } from '../guard/stop.js';
-import { APP, INSTALLED } from '../app/macos/build.js';
+import { APP_PATH, INSTALLED } from '../app/macos/build.js';
 import { autostartEnabled } from '../app/macos/autostart.js';
 
 const ok = (label, detail = '') => `✅ ${label}${detail ? ` — ${detail}` : ''}`;
@@ -85,11 +86,11 @@ export async function doctor() {
 
   lines.push(await reachable(`http://127.0.0.1:${c.server.port}/`)
     ? ok('Sohbet sunucusu', `http://localhost:${c.server.port}`)
-    : `➖ Sohbet sunucusu — kapalı (npm start ya da Foxie.app)`);
-  lines.push(fs.existsSync(INSTALLED) ? ok('Foxie.app', INSTALLED) : fs.existsSync(APP) ? `➖ Foxie.app — derlendi, kurulmadı (node cli.js app install)` : `➖ Foxie.app — yok (node cli.js app install)`);
+    : `➖ Sohbet sunucusu — kapalı (npm start ya da ${APP_NAME}.app)`);
+  lines.push(fs.existsSync(INSTALLED) ? ok(`${APP_NAME}.app`, INSTALLED) : fs.existsSync(APP_PATH) ? `➖ ${APP_NAME}.app — derlendi, kurulmadı (node cli.js app install)` : `➖ ${APP_NAME}.app — yok (node cli.js app install)`);
   lines.push(autostartEnabled() ? ok('Açılışta başlama', 'açık') : '➖ Açılışta başlama — kapalı (node cli.js autostart on)');
   if (ROOT.startsWith(expandHome('~/Desktop')) || ROOT.startsWith(expandHome('~/Documents'))) {
-    lines.push(`ℹ️  Proje ${ROOT} içinde: Foxie.app ilk açılışta bu klasöre erişim izni ister, "İzin Ver" demen gerekir.`);
+    lines.push(`ℹ️  Proje ${ROOT} içinde: ${APP_NAME}.app ilk açılışta bu klasöre erişim izni ister, "İzin Ver" demen gerekir.`);
   }
 
   lines.push(ok('Tarifler', `${listRecipes().length} adet`));

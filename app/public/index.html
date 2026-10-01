@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>Foxie</title>
+  <title>{{APP}}</title>
   <link rel="icon" href="icon.png">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -16,7 +16,7 @@
           <img src="icon.png" alt="">
         </div>
         <div class="brand-text">
-          <span class="brand-name">Foxie <span class="chat-title" id="chatTitle"></span></span>
+          <span class="brand-name">{{APP}} <span class="chat-title" id="chatTitle"></span></span>
           <span class="brand-status" id="status" data-state="ready"><span class="dot"></span><span id="statusText">Hazır</span></span>
         </div>
       </div>
@@ -57,7 +57,7 @@
             <img src="icon.png" alt="">
           </div>
           <h1>Merhaba, ne yapayım?</h1>
-          <p>Yaz ya da mikrofona basılı tutup söyle. Basit işleri Jev anında yapar; gerisini Claude planlar, Foxie senin yerine tıklar ve yazar.</p>
+          <p>Yaz ya da mikrofona basılı tutup söyle. Basit işleri Jev anında yapar; gerisini Claude planlar, {{APP}} senin yerine tıklar ve yazar.</p>
           <div class="suggestions">
             <button class="suggestion" data-cmd="Hacker News'i aç ve ilk 5 başlığı Türkçe özetle">
               <span class="sg-icon sg-web" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
@@ -170,7 +170,7 @@
       <button class="icon-btn" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="drawer-body">
-      <p class="setting-help">Foxie'ye söylediğin zamanlı ve koşullu işler: "3 saat sonra bilgisayarı kapat", "VS Code'daki işler bitince kapat", "10 dakika sonra Spotify'ı durdur". İptal ettiğin iş, saati gelince ya da koşul olunca yapılmaz.</p>
+      <p class="setting-help">{{APP_DAT}} söylediğin zamanlı ve koşullu işler: "3 saat sonra bilgisayarı kapat", "VS Code'daki işler bitince kapat", "10 dakika sonra Spotify'ı durdur". İptal ettiğin iş, saati gelince ya da koşul olunca yapılmaz.</p>
       <div class="timer-list" id="timerList"></div>
       <button class="btn btn-danger-ghost" id="cancelAllTimers" type="button" hidden>Hepsini iptal et</button>
     </div>

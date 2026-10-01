@@ -1,4 +1,4 @@
-// What Foxie is doing, for the fox on the screen: Foxie.app reads
+// What the assistant is doing, for Foxie, the fox on the screen: the app reads
 // ~/.jevis/activity.json a few times a second. thinking (Claude is planning),
 // tool (with the app it works in, so the fox can run under its window), done,
 // error, attention (it needs the user). Written by the runner, by every JEVIS

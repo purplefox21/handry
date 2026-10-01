@@ -10,6 +10,7 @@ import { execFile } from 'node:child_process';
 import { HOME, config } from '../core/config.js';
 import { speak } from '../voice/tts.js';
 import { setActivity } from '../core/activity.js';
+import { APP_NAME } from '../core/brand.js';
 
 export const ATTENTION_FILE = path.join(HOME, 'attention.json');
 const pendingMessages = new Map(); // alert id → iMessage timer
@@ -22,7 +23,7 @@ const settings = () => ({ imessageTo: '', imessageAfterSec: 60, speak: true, ...
  * alert isn't resolved within notify.imessageAfterSec. speak: false keeps it
  * quiet (e.g. at night). Returns the alert id.
  */
-export function alertUser(message, { title = 'Foxie', imessage = false, speak: sayIt } = {}) {
+export function alertUser(message, { title = APP_NAME, imessage = false, speak: sayIt } = {}) {
   const id = `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
   const entry = { id, at: Date.now(), title, message };
   setActivity('attention');
@@ -46,7 +47,7 @@ export function alertUser(message, { title = 'Foxie', imessage = false, speak: s
   if (imessage && s.imessageTo) {
     pendingMessages.set(id, setTimeout(() => {
       pendingMessages.delete(id);
-      sendIMessage(`Foxie: ${message}`).catch(() => {});
+      sendIMessage(`${APP_NAME}: ${message}`).catch(() => {});
     }, s.imessageAfterSec * 1000));
   }
   return id;

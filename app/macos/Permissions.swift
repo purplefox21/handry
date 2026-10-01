@@ -1,11 +1,11 @@
-// Foxie's permissions window: every macOS permission Foxie uses, one row each,
+// The app's permissions window: every macOS permission it uses, one row each,
 // with a live ✅/❌ and a button that brings up macOS's own question or opens
 // the right page of System Settings. It opens by itself on the first launch
 // and whenever a needed permission is missing; the menu opens it too
 // ("İzinler…"). States are checked every second while it is open, so a row
 // turns green as soon as the user allows it (no restart needed, except
-// Screen Recording, which macOS applies after Foxie restarts).
-// The JEVIS server runs as Foxie's child, so what Foxie is allowed here, the
+// Screen Recording, which macOS applies after the app restarts).
+// The JEVIS server runs as the app's child, so what the app is allowed here, the
 // server's actions are allowed too.
 import SwiftUI
 import AVFoundation
@@ -19,7 +19,7 @@ struct PermissionRow: Identifiable {
     let symbol: String
     let title: String
     let why: String
-    let needed: Bool                  // Foxie hardly works without it
+    let needed: Bool                  // the app hardly works without it
     let check: () -> PermissionState
     let ask: () -> Void
 }
@@ -28,7 +28,7 @@ private func openSettings(_ pane: String) {
     NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")!)
 }
 
-/// May Foxie send Apple Events to this app? (askUser: false never shows the question.)
+/// May the app send Apple Events to this one? (askUser: false never shows the question.)
 private func automation(_ bundleId: String, askUser: Bool) -> OSStatus {
     var target = AEAddressDesc()
     let bytes = Array(bundleId.utf8)
@@ -65,7 +65,7 @@ private func automationRow(_ bundleId: String, _ title: String, _ why: String, s
     })
 }
 
-/// A folder Foxie reads (the project lives on the Desktop). Reading it is what
+/// A folder the app reads (the project lives on the Desktop). Reading it is what
 /// makes macOS ask, so it is only read once the user pressed "İzin Ver" (or,
 /// for the Desktop, once the server, which lives there, has started).
 func folderAsked(_ folder: String) { UserDefaults.standard.set(true, forKey: "asked-folder-\(folder)") }
@@ -94,11 +94,11 @@ func allPermissions() -> [PermissionRow] {
                           if !AXIsProcessTrustedWithOptions([key: true] as CFDictionary) { openSettings("Privacy_Accessibility") }
                       }),
         PermissionRow(id: "screen", symbol: "rectangle.dashed.badge.record", title: "Ekran Kaydı",
-                      why: "Gerektiğinde ekrana bakmak (ekran görüntüsü). Verdikten sonra Foxie'yi bir kez yeniden aç.", needed: false,
+                      why: "Gerektiğinde ekrana bakmak (ekran görüntüsü). Verdikten sonra \(APP_ACC) bir kez yeniden aç.", needed: false,
                       check: { CGPreflightScreenCaptureAccess() ? .granted : .missing },
                       ask: { if !CGRequestScreenCaptureAccess() { openSettings("Privacy_ScreenCapture") } }),
         PermissionRow(id: "mic", symbol: "mic", title: "Mikrofon",
-                      why: "Sesli komutlar ve \"Hey Foxie\".", needed: true,
+                      why: "Sesli komutlar ve \"\(WAKE_LABEL)\".", needed: true,
                       check: {
                           switch AVCaptureDevice.authorizationStatus(for: .audio) {
                           case .authorized: return .granted
@@ -111,7 +111,7 @@ func allPermissions() -> [PermissionRow] {
                           else { openSettings("Privacy_Microphone") }
                       }),
         PermissionRow(id: "speech", symbol: "waveform", title: "Konuşma Tanıma",
-                      why: "Konuşurken söylediklerini yazmak ve \"Hey Foxie\"yi duymak (bu Mac'te, internetsiz).", needed: true,
+                      why: "Konuşurken söylediklerini yazmak ve \"\(WAKE_LABEL)\" demeni duymak (bu Mac'te, internetsiz).", needed: true,
                       check: {
                           switch SFSpeechRecognizer.authorizationStatus() {
                           case .authorized: return .granted
@@ -123,7 +123,7 @@ func allPermissions() -> [PermissionRow] {
                           if SFSpeechRecognizer.authorizationStatus() == .notDetermined { SFSpeechRecognizer.requestAuthorization { _ in } }
                           else { openSettings("Privacy_SpeechRecognition") }
                       }),
-        folderRow("Desktop", "Masaüstü klasörü", "Foxie'nin kendi dosyaları burada (~/Desktop/jev); dosya işleri.", needed: true),
+        folderRow("Desktop", "Masaüstü klasörü", "\(APP_GEN) kendi dosyaları burada (~/Desktop/jev); dosya işleri.", needed: true),
         folderRow("Documents", "Belgeler klasörü", "\"Belgelerimde şunu bul\" gibi dosya işleri.", needed: false),
         folderRow("Downloads", "İndirilenler klasörü", "İndirilen dosyaları bulmak, taşımak.", needed: false)
     ]
@@ -174,8 +174,8 @@ struct PermissionsView: View {
                     Image(nsImage: icon).resizable().frame(width: 56, height: 56)
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Foxie'nin izinleri").font(.title2.bold())
-                    Text("Foxie'nin senin yerine çalışabilmesi için macOS bu izinleri soruyor. Her satırda \"İzin Ver\"e bas; izin verince satır kendiliğinden yeşile döner.")
+                    Text("\(APP_GEN) izinleri").font(.title2.bold())
+                    Text("\(APP_GEN) senin yerine çalışabilmesi için macOS bu izinleri soruyor. Her satırda \"İzin Ver\"e bas; izin verince satır kendiliğinden yeşile döner.")
                         .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -189,7 +189,7 @@ struct PermissionsView: View {
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
             }
             HStack {
-                Text(model.allGranted ? "Hepsi tamam. 🦊" : model.missingNeeded ? "Kırmızı olanlar olmadan Foxie düzgün çalışmaz." : "Gerekenler tamam; gerisi isteğe bağlı.")
+                Text(model.allGranted ? "Hepsi tamam. 🦊" : model.missingNeeded ? "Kırmızı olanlar olmadan \(APP_NAME) düzgün çalışmaz." : "Gerekenler tamam; gerisi isteğe bağlı.")
                     .foregroundStyle(model.missingNeeded ? Color.red : Color.secondary)
                 Spacer()
                 Button(model.missingNeeded ? "Sonra" : "Bitti", action: close).keyboardShortcut(.defaultAction)
@@ -239,7 +239,7 @@ final class PermissionsWindow: NSObject, NSWindowDelegate {
     func show() {
         if window == nil {
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 640), styleMask: [.titled, .closable], backing: .buffered, defer: false)
-            w.title = "Foxie İzinleri"
+            w.title = "\(APP_NAME) İzinleri"
             w.isReleasedWhenClosed = false
             w.delegate = self
             w.contentView = NSHostingView(rootView: PermissionsView(model: model, close: { [weak w] in w?.close() }))

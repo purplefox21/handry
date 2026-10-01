@@ -5,6 +5,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { config, expandHome } from '../core/config.js';
 import { findBinary } from '../brain/common.js';
+import { WAKE_SOURCE } from '../core/brand.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -16,9 +17,9 @@ const HALLUCINATIONS = [/^(www\.|https?:)/i, /altyaz/i, /abone ol/i, /izlediğin
 
 const FIXES = [[/\bvs\.?\s?code\b/gi, 'VS Code'], [/\bjevis\b/gi, 'JEVIS']];
 
-// "Hey Jev" (and how it gets misheard) at the start of a phrase; the same
-// pattern as Listener.swift in JEVIS.app.
-const WAKE = /^\s*(?:hey|hei|hay|hi|ey|ay|he)[\s,.!]*(?:foxie|foxy|foxi|foksi|foksy|foksie|fogsi|fuksi|focsi|fox|foks|jev|jevs|jevis|jeff|jef|jefe|cev|ceb|cef|cevs|chev|shev|j\.?e\.?v\.?|jarvis|ciyev)(?![\p{L}\p{N}])[\s,.!?:;-]*/iu;
+// "Hey Foxie" (and how it gets misheard) at the start of a phrase; the same
+// pattern runs in Listener.swift (core/brand.js keeps the words).
+const WAKE = new RegExp(WAKE_SOURCE, 'iu');
 export const stripWake = text => String(text).replace(WAKE, '').trim();
 
 export function sttStatus() {

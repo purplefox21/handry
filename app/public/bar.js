@@ -220,7 +220,7 @@ function finish(ev) {
   const text = ev.text || '';
   answer.textContent = text || (ev.stopped ? 'Durduruldu.' : 'Tamam.');
   answer.hidden = false;
-  const who = ev.fast ? 'Hızlı yol' : ev.learnedReplay ? `Öğrenilmiş yol${ev.brain ? ' + Claude' : ''}` : ev.recipe ? `Tarif: ${pretty(ev.recipe)}` : (MODEL_NAMES[ev.model] || 'Foxie');
+  const who = ev.fast ? 'Hızlı yol' : ev.learnedReplay ? `Öğrenilmiş yol${ev.brain ? ' + Claude' : ''}` : ev.recipe ? `Tarif: ${pretty(ev.recipe)}` : (MODEL_NAMES[ev.model] || APP_NAME);
   const bits = [`${ev.stopped ? 'Durduruldu' : 'Bitti'} · ${who}${run.tools ? ` · ${run.tools} adım` : ''} · ${((ev.ms || 0) / 1000).toFixed(1)} sn`];
   if (ev.learned?.name) bits.push('Bunu öğrendim; bir dahakine Claude\'suz');
   if (ev.chat) bits.push(ev.newChat ? 'Yeni sohbet' : `Sohbet: ${short(ev.chat.title, 30)}`);
@@ -319,7 +319,7 @@ function cancelCountdown() {
 async function voiceFinished({ text, file, wake }) {
   voice.listening = false;
   setState(run.active ? 'busy' : 'idle');
-  input.placeholder = "Foxie'ye söyle…";
+  input.placeholder = SAY_TO;
   const heard = String(text || '').trim();
   if (!heard && !file) { input.value = ''; return; }
   input.value = heard;
@@ -386,12 +386,12 @@ window.jevisBar = {
         break;
       case 'cancel':
         voice.listening = false;
-        input.placeholder = "Foxie'ye söyle…";
+        input.placeholder = SAY_TO;
         setState(run.active ? 'busy' : 'idle');
         break;
       case 'error':
         voice.listening = false;
-        input.placeholder = "Foxie'ye söyle…";
+        input.placeholder = SAY_TO;
         setState(run.active ? 'busy' : 'idle');
         panel.hidden = false;
         answer.hidden = false;
@@ -416,7 +416,7 @@ window.jevisBar = {
     // Timer notices and reminders are news, not a login JEVIS waits for.
     const news = ev.title === 'Zamanlayıcı' || ev.title === 'Hatırlatma';
     answer.classList.toggle('error', !news);
-    foot.replaceChildren(el('span', null, news ? '' : 'Bitirince Foxie kendiliğinden devam eder.'));
+    foot.replaceChildren(el('span', null, news ? '' : `Bitirince ${APP_NAME} kendiliğinden devam eder.`));
     foot.hidden = news;
     refreshTimers();
     bar.dataset.attention = '1';

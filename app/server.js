@@ -12,6 +12,7 @@ import { listChats, peekChat, newChat, switchChat, deleteChat, IDLE_MS } from '.
 import { listBrains } from '../brain/index.js';
 import { requestStop } from '../guard/stop.js';
 import { startScheduler, sortedJobs, jobView, cancelJobs } from '../core/timers.js';
+import { APP, FOX, WAKE_LABEL } from '../core/brand.js';
 import { recentActions } from '../guard/log.js';
 import { sttStatus, transcribe, stripWake } from '../voice/stt.js';
 import { ttsStatus, speak, stopSpeaking } from '../voice/tts.js';
@@ -246,8 +247,11 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     if (ext === '.html') {
+      // The app's name (core/brand.js) goes into the page: {{APP}}, {{APP_DAT}}, {{FOX}}, and a meta tag for the scripts.
+      const brand = encodeURIComponent(JSON.stringify({ ...APP, fox: FOX.name, wake: WAKE_LABEL }));
       const html = fs.readFileSync(filePath, 'utf-8')
-        .replace('</head>', `  <meta name="jevis-token" content="${SESSION_TOKEN}">\n</head>`);
+        .replaceAll('{{APP}}', APP.name).replaceAll('{{APP_DAT}}', APP.dative).replaceAll('{{FOX}}', FOX.name)
+        .replace('</head>', `  <meta name="jevis-token" content="${SESSION_TOKEN}">\n  <meta name="app-brand" content="${brand}">\n</head>`);
       res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-store' });
       res.end(html);
       return;

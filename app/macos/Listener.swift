@@ -51,11 +51,13 @@ final class Listener {
     private var woke = false
     private var pushToTalk = false
     private var finishing = false
-    private var wakeEnd: Double?       // where "Hey Jev" ends in the phrase audio (seconds)
-    private var wakeWords = 2          // how many words "Hey Jev" took in the text
+    private var wakeEnd: Double?       // where "Hey Foxie" ends in the phrase audio (seconds)
+    private var wakeWords = 2          // how many words "Hey Foxie" took in the text
 
+    /// "Hey Foxie" and how the recognizer may write it (core/brand.js, via Info.plist).
     static let wakePattern = try! NSRegularExpression(
-        pattern: "^\\s*(?:hey|hei|hay|hi|ey|ay|he)[\\s,.!]*(?:foxie|foxy|foxi|foksi|foksy|foksie|fogsi|fuksi|focsi|fox|foks|jev|jevs|jevis|jeff|jef|jefe|cev|ceb|cef|cevs|chev|shev|j\\.?e\\.?v\\.?|jarvis|ciyev)(?![\\p{L}\\p{N}])[\\s,.!?:;-]*",
+        pattern: Bundle.main.infoDictionary?["WakePattern"] as? String
+            ?? "^\\s*(?:hey|hei|hay|hi|ey|ay|he)[\\s,.!]*(?:foxie|foxy|foxi|foksi|foksy|foksie|fogsi|fuksi|focsi|fox|foks)(?![\\p{L}\\p{N}])[\\s,.!?:;-]*",
         options: [.caseInsensitive])
 
     /// The command after "Hey Foxie" / "Hey Jev", or nil when the text doesn't start with it.
@@ -324,7 +326,7 @@ final class Listener {
         let req = SFSpeechAudioBufferRecognitionRequest()
         req.shouldReportPartialResults = true
         if recognizer.supportsOnDeviceRecognition { req.requiresOnDeviceRecognition = true }
-        req.contextualStrings = ["Hey Foxie", "Foxie", "Hey Jev", "Jev", "JEVIS", "VS Code", "Claude", "Spotify", "Chrome", "Safari", "Xcode", "App Store"]
+        req.contextualStrings = ["Hey Foxie", "Foxie", "Hey Fox", APP_NAME, "VS Code", "Claude", "Spotify", "Chrome", "Safari", "Xcode", "App Store"]
         req.taskHint = .dictation
         req.addsPunctuation = true
         request = req

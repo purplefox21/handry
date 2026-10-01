@@ -171,7 +171,7 @@ function finishTurn(turn, ev) {
   if (turn.lastNote && turn.texts.at(-1) === final) turn.lastNote.remove();
   for (const p of turn.pending) settleStep(p.li, { ok: false, detail: 'yarıda kaldı' });
   turn.pending = [];
-  const who = ev.fast ? 'Hızlı yol (Jev)' : ev.learnedReplay ? `Öğrenilmiş yol${ev.brain ? ' + Claude' : ', Claude\'suz'}` : ev.recipe ? `Tarif: ${pretty(ev.recipe)}` : (MODEL_NAMES[ev.model] || BRAIN_NAMES[ev.brain] || 'Foxie');
+  const who = ev.fast ? 'Hızlı yol (Jev)' : ev.learnedReplay ? `Öğrenilmiş yol${ev.brain ? ' + Claude' : ', Claude\'suz'}` : ev.recipe ? `Tarif: ${pretty(ev.recipe)}` : (MODEL_NAMES[ev.model] || BRAIN_NAMES[ev.brain] || APP_NAME);
   const secs = ((ev.ms || 0) / 1000).toFixed(1);
   turn.activity.classList.remove('open');
   turn.activity.classList.add(ev.stopped ? 'failed' : 'done');
@@ -497,7 +497,7 @@ async function loadStatus() {
   const rows = [
     [s.jev, 'Jev (karar modeli)', 'TypeSafe anahtarı yok (.env › JEV_KEY)'],
     [s.claude, 'Claude Code (aboneliğin)', 'claude komutu bulunamadı'],
-    [s.chrome, 'Foxie Chrome', 'Chrome bulunamadı'],
+    [s.chrome, `${APP_NAME} Chrome`, 'Chrome bulunamadı'],
     [s.voice, 'Ses tanıma (whisper)', 'kurulu değil']
   ];
   $('statusList').replaceChildren(...rows.map(([ok, label, fix]) => {
