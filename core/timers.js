@@ -79,6 +79,9 @@ function conditionText(u) {
   return u.contains ? `${where} "${u.contains}" görününce` : `${where} "${u.expect}" olunca`;
 }
 
+const capital = t => t.charAt(0).toLocaleUpperCase('tr') + t.slice(1);
+const whatLabel = job => (job.action === 'command' ? capital(job.text) : job.action === 'remind' ? `Hatırlat: "${job.text}"` : capital(whatText(job)));
+
 function whenPart(job) {
   const parts = [];
   if (job.at && (!job.until || job.at > job.created + 5000)) parts.push(job.until ? `${whenText(job.at, 'den')} sonra` : whenText(job.at));
@@ -161,7 +164,7 @@ export function claudeTargets(names = []) {
   return picked.map(s => ({ pid: s.pid, sessionId: s.sessionId, name: s.name, project: s.project }));
 }
 
-export function addJob({ action, text = '', at = null, until = null, every, countdown, said = '', source = '' }) {
+export function addJob({ action, text = '', at = null, until = null, every, countdown, said = '', source = '', chatId = null }) {
   if (!ACTIONS.has(action)) throw new Error(`Bilinmeyen iş: ${action}`);
   if ((action === 'remind' || action === 'command') && !String(text).trim()) throw new Error('Ne hatırlatayım ya da ne yapayım? text boş.');
   if (!at && !until) throw new Error('Ne zaman? Bir saat (at), bir süre (in_minutes) ya da bir koşul (until) ver.');
@@ -178,8 +181,10 @@ export function addJob({ action, text = '', at = null, until = null, every, coun
     every: every || (until?.claude ? 30_000 : 5 * MIN),
     countdown: countdown ?? (OFF.has(action) ? 30 : 0),
     expires: until ? now + EXPIRES_MS : null,
-    nextCheck: now
+    nextCheck: now,
+    chatId
   };
+  job.label = { what: whatLabel(job), when: capital(whenPart(job)) }; // JEVIS.app's menu shows these as they are
   saveJobs([...listJobs(), job]);
   return job;
 }
@@ -193,7 +198,6 @@ export function confirmText(job) {
   return lines.join(' ');
 }
 
-const capital = t => t.charAt(0).toLocaleUpperCase('tr') + t.slice(1);
 
 /** The list order: a running countdown first, then the soonest time, then the watches. */
 export function sortedJobs(jobs = listJobs()) {
@@ -207,13 +211,15 @@ export function jobView(job) {
     id: job.id,
     kind: job.until ? 'watch' : 'timer',
     action: job.action,
-    what: job.action === 'command' ? capital(job.text) : job.action === 'remind' ? `Hatırlat: "${job.text}"` : capital(whatText(job)),
+    what: whatLabel(job),
     when: capital(whenPart(job)),
     at: job.at,
     said: job.said || '',
     note: job.lastNote || '',
     firing: job.firing ? { started: job.firing, seconds: job.countdown } : null,
-    created: job.created
+    created: job.created,
+    chatId: job.chatId || null,
+    source: job.source || ''
   };
 }
 
@@ -438,7 +444,7 @@ async function fire(job) {
     else if (runCommandFn) await runCommandFn(job.text, job);
     else {
       const { runCommand } = await import('./runner.js');
-      await runCommand({ text: job.text, source: 'timer' });
+      await runCommand({ text: job.text, source: 'timer', chatId: job.chatId, switchChat: false });
     }
   } catch (err) {
     alertUser(`Zamanlanmış iş yapılamadı (${describe(job)}): ${err.message}`, { title: TITLE, imessage: true });

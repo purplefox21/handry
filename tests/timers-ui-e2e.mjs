@@ -22,6 +22,7 @@ const env = {
 };
 Object.assign(process.env, env);
 const timers = await import('../core/timers.js');
+const chats = await import('../core/chats.js');
 
 const server = spawn(process.execPath, [new URL('../app/server.js', import.meta.url).pathname], { env: { ...process.env, ...env, PORT: String(PORT) }, stdio: ['ignore', 'pipe', 'inherit'] });
 await new Promise(r => server.stdout.once('data', r));
@@ -128,6 +129,31 @@ try {
     await page.click('.timer-x');
     await page.waitForFunction(() => document.getElementById('timersChip').hidden, null, { timeout: 5000 });
     return { ok: rows.join() === 'Ekranı kilitle' && asked && !timers.listJobs().length, note: rows.join(', ') };
+  });
+
+  await check('Zamanlayıcıya tıklayınca kurulduğu sohbet açılıyor (pencere ve çubuk)', async () => {
+    const asked = chats.newChat();
+    chats.addUser(asked, '14 dk sonra spotifydan need for speed çal', 'bar');
+    const other = chats.newChat();
+    chats.addUser(other, 'başka bir konu', 'window');
+    const job = timers.addJob({ action: 'command', text: 'zamanlayıcılar neler', at: Date.now() + 3600000, said: '14 dk sonra spotifydan need for speed çal', chatId: asked.id });
+    await page.goto(`${BASE}/`);
+    await page.waitForFunction(() => document.getElementById('timersBadge').textContent === '1');
+    await page.click('#timersBtn');
+    await page.click(`.timer-item[data-id="${job.id}"] .timer-title`);
+    await page.waitForFunction(() => document.getElementById('timersDrawer').hidden, null, { timeout: 5000 });
+    const title = (await page.textContent('#chatTitle')).trim();
+    const shown = await texts('.msg-user');
+    const windowOk = title.startsWith('14 dk sonra') && shown.some(t => t.includes('need for speed')) && chats.peekChat().id === asked.id;
+    chats.switchChat(other.id);
+    await page.goto(`${BASE}/bar.html`);
+    await page.waitForFunction(() => !document.getElementById('timersChip').hidden);
+    await page.click('#timersChip');
+    await page.click('.timer-row-title');
+    await waitFor(() => chats.peekChat().id === asked.id, 3000);
+    const barOk = chats.peekChat().id === asked.id;
+    timers.cancelJobs('all');
+    return { ok: windowOk && barOk, note: `pencere: ${title} · çubuk sonrası açık sohbet: ${chats.peekChat().title}` };
   });
 
   await check('Sayfa hatası yok', () => ({ ok: !errors.length, note: errors.join('\n') }));

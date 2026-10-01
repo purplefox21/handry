@@ -542,3 +542,5 @@ kbd {
 .timer-said { font-size: 12px; color: var(--text-3); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .timer-cancel { flex: none; }
 .timer-cancel.sure, #cancelAllTimers.sure { background: var(--red); color: #fff; }
+.timer-item.linked { cursor: pointer; }
+.timer-item.linked:hover { border-color: var(--border-strong); }

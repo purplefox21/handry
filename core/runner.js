@@ -73,7 +73,7 @@ export async function runRecipeWithHandoff({ name, vars, brain, sessionId, onEve
  * chat: false keeps the command out of the chats (tests, jevis_do from other
  * Claude sessions). chatId picks a chat; otherwise the current one is used.
  */
-export async function runCommand({ text, brainId = config().brain.default, sessionId, fast = true, model, effort, onEvent = () => {}, signal, brainOverride, chatId, source, chat: useChat = process.env.JEVIS_NO_CHAT !== '1' }) {
+export async function runCommand({ text, brainId = config().brain.default, sessionId, fast = true, model, effort, onEvent = () => {}, signal, brainOverride, chatId, switchChat = true, source, chat: useChat = process.env.JEVIS_NO_CHAT !== '1' }) {
   const started = Date.now();
   const runId = `run-${Date.now().toString(36)}`;
   const finish = (out, extra = {}) => ({ type: 'done', runId, ms: Date.now() - started, ...out, ...extra });
@@ -86,7 +86,10 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
   process.env.JEVIS_RUN_ID = runId; // every logged action of this run carries it
   saveState({ lastRunId: runId });
   clearStop(); // a new command from the user means "go on"
-  const chat = useChat ? currentChat(chatId) : null;
+  const chat = useChat ? currentChat(chatId, { switchTo: switchChat }) : null;
+  const previousChat = process.env.JEVIS_CHAT_ID;
+  if (chat) process.env.JEVIS_CHAT_ID = chat.id; // a timer set now remembers the chat it was asked in
+  else delete process.env.JEVIS_CHAT_ID;
   if (chat) addUser(chat, text, source);
   const steps = [];
   const emit = ev => { if (ev.type === 'tool') steps.push(stepText(ev.name, ev.args)); onEvent(ev); };
@@ -140,5 +143,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
   } finally {
     if (previousRun === undefined) delete process.env.JEVIS_RUN_ID;
     else process.env.JEVIS_RUN_ID = previousRun;
+    if (previousChat === undefined) delete process.env.JEVIS_CHAT_ID;
+    else process.env.JEVIS_CHAT_ID = previousChat;
   }
 }

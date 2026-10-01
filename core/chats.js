@@ -59,11 +59,15 @@ export function listChats() {
   }).filter(Boolean).sort((a, b) => b.updated - a.updated);
 }
 
-/** The chat to use: the given one, else the current one unless it has been quiet for 2 hours. */
-export function currentChat(id) {
+/**
+ * The chat to use: the given one, else the current one unless it has been
+ * quiet for 2 hours. switchTo: false writes to the given chat without making
+ * it the current one (a timer's result goes back to where it was asked).
+ */
+export function currentChat(id, { switchTo = true } = {}) {
   const asked = loadChat(id);
   if (asked) {
-    if (loadState().chat !== asked.id) saveState({ chat: asked.id });
+    if (switchTo && loadState().chat !== asked.id) saveState({ chat: asked.id });
     return asked;
   }
   const current = loadChat(loadState().chat);

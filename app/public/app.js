@@ -558,14 +558,30 @@ async function refreshTimers() {
   if (openDrawerId === 'timersDrawer') renderTimers();
 }
 
+/** Shows a chat in the window (also called by JEVIS.app's menu: "Sohbeti Aç"). */
+async function openChatById(id) {
+  if (state.running) { toast('Önce çalışan işi bitir ya da durdur.'); return false; }
+  const res = await api('/api/chats/switch', { method: 'POST', body: JSON.stringify({ id }) });
+  if (!res.ok) { toast('Bu sohbet artık yok.'); return false; }
+  renderChat((await res.json()).chat);
+  closeDrawer();
+  return true;
+}
+
 function timerItem(job) {
-  const item = el('div', 'timer-item');
+  const item = el('div', `timer-item${job.chatId ? ' linked' : ''}`);
   item.dataset.id = job.id;
+  // A click opens the chat the timer was asked in.
+  if (job.chatId) {
+    item.title = 'Bu zamanlayıcının kurulduğu sohbeti aç';
+    item.addEventListener('click', () => openChatById(job.chatId));
+  }
   const mark = el('span', 'timer-icon');
   mark.append(icon(timerIcon(job)));
   const text = el('div', 'timer-text');
   text.append(el('div', 'timer-title', job.what), el('div', 'timer-sub'));
-  if (job.said) text.append(el('div', 'timer-said', `“${job.said}”`));
+  const from = job.source === 'mcp' ? "VS Code'dan kuruldu" : '';
+  if (job.said || from) text.append(el('div', 'timer-said', [job.said && `“${job.said}”`, from].filter(Boolean).join(' · ')));
   const cancel = el('button', 'btn btn-danger-ghost timer-cancel', 'İptal');
   cancel.type = 'button';
   const done = async () => {
@@ -574,7 +590,7 @@ function timerItem(job) {
     refreshTimers();
   };
   // A running shutdown countdown is cancelled at once; anything else asks first.
-  if (job.firing) cancel.addEventListener('click', done);
+  if (job.firing) cancel.addEventListener('click', e => { e.stopPropagation(); done(); });
   else twoStep(cancel, 'Emin misin?', done);
   item.append(mark, text, cancel);
   return item;

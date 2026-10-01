@@ -397,6 +397,11 @@ Kullanıcının gerçek sohbetinden: "saat 01:01 olunca … ekranı kilitle" ded
   - Çubukta "⏰ 2" düğmesi → kısa liste, her satırda ✕ (iki basış). Kapatma geri sayımı başlayınca çubukta büyük kırmızı "İptal" düğmesi; geri sayım bitene kadar çubuk kapanmıyor. Zamanlayıcı bildirimleri çubukta "giriş bekleniyor" gibi değil, haber olarak görünüyor.
   - Liste birkaç saniyede bir tazeleniyor; çubuktan, sesle ya da başka bir Claude oturumundan kurulan iş kendiliğinden görünüyor. Sunucu: `GET /api/timers` (sıralı: geri sayım, en yakın saat, koşullular), `POST /api/timers/cancel` (`id` ya da `all`).
   - `tests/timers-ui-e2e.mjs` **9/9** (görünmez Chrome, ayrı sunucu, geçici klasör, ses yok): 2 zamanlayıcı + 1 koşul, ortadakine iptal → diğer ikisi yapıldı, iptal edilen hiç yapılmadı; tek basış iptal etmiyor; "Hepsini iptal et"; çubukta geri sayım İptal ile durdu, Mac "kapanmadı"; açık ve koyu temada ekran görüntüleriyle bakıldı.
+- [x] **Zamanlayıcıdan sohbete ve menü çubuğu** (kullanıcı: "tıklayınca hangi sohbette istemişsem o açılsın"; "⚡ genişlesin, tıklayınca görevleri liste olarak görelim"):
+  - Her iş kurulduğu sohbeti hatırlıyor (`chatId`; çalıştırıcı `JEVIS_CHAT_ID`'yi araçlara ve beynin MCP sunucusuna veriyor). Listede işe tıklayınca o sohbet açılıyor (pencerede doğrudan, çubukta büyük pencereyi açarak). VS Code'dan kurulanlarda "VS Code'dan kuruldu" yazıyor.
+  - Saati gelen komut sonucunu kurulduğu sohbete yazıyor; o an açık olan sohbet değişmiyor (`currentChat(id, { switchTo: false })`).
+  - JEVIS.app menü çubuğu: iş varken ⚡ sola doğru genişliyor ("⚡ ⏰ 8:12 · 2", geri sayımda "⚡ ⏻ 27 sn", sadece koşul varsa "⚡ 👀 1"); `~/.jevis/timers.json`'a saniyede bir bakıyor. Menünün en üstünde zamanlayıcılar (alt yazıda saat ve kalan süre ya da son bakış), her birinde "Kurulduğu Sohbeti Aç" / "İptal Et", birden fazlaysa "Hepsini İptal Et". İşin yazısı JEVIS'ten geliyor (`label`), menü olduğu gibi gösteriyor; iptal ve sohbet açma sayfanın kendi fonksiyonlarıyla (jetonlu API).
+  - Testler: timers-e2e **15/15**, timers-ui-e2e **10/10**, chats-e2e 9/9, mcp-smoke 11/11.
 - Not: bu işin testi sırasında eski hâliyle "bunu bir daha yap" (önceki cevap Spotify'dı) hızlı yoldan play/pause'a gitti ve kullanıcının Spotify'ını iki kez durdurup başlattı (sonuç: eski hâli, duraklatılmış). Düzeltildi: geri gönderen cümleler Claude'a gidiyor, router-e2e'de 3 cümleyle test ediliyor.
 
 ## 7. Sınırlar ve riskler
@@ -498,6 +503,8 @@ Kullanıcının gerçek sohbetinden: "saat 01:01 olunca … ekranı kilitle" ded
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-10-01:** Zamanlayıcıya tıklayınca kurulduğu sohbet açılıyor; zamanlanan komut sonucu o sohbete yazıyor; JEVIS.app menü çubuğunda ⚡ zamanlayıcıyla genişliyor, menüde liste (Sohbeti Aç / İptal Et).
 
 - **2026-10-01:** Zamanlayıcı listesi: büyük pencerede ⏰ çekmecesi, çubukta "⏰ N" ve geri sayımda büyük İptal; tek tek ya da hepsini iptal (iki basış). timers-ui-e2e 9/9.
 

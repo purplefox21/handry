@@ -258,14 +258,14 @@ const server = http.createServer(async (req, res) => {
 });
 
 // Scheduled "command" tasks run like a command from the user, once nothing else is running.
-async function runScheduled(text) {
+async function runScheduled(text, job = {}) {
   for (let i = 0; i < 300 && activeRun; i++) await new Promise(r => setTimeout(r, 2000));
   if (activeRun) throw new Error('JEVIS 10 dakikadır başka bir işle meşgul');
   const controller = new AbortController();
   activeRun = { controller };
   const entry = { at: Date.now(), source: 'timer', text, tools: 0 };
   try {
-    const done = await runCommand({ text, source: 'timer', signal: controller.signal, onEvent: ev => { if (ev.type === 'tool') entry.tools++; } });
+    const done = await runCommand({ text, source: 'timer', chatId: job.chatId, switchChat: false, signal: controller.signal, onEvent: ev => { if (ev.type === 'tool') entry.tools++; } });
     Object.assign(entry, { id: done.runId, answer: done.text, ms: done.ms, fast: done.fast, brain: done.brain });
   } finally {
     activeRun = null;

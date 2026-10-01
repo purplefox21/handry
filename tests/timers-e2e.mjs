@@ -205,6 +205,21 @@ try {
     return { ok: list.fast && /kapat/.test(list.text) && cancel.fast && /İptal edildi/.test(cancel.text) && !timers.listJobs().length, note: `${list.text}\n${cancel.text}` };
   });
 
+  await check('Zamanlanan komut, kurulduğu sohbete yazılıyor; o an açık olan sohbet değişmiyor', async () => {
+    reset();
+    const chats = await import('../core/chats.js');
+    const out = await say('bilgisayarı 2 saat sonra kapat');
+    const asked = out.chat.id;
+    const job = timers.listJobs()[0];
+    chats.newChat(); // the user has moved on to another chat
+    const current = chats.peekChat().id;
+    timers.cancelJobs('all');
+    timers.addJob({ action: 'command', text: 'zamanlayıcılar neler', at: Date.now() + 300, chatId: job.chatId });
+    const ran = await waitFor(() => chats.loadChat(asked).entries.some(e => e.source === 'timer'), 15000);
+    await waitFor(() => chats.loadChat(asked).entries.at(-1)?.role === 'jevis', 10000);
+    return { ok: job.chatId === asked && ran && chats.peekChat().id === current && !chats.loadChat(current).entries.length, note: `iş: ${job.chatId} · sohbet: ${asked} · açık olan: ${chats.peekChat().id}` };
+  });
+
   await check('"bilgisayarı kapatma": bekleyen kapatmayı iptal ediyor', async () => {
     reset();
     timers.addJob({ action: 'shutdown', at: Date.now() + 3600000 });

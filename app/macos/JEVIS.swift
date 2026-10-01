@@ -31,8 +31,9 @@ final class BarPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindowDelegate, WKScriptMessageHandler {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindowDelegate, WKScriptMessageHandler, NSMenuDelegate {
     var statusItem: NSStatusItem!
+    var flashUntil = Date.distantPast // the ⛔ after an emergency stop stays a moment
     var window: NSWindow!
     var webView: WKWebView!
     var bar: BarPanel!
@@ -54,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         buildBar()
         setUpListener()
         watchAttention()
+        watchTimers()
         registerHotKeys()
         showBar(mode: "type")
         loadWhenReady()
@@ -154,7 +156,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.title = "⚡"
         statusItem.button?.toolTip = "JEVIS"
+        statusItem.button?.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         let menu = NSMenu()
+        menu.delegate = self // the timers are put at the top each time it opens
         menu.addItem(item("JEVIS Çubuğu   ⌥Space", #selector(toggleBar)))
         menu.addItem(item("Büyük Pencere", #selector(openWindow)))
         menu.addItem(wakeItem())
@@ -180,6 +184,118 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         i.state = UserDefaults.standard.bool(forKey: "heyJev") ? .on : .off
         wakeItems.append(i)
         return i
+    }
+
+    // MARK: Timers in the menu bar
+
+    /// One waiting timer or watch from ~/.jevis/timers.json (JEVIS writes its wording into "label").
+    struct TimerJob {
+        let id: String, what: String, when: String, note: String
+        let at: Double?, watch: Bool, firingEnd: Double?, chatId: String?
+    }
+
+    func readTimers() -> [TimerJob] {
+        guard let data = FileManager.default.contents(atPath: "\(HOME)/.jevis/timers.json"),
+              let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
+        return list.compactMap { j in
+            guard let id = j["id"] as? String else { return nil }
+            let label = j["label"] as? [String: Any]
+            let countdown = j["countdown"] as? Double ?? 0
+            return TimerJob(id: id,
+                            what: label?["what"] as? String ?? j["text"] as? String ?? "Zamanlanmış iş",
+                            when: label?["when"] as? String ?? "",
+                            note: j["lastNote"] as? String ?? "",
+                            at: j["at"] as? Double,
+                            watch: j["until"] is [String: Any],
+                            firingEnd: (j["firing"] as? Double).map { $0 + countdown * 1000 },
+                            chatId: j["chatId"] as? String)
+        }
+    }
+
+    /// "8:12" under an hour, "2 sa 14 dk" above.
+    func timeLeft(_ ms: Double) -> String {
+        let s = max(0, Int((ms / 1000).rounded()))
+        return s >= 3600 ? "\(s / 3600) sa \((s % 3600) / 60) dk" : String(format: "%d:%02d", s / 60, s % 60)
+    }
+
+    /// The ⚡ widens to the left while something waits: the nearest time, how many there are, a shutdown countdown.
+    func watchTimers() {
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self, Date() > self.flashUntil else { return }
+            let jobs = self.readTimers()
+            let now = Date().timeIntervalSince1970 * 1000
+            var title = "⚡"
+            if let end = jobs.compactMap({ $0.firingEnd }).min() {
+                title = "⚡ ⏻ \(max(0, Int(((end - now) / 1000).rounded(.up)))) sn"
+            } else if let next = jobs.compactMap({ $0.at }).filter({ $0 > now - 60000 }).min() {
+                title = "⚡ ⏰ \(self.timeLeft(next - now))" + (jobs.count > 1 ? " · \(jobs.count)" : "")
+            } else if !jobs.isEmpty {
+                title = "⚡ 👀 \(jobs.count)"
+            }
+            if self.statusItem.button?.title != title { self.statusItem.button?.title = title }
+            self.statusItem.button?.toolTip = jobs.isEmpty ? "JEVIS" : "JEVIS · \(jobs.count) zamanlanmış iş"
+        }
+    }
+
+    /// Before the menu opens: the timers at the top, each with "Sohbeti Aç" / "İptal Et".
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu === statusItem.menu else { return }
+        for old in menu.items where old.tag == 900 { menu.removeItem(old) }
+        let jobs = readTimers()
+        guard !jobs.isEmpty else { return }
+        let now = Date().timeIntervalSince1970 * 1000
+        var added: [NSMenuItem] = []
+        let header = NSMenuItem(title: "Zamanlayıcılar", action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        added.append(header)
+        for job in jobs {
+            let icon = job.firingEnd != nil ? "⏻" : job.watch && job.at == nil ? "👀" : "⏰"
+            let row = NSMenuItem(title: "\(icon) \(job.what)", action: nil, keyEquivalent: "")
+            if let end = job.firingEnd {
+                row.subtitle = "\(timeLeft(end - now)) sonra"
+            } else if let at = job.at, !job.watch {
+                row.subtitle = "\(job.when) · \(timeLeft(at - now)) kaldı"
+            } else {
+                row.subtitle = job.note.isEmpty ? job.when : "\(job.when) · \(job.note)"
+            }
+            let sub = NSMenu()
+            if let chat = job.chatId {
+                let open = item("Kurulduğu Sohbeti Aç", #selector(openTimerChat(_:)))
+                open.representedObject = chat
+                sub.addItem(open)
+            }
+            let cancel = item("İptal Et", #selector(cancelTimerItem(_:)))
+            cancel.representedObject = job.id
+            sub.addItem(cancel)
+            row.submenu = sub
+            added.append(row)
+        }
+        if jobs.count > 1 {
+            let all = item("Hepsini İptal Et", #selector(cancelTimerItem(_:)))
+            all.representedObject = "all"
+            added.append(all)
+        }
+        added.append(.separator())
+        for (i, entry) in added.enumerated() {
+            entry.tag = 900
+            menu.insertItem(entry, at: i)
+        }
+    }
+
+    /// Ids are JEVIS's own ("t…", "c…"); anything else is not passed to a page.
+    func safeId(_ id: String) -> Bool {
+        !id.isEmpty && id.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }
+    }
+
+    @objc func cancelTimerItem(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String, safeId(id) else { return }
+        barWeb.evaluateJavaScript("cancelTimer('\(id)').then(() => refreshTimers())")
+    }
+
+    @objc func openTimerChat(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String, safeId(id) else { return }
+        showWindow()
+        webView.evaluateJavaScript("openChatById('\(id)')")
     }
 
     // MARK: Big window
@@ -487,7 +603,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         barWeb.evaluateJavaScript(click)
         listener.cancel()
         statusItem.button?.title = "⛔"
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.statusItem.button?.title = "⚡" }
+        flashUntil = Date().addingTimeInterval(3)
     }
 
     @objc func openInBrowser() {

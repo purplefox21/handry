@@ -93,6 +93,15 @@ function timerRow(job) {
   li.dataset.id = job.id;
   const text = el('div', 'timer-row-text');
   text.append(el('div', 'timer-row-title', job.what), el('div', 'timer-row-sub'));
+  // A click opens the chat it was asked in, in the big window.
+  if (job.chatId) {
+    li.classList.add('linked');
+    li.title = 'Kurulduğu sohbeti aç';
+    text.addEventListener('click', async () => {
+      await api('/api/chats/switch', { method: 'POST', body: JSON.stringify({ id: job.chatId }) });
+      native({ type: 'openMain' });
+    });
+  }
   const x = el('button', 'icon-btn timer-x', '✕');
   x.type = 'button';
   x.title = 'İptal';

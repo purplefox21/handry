@@ -622,7 +622,7 @@ export const TOOLS = [
         condition = { app: until.app, page: until.page, contains: until.contains, expect: until.expect, closed: until.closed };
       }
       const when = in_minutes ? Date.now() + Math.round(in_minutes * 60000) : at ? timers.resolveAt(at) : null;
-      const job = timers.addJob({ action, text: what, at: when, until: condition, every: every_minutes ? every_minutes * 60000 : undefined, countdown: countdown_sec, said, source: process.env.JEVIS_RUN_ID?.startsWith('mcp-') ? 'mcp' : 'jevis' });
+      const job = timers.addJob({ action, text: what, at: when, until: condition, every: every_minutes ? every_minutes * 60000 : undefined, countdown: countdown_sec, said, source: process.env.JEVIS_RUN_ID?.startsWith('mcp-') ? 'mcp' : 'jevis', chatId: process.env.JEVIS_CHAT_ID || null });
       const running = await timers.ensureScheduler();
       return text(`${timers.confirmText(job)}${running ? '' : '\n⚠️ JEVIS uygulaması açık değil; açık olmazsa bu iş çalışmaz.'}`, job);
     }
