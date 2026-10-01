@@ -1,7 +1,9 @@
-// JEVIS app: starts the JEVIS server and shows it two ways:
+// Foxie (JEVIS's app): starts the JEVIS server and shows it three ways:
 //   - the bar: a compact field that drops from the top of the screen
 //     (app/public/bar.html on a floating panel), and
-//   - the big window: the full chat with details and history.
+//   - the big window: the full chat with details and history,
+//   - the fox on the screen (Fox.swift), which shows what Foxie is doing.
+// The permissions window (Permissions.swift) asks for everything in one place.
 // It also owns the microphone (Listener.swift): push to talk, the bar's mic
 // button and "Hey Jev". Built by `node cli.js app build`.
 //   ⌥Space        open / close the bar
@@ -34,6 +36,9 @@ final class BarPanel: NSPanel {
 final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindowDelegate, WKScriptMessageHandler, NSMenuDelegate {
     var statusItem: NSStatusItem!
     var flashUntil = Date.distantPast // the ⛔ after an emergency stop stays a moment
+    var fox: FoxPet?
+    let permissions = PermissionsWindow()
+    var activitySeen: Double = 0
     var window: NSWindow!
     var webView: WKWebView!
     var bar: BarPanel!
@@ -57,8 +62,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         watchAttention()
         watchTimers()
         registerHotKeys()
+        makeFox()
+        watchActivity()
         showBar(mode: "type")
         loadWhenReady()
+        // First launch, or something Foxie needs is missing: the permissions window.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self else { return }
+            if !UserDefaults.standard.bool(forKey: "permissionsShown") || self.permissions.missingNeeded {
+                UserDefaults.standard.set(true, forKey: "permissionsShown")
+                self.permissions.show()
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -81,24 +96,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         let waiting = """
         <meta name="color-scheme" content="light dark">
         <body style="font:15px -apple-system;margin:0;display:flex;align-items:center;gap:10px;height:\(Int(BAR_HEIGHT))px;padding:0 18px;color:#8e8e93;background:transparent">
-        <b style="color:CanvasText;font-weight:600">JEVIS başlıyor…</b> macOS bir izin soruyorsa <b>İzin Ver</b>'e bas.</body>
+        <b style="color:CanvasText;font-weight:600">Foxie başlıyor…</b> macOS bir izin soruyorsa <b>İzin Ver</b>'e bas.</body>
         """
         barReady = false
         barWeb.loadHTMLString(waiting, baseURL: nil)
         webView.loadHTMLString("""
         <meta name="color-scheme" content="light dark">
         <body style="font:15px -apple-system;display:grid;place-items:center;height:90vh;text-align:center;color:#8e8e93">
-        <div><h2 style="color:CanvasText;font-weight:600">JEVIS başlıyor…</h2>
+        <div><h2 style="color:CanvasText;font-weight:600">Foxie başlıyor…</h2>
         <p>macOS bir izin soruyorsa (ör. Masaüstü klasörü) <b>İzin Ver</b>'e bas.</p></div></body>
         """, baseURL: nil)
         startServer { [weak self] ok in
             guard let self else { return }
             if ok {
+                folderAsked("Desktop")
                 self.webView.load(URLRequest(url: URL(string: URL_BASE)!))
                 self.barWeb.load(URLRequest(url: URL(string: URL_BASE + "bar.html")!))
             } else {
-                self.webView.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:15px -apple-system;padding:2em'><h2>JEVIS sunucusu başlamadı</h2><p>Kayıt: ~/.jevis/logs/app-server.log</p><p>Menüden JEVIS › Sunucuyu Yeniden Başlat'ı dene.</p></body>", baseURL: nil)
-                self.barWeb.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:14px -apple-system;margin:0;padding:18px;color:#e5383b;background:transparent'>JEVIS sunucusu başlamadı. Menüden “Sunucuyu Yeniden Başlat”ı dene.</body>", baseURL: nil)
+                self.webView.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:15px -apple-system;padding:2em'><h2>Foxie sunucusu başlamadı</h2><p>Kayıt: ~/.jevis/logs/app-server.log</p><p>Menüden Foxie › Sunucuyu Yeniden Başlat'ı dene.</p></body>", baseURL: nil)
+                self.barWeb.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:14px -apple-system;margin:0;padding:18px;color:#e5383b;background:transparent'>Foxie sunucusu başlamadı. Menüden “Sunucuyu Yeniden Başlat”ı dene.</body>", baseURL: nil)
             }
         }
     }
@@ -108,21 +124,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     func buildMainMenu() {
         let main = NSMenu()
         let appItem = NSMenuItem()
-        let appMenu = NSMenu(title: "JEVIS")
-        appMenu.addItem(NSMenuItem(title: "JEVIS Hakkında", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+        let appMenu = NSMenu(title: "Foxie")
+        appMenu.addItem(NSMenuItem(title: "Foxie Hakkında", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
         appMenu.addItem(.separator())
-        appMenu.addItem(item("JEVIS Çubuğu   ⌥Space", #selector(toggleBar)))
+        appMenu.addItem(item("Foxie Çubuğu   ⌥Space", #selector(toggleBar)))
         appMenu.addItem(item("Büyük Pencere", #selector(openWindow)))
         appMenu.addItem(wakeItem())
         appMenu.addItem(.separator())
-        appMenu.addItem(item("İzinleri Kontrol Et…", #selector(checkPermissions)))
+        appMenu.addItem(item("İzinler…", #selector(checkPermissions)))
         appMenu.addItem(item("Sunucuyu Yeniden Başlat", #selector(restartServer)))
         appMenu.addItem(item("Tarayıcıda Aç", #selector(openInBrowser)))
         appMenu.addItem(.separator())
         appMenu.addItem(item("⛔ Acil Durdur   ⌥Esc", #selector(emergencyStop)))
         appMenu.addItem(.separator())
-        appMenu.addItem(NSMenuItem(title: "JEVIS'i Gizle", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
-        appMenu.addItem(NSMenuItem(title: "JEVIS'ten Çık", action: #selector(quit), keyEquivalent: "q"))
+        appMenu.addItem(NSMenuItem(title: "Foxie'yi Gizle", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
+        appMenu.addItem(NSMenuItem(title: "Foxie'den Çık", action: #selector(quit), keyEquivalent: "q"))
         appItem.submenu = appMenu
         main.addItem(appItem)
 
@@ -154,22 +170,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
     func buildMenu() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.title = "⚡"
-        statusItem.button?.toolTip = "JEVIS"
+        if let url = Bundle.main.url(forResource: "menubar", withExtension: "png"), let glyph = NSImage(contentsOf: url) {
+            glyph.size = NSSize(width: 18, height: 18)
+            glyph.isTemplate = true // macOS colours it for light and dark menu bars
+            statusItem.button?.image = glyph
+            statusItem.button?.imagePosition = .imageLeading
+            statusItem.button?.title = ""
+        } else {
+            statusItem.button?.title = "🦊"
+        }
+        statusItem.button?.toolTip = "Foxie"
         statusItem.button?.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         let menu = NSMenu()
         menu.delegate = self // the timers are put at the top each time it opens
-        menu.addItem(item("JEVIS Çubuğu   ⌥Space", #selector(toggleBar)))
+        menu.addItem(item("Foxie Çubuğu   ⌥Space", #selector(toggleBar)))
         menu.addItem(item("Büyük Pencere", #selector(openWindow)))
         menu.addItem(wakeItem())
         menu.addItem(item("Bas-Konuş   ⌥⇧Space (basılı tut)", #selector(toggleBar)))
         menu.addItem(item("⛔ Acil Durdur   ⌥Esc", #selector(emergencyStop)))
         menu.addItem(.separator())
+        menu.addItem(foxMenuItem())
+        menu.addItem(.separator())
         menu.addItem(item("Tarayıcıda Aç", #selector(openInBrowser)))
-        menu.addItem(item("İzinleri Kontrol Et…", #selector(checkPermissions)))
+        menu.addItem(item("İzinler…", #selector(checkPermissions)))
         menu.addItem(item("Sunucuyu Yeniden Başlat", #selector(restartServer)))
         menu.addItem(.separator())
-        menu.addItem(item("JEVIS'ten Çık", #selector(quit)))
+        menu.addItem(item("Foxie'den Çık", #selector(quit)))
         statusItem.menu = menu
     }
 
@@ -184,6 +210,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         i.state = UserDefaults.standard.bool(forKey: "heyJev") ? .on : .off
         wakeItems.append(i)
         return i
+    }
+
+    // MARK: The fox
+
+    func makeFox() {
+        let dir = Bundle.main.resourceURL?.appendingPathComponent("sprites")
+        let fallback = URL(fileURLWithPath: "\(ROOT)/app/foxie/sprites")
+        fox = FoxPet(spritesDir: dir.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil } ?? fallback)
+        fox?.menuProvider = { [weak self] in self?.foxMenuItem().submenu ?? NSMenu() }
+    }
+
+    /// "Tilki ▸": show or hide it, put it to sleep, its size.
+    func foxMenuItem() -> NSMenuItem {
+        let root = NSMenuItem(title: "Tilki", action: nil, keyEquivalent: "")
+        let menu = NSMenu()
+        menu.delegate = self
+        let toggle = item(fox?.visible == false ? "Tilkiyi Göster" : "Tilkiyi Gizle", #selector(toggleFox))
+        toggle.tag = 910
+        menu.addItem(toggle)
+        menu.addItem(item("Uyut", #selector(foxSleep)))
+        menu.addItem(.separator())
+        for (title, value) in [("Küçük", 0.5), ("Orta", 1.0), ("Büyük", 1.5)] {
+            let size = item(title, #selector(foxSize(_:)))
+            size.representedObject = value
+            size.tag = 911
+            size.state = abs(Double(fox?.scale ?? 0) - value) < 0.01 ? .on : .off
+            menu.addItem(size)
+        }
+        root.submenu = menu
+        return root
+    }
+
+    @objc func toggleFox() {
+        guard let fox else { return }
+        if fox.visible { fox.hide() } else { fox.show() }
+    }
+
+    @objc func foxSleep() { fox?.sleepNow() }
+
+    @objc func foxSize(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? Double else { return }
+        fox?.scale = CGFloat(value)
+    }
+
+    /// ~/.jevis/activity.json: what Foxie is doing (written by the server and the JEVIS tools, also in other Claude sessions).
+    func watchActivity() {
+        Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
+            guard let self, let data = FileManager.default.contents(atPath: "\(HOME)/.jevis/activity.json"),
+                  let entry = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let at = entry["at"] as? Double, at > self.activitySeen, let kind = entry["kind"] as? String else { return }
+            let fresh = self.activitySeen > 0 && Date().timeIntervalSince1970 * 1000 - at < 10000
+            self.activitySeen = at
+            if fresh { self.fox?.react(kind: kind, app: entry["app"] as? String) }
+        }
     }
 
     // MARK: Timers in the menu bar
@@ -218,27 +298,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         return s >= 3600 ? "\(s / 3600) sa \((s % 3600) / 60) dk" : String(format: "%d:%02d", s / 60, s % 60)
     }
 
-    /// The ⚡ widens to the left while something waits: the nearest time, how many there are, a shutdown countdown.
+    /// The fox in the menu bar widens to the left while something waits: the nearest time, how many there are, a shutdown countdown.
     func watchTimers() {
         Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self, Date() > self.flashUntil else { return }
             let jobs = self.readTimers()
             let now = Date().timeIntervalSince1970 * 1000
-            var title = "⚡"
+            let mark = self.statusItem.button?.image == nil ? "🦊" : ""
+            var title = mark
             if let end = jobs.compactMap({ $0.firingEnd }).min() {
-                title = "⚡ ⏻ \(max(0, Int(((end - now) / 1000).rounded(.up)))) sn"
+                title = "\(mark) ⏻ \(max(0, Int(((end - now) / 1000).rounded(.up)))) sn"
             } else if let next = jobs.compactMap({ $0.at }).filter({ $0 > now - 60000 }).min() {
-                title = "⚡ ⏰ \(self.timeLeft(next - now))" + (jobs.count > 1 ? " · \(jobs.count)" : "")
+                title = "\(mark) ⏰ \(self.timeLeft(next - now))" + (jobs.count > 1 ? " · \(jobs.count)" : "")
             } else if !jobs.isEmpty {
-                title = "⚡ 👀 \(jobs.count)"
+                title = "\(mark) 👀 \(jobs.count)"
             }
             if self.statusItem.button?.title != title { self.statusItem.button?.title = title }
-            self.statusItem.button?.toolTip = jobs.isEmpty ? "JEVIS" : "JEVIS · \(jobs.count) zamanlanmış iş"
+            self.statusItem.button?.toolTip = jobs.isEmpty ? "Foxie" : "Foxie · \(jobs.count) zamanlanmış iş"
         }
     }
 
     /// Before the menu opens: the timers at the top, each with "Sohbeti Aç" / "İptal Et".
     func menuNeedsUpdate(_ menu: NSMenu) {
+        for entry in menu.items where entry.tag == 910 { entry.title = fox?.visible == false ? "Tilkiyi Göster" : "Tilkiyi Gizle" }
+        for entry in menu.items where entry.tag == 911 { entry.state = abs(Double(fox?.scale ?? 0) - (entry.representedObject as? Double ?? -1)) < 0.01 ? .on : .off }
         guard menu === statusItem.menu else { return }
         for old in menu.items where old.tag == 900 { menu.removeItem(old) }
         let jobs = readTimers()
@@ -306,7 +389,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         webView.uiDelegate = self
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 920, height: 760),
                           styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
-        window.title = "JEVIS"
+        window.title = "Foxie"
         window.contentView = webView
         window.delegate = self
         window.isReleasedWhenClosed = false
@@ -470,7 +553,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             if id != self.attentionId, !resolved, let at = entry["at"] as? Double, Date().timeIntervalSince1970 * 1000 - at < 15000 {
                 self.attentionId = id
                 self.showBarPassive()
-                self.sendAttention(["type": "show", "title": entry["title"] ?? "JEVIS", "message": entry["message"] ?? ""])
+                self.sendAttention(["type": "show", "title": entry["title"] ?? "Foxie", "message": entry["message"] ?? ""])
             } else if id == self.attentionId, resolved {
                 self.attentionId = ""
                 self.sendAttention(["type": "resolved"])
@@ -522,6 +605,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     }
 
     func sendVoice(_ event: [String: Any]) {
+        switch event["type"] as? String {
+        case "start": fox?.setListening(true)
+        case "final", "cancel", "error": fox?.setListening(false)
+        default: break
+        }
         guard let data = try? JSONSerialization.data(withJSONObject: event), let json = String(data: data, encoding: .utf8) else { return }
         barWeb.evaluateJavaScript("window.jevisBar && window.jevisBar.voice(\(json))")
     }
@@ -531,7 +619,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             guard let self else { return }
             guard mic else {
                 self.showBar(mode: "voice")
-                self.sendVoice(["type": "error", "message": "Mikrofon izni yok: Sistem Ayarları › Gizlilik ve Güvenlik › Mikrofon'da JEVIS'i aç."])
+                self.sendVoice(["type": "error", "message": "Mikrofon izni yok: Sistem Ayarları › Gizlilik ve Güvenlik › Mikrofon'da Foxie'yi aç."])
                 return
             }
             self.showBar(mode: "voice")
@@ -602,7 +690,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         webView.evaluateJavaScript(click)
         barWeb.evaluateJavaScript(click)
         listener.cancel()
-        statusItem.button?.title = "⛔"
+        statusItem.button?.title = " ⛔"
         flashUntil = Date().addingTimeInterval(3)
     }
 
@@ -610,21 +698,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         NSWorkspace.shared.open(URL(string: URL_BASE)!)
     }
 
-    @objc func checkPermissions() {
-        let trusted = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
-        let screen = CGPreflightScreenCaptureAccess() || CGRequestScreenCaptureAccess()
-        Listener.requestPermissions { mic, speech in
-            let alert = NSAlert()
-            alert.messageText = "JEVIS izinleri"
-            alert.informativeText = """
-            Erişilebilirlik: \(trusted ? "✅" : "❌ Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik")
-            Ekran Kaydı: \(screen ? "✅" : "❌ Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi Kaydı")
-            Mikrofon: \(mic ? "✅" : "❌ Sistem Ayarları › Gizlilik ve Güvenlik › Mikrofon")
-            Konuşma Tanıma: \(speech ? "✅" : "❌ Sistem Ayarları › Gizlilik ve Güvenlik › Konuşma Tanıma")
-            """
-            alert.runModal()
-        }
-    }
+    @objc func checkPermissions() { permissions.show() }
 
     @objc func restartServer() {
         let old = server

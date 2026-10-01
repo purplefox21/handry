@@ -1,56 +1,74 @@
-// Draws the JEVIS app icon as a 1024×1024 PNG: a white lightning bolt on a
-// blue-to-violet rounded square, on the macOS icon grid (824 px body, soft
-// shadow). Usage: icon <out.png>
+// Draws Foxie's icons from the fox sprite itself (app/foxie/sprites/idle/0001.png):
+//   - the app icon, 1024×1024: the fox's head and shoulders, scaled up pixel
+//     for pixel (no smoothing), on a deep purple rounded square (purpfox's
+//     colour) on the macOS icon grid (824 px body, soft shadow);
+//   - the menu bar icon, 36×36: a simple fox head glyph in black (a template
+//     image: macOS colours it for light and dark menu bars).
+// Usage: icon <sprite.png> <app-icon.png> <menubar.png>
 import AppKit
 
-let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1024, pixelsHigh: 1024, bitsPerSample: 8, samplesPerPixel: 4,
-                           hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
-NSGraphicsContext.saveGraphicsState()
-NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-let ctx = NSGraphicsContext.current!.cgContext
+let args = CommandLine.arguments
+guard args.count == 4, let sprite = NSImage(contentsOfFile: args[1])?.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+    print("Kullanım: icon <sprite.png> <app-icon.png> <menubar.png>")
+    exit(1)
+}
 let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
 let color = { (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat) in CGColor(colorSpace: srgb, components: [r, g, b, a])! }
 
-// Body with its drop shadow.
+// Where the head is in the 180×146 sitting frame (sprite pixels, top-left origin).
+let bust = CGRect(x: 100, y: 24, width: 64, height: 64)   // ears, head, chest
+
+func bitmap(_ w: Int, _ h: Int) -> CGContext {
+    CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: srgb,
+              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+}
+
+func write(_ ctx: CGContext, _ path: String) {
+    let rep = NSBitmapImageRep(cgImage: ctx.makeImage()!)
+    try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
+}
+
+// MARK: App icon
+
+let icon = bitmap(1024, 1024)
 let body = CGRect(x: 100, y: 100, width: 824, height: 824)
 let shape = CGPath(roundedRect: body, cornerWidth: 185, cornerHeight: 185, transform: nil)
-ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: 0, height: -12), blur: 28, color: color(0, 0, 0, 0.32))
-ctx.addPath(shape)
-ctx.setFillColor(color(0.24, 0.55, 1.0, 1))
-ctx.fillPath()
-ctx.restoreGState()
+icon.saveGState()
+icon.setShadow(offset: CGSize(width: 0, height: -12), blur: 28, color: color(0, 0, 0, 0.32))
+icon.addPath(shape)
+icon.setFillColor(color(0.17, 0.09, 0.30, 1))
+icon.fillPath()
+icon.restoreGState()
 
-// Blue (top left) to violet (bottom right), with a soft light from the top.
-ctx.saveGState()
-ctx.addPath(shape)
-ctx.clip()
-let fill = CGGradient(colorsSpace: srgb, colors: [color(0.24, 0.55, 1.0, 1), color(0.54, 0.36, 0.96, 1)] as CFArray, locations: [0, 1])!
-ctx.drawLinearGradient(fill, start: CGPoint(x: 100, y: 924), end: CGPoint(x: 924, y: 100), options: [])
-let glow = CGGradient(colorsSpace: srgb, colors: [color(1, 1, 1, 0.24), color(1, 1, 1, 0)] as CFArray, locations: [0, 1])!
-ctx.drawRadialGradient(glow, startCenter: CGPoint(x: 512, y: 960), startRadius: 0, endCenter: CGPoint(x: 512, y: 960), endRadius: 640, options: [])
-ctx.restoreGState()
+icon.saveGState()
+icon.addPath(shape)
+icon.clip()
+// Night purple, lighter towards the top, with a soft glow behind the head.
+let fill = CGGradient(colorsSpace: srgb, colors: [color(0.36, 0.20, 0.62, 1), color(0.13, 0.07, 0.24, 1)] as CFArray, locations: [0, 1])!
+icon.drawLinearGradient(fill, start: CGPoint(x: 512, y: 924), end: CGPoint(x: 512, y: 100), options: [])
+let glow = CGGradient(colorsSpace: srgb, colors: [color(1, 0.62, 0.30, 0.30), color(1, 0.62, 0.30, 0)] as CFArray, locations: [0, 1])!
+icon.drawRadialGradient(glow, startCenter: CGPoint(x: 512, y: 560), startRadius: 0, endCenter: CGPoint(x: 512, y: 560), endRadius: 420, options: [])
+// The bust, 11 screen pixels per sprite pixel, standing on the bottom edge.
+let scale: CGFloat = 11
+let crop = sprite.cropping(to: bust)!
+icon.interpolationQuality = .none
+icon.draw(crop, in: CGRect(x: 512 - bust.width * scale / 2 + 20, y: 100, width: bust.width * scale, height: bust.height * scale))
+icon.restoreGState()
+write(icon, args[2])
 
-// The bolt: the same "zap" shape as in the chat window, on a 24-unit grid.
-let points: [(CGFloat, CGFloat)] = [(13, 2), (3, 14), (12, 14), (11, 22), (21, 10), (12, 10)]
-let unit: CGFloat = 0.6 * 824 / 24
-let bolt = CGMutablePath()
-for (i, p) in points.enumerated() {
-    let point = CGPoint(x: 512 + (p.0 - 12) * unit, y: 512 - (p.1 - 12) * unit) // y grows upward here
-    if i == 0 { bolt.move(to: point) } else { bolt.addLine(to: point) }
-}
-bolt.closeSubpath()
-ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: 0, height: -10), blur: 26, color: color(0.12, 0.06, 0.42, 0.45))
-ctx.beginTransparencyLayer(auxiliaryInfo: nil) // one shadow for fill and outline together
-ctx.addPath(bolt)
-ctx.setFillColor(color(1, 1, 1, 1))
-ctx.setStrokeColor(color(1, 1, 1, 1))
-ctx.setLineJoin(.round)
-ctx.setLineWidth(unit * 1.6)
-ctx.drawPath(using: .fillStroke)
-ctx.endTransparencyLayer()
-ctx.restoreGState()
+// MARK: Menu bar icon (template: only the shape counts)
 
-NSGraphicsContext.restoreGraphicsState()
-try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: CommandLine.arguments[1]))
+// A fox head seen from the front, simple enough to read at 18 points: two
+// pointed ears, wide cheeks, the chin as the snout, and the eyes left open.
+let bar = bitmap(36, 36)
+let face = CGMutablePath()
+face.addLines(between: [CGPoint(x: 4, y: 34), CGPoint(x: 13, y: 26), CGPoint(x: 23, y: 26), CGPoint(x: 32, y: 34),
+                        CGPoint(x: 30, y: 20), CGPoint(x: 34, y: 15), CGPoint(x: 18, y: 2), CGPoint(x: 2, y: 15), CGPoint(x: 6, y: 20)])
+face.closeSubpath()
+bar.addPath(face)
+bar.setFillColor(color(0, 0, 0, 1))
+bar.fillPath()
+bar.setBlendMode(.clear)
+bar.fill(CGRect(x: 10, y: 15, width: 4, height: 4))
+bar.fill(CGRect(x: 22, y: 15, width: 4, height: 4))
+write(bar, args[3])

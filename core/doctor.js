@@ -85,11 +85,11 @@ export async function doctor() {
 
   lines.push(await reachable(`http://127.0.0.1:${c.server.port}/`)
     ? ok('Sohbet sunucusu', `http://localhost:${c.server.port}`)
-    : `➖ Sohbet sunucusu — kapalı (npm start ya da JEVIS.app)`);
-  lines.push(fs.existsSync(INSTALLED) ? ok('JEVIS.app', INSTALLED) : fs.existsSync(APP) ? `➖ JEVIS.app — derlendi, kurulmadı (node cli.js app install)` : `➖ JEVIS.app — yok (node cli.js app install)`);
+    : `➖ Sohbet sunucusu — kapalı (npm start ya da Foxie.app)`);
+  lines.push(fs.existsSync(INSTALLED) ? ok('Foxie.app', INSTALLED) : fs.existsSync(APP) ? `➖ Foxie.app — derlendi, kurulmadı (node cli.js app install)` : `➖ Foxie.app — yok (node cli.js app install)`);
   lines.push(autostartEnabled() ? ok('Açılışta başlama', 'açık') : '➖ Açılışta başlama — kapalı (node cli.js autostart on)');
   if (ROOT.startsWith(expandHome('~/Desktop')) || ROOT.startsWith(expandHome('~/Documents'))) {
-    lines.push(`ℹ️  Proje ${ROOT} içinde: JEVIS.app ilk açılışta bu klasöre erişim izni ister, "İzin Ver" demen gerekir.`);
+    lines.push(`ℹ️  Proje ${ROOT} içinde: Foxie.app ilk açılışta bu klasöre erişim izni ister, "İzin Ver" demen gerekir.`);
   }
 
   lines.push(ok('Tarifler', `${listRecipes().length} adet`));

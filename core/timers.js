@@ -308,8 +308,8 @@ function takeLock() {
 export async function ensureScheduler() {
   if (schedulerAlive()) return true;
   if (process.env.JEVIS_HOME || process.env.JEVIS_NO_TIMERS === '1') return false; // tests, throwaway homes
-  const app = path.join(os.homedir(), 'Applications', 'JEVIS.app');
-  if (!fs.existsSync(app)) return false;
+  const app = ['Foxie.app', 'JEVIS.app'].map(name => path.join(os.homedir(), 'Applications', name)).find(p => fs.existsSync(p));
+  if (!app) return false;
   execFile('open', ['-g', app], () => {});
   for (let i = 0; i < 60; i++) {
     await sleep(250);
@@ -434,7 +434,7 @@ async function fire(job) {
       resolveAlert(alertId);
       if (!removeJob(job.id)) return; // cancelled at the last moment
       // The user finds out on the phone what happened while they were away.
-      await Promise.race([sendIMessage(`JEVIS: ${reason} Mac'i ${job.action === 'restart' ? 'yeniden başlatıyorum' : 'kapatıyorum'}.`), sleep(20000)]).catch(() => {});
+      await Promise.race([sendIMessage(`Foxie: ${reason} Mac'i ${job.action === 'restart' ? 'yeniden başlatıyorum' : 'kapatıyorum'}.`), sleep(20000)]).catch(() => {});
       await power(job.action);
       return;
     }

@@ -50,7 +50,7 @@ async function ensureTrusted() {
   if (trustedChecked) return;
   const { trusted } = await ax('trusted');
   if (!trusted) {
-    throw new JevisError('NO_PERMISSION', 'Erişilebilirlik izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik bölümünde JEVIS\'i çalıştıran uygulamayı (JEVIS, Terminal ya da VS Code) aç. JEVIS yeni kurulduysa listedeki eski JEVIS\'i − ile silip + ile yeniden ekle.');
+    throw new JevisError('NO_PERMISSION', 'Erişilebilirlik izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik bölümünde Foxie\'yi (ya da JEVIS\'i çalıştıran Terminal / VS Code\'u) aç. Foxie menüsündeki "İzinler…" penceresi doğru sayfayı açar.');
   }
   trustedChecked = true;
 }

@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-const LABEL = 'com.jevis.menubar';
+const LABEL = 'studio.purpfox.foxie';
 export const PLIST = path.join(os.homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
 const domain = () => `gui/${os.userInfo().uid}`;
 

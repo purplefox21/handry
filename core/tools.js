@@ -20,6 +20,7 @@ import * as vault from '../guard/vault.js';
 import { power } from '../hands/power.js';
 import { claudeSessions, formatSessions } from '../hands/claude-sessions.js';
 import * as timers from './timers.js';
+import { setActivity, appOfTool } from './activity.js';
 
 // A tool returns MCP content; `meta` (the raw result) is only used for the log.
 const text = (t, meta) => ({ content: [{ type: 'text', text: t }], meta });
@@ -577,9 +578,9 @@ export const TOOLS = [
         sleep: () => power('sleep'),
         restart: () => power('restart'),
         shutdown: () => power('shutdown'),
-        notify: () => mac.notify(title || 'JEVIS', value),
+        notify: () => mac.notify(title || 'Foxie', value),
         spotify_search: () => mac.playSpotifySearch(value || ''),
-        note: () => mac.createNote(title || 'JEVIS', value || '')
+        note: () => mac.createNote(title || 'Foxie', value || '')
       };
       const r = await actions[action]();
       if (!r.success) throw new Error(r.error || r.message);
@@ -729,6 +730,7 @@ export async function callTool(name, args = {}) {
     return { content: [{ type: 'text', text: '⛔ Kullanıcı acil durdurma yaptı. Hiçbir işlem yapma; kullanıcıya bildir ve yeni talimat bekle.' }], isError: true };
   }
   const started = Date.now();
+  setActivity('tool', { tool: name, app: appOfTool(name, args) });
   try {
     const { meta, ...result } = await tool.run(args);
     const summary = result.content.filter(c => c.type === 'text').map(c => c.text).join(' | ');

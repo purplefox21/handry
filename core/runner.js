@@ -6,6 +6,7 @@ import { runRecipe, listRecipes, slug } from './recipes.js';
 import { learnFromRun, recordOutcome } from './learn.js';
 import { getBrain } from '../brain/index.js';
 import { clearStop } from '../guard/stop.js';
+import { setActivity } from './activity.js';
 import { currentChat, newChat, addUser, addAnswer, brainTurn, brainDone, stepText, NEW_CHAT } from './chats.js';
 import * as desktop from '../hands/desktop.js';
 
@@ -95,6 +96,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
   const emit = ev => { if (ev.type === 'tool') steps.push(stepText(ev.name, ev.args)); onEvent(ev); };
   // Into the chat, with how it was done; the answer names the chat.
   const record = (done, via) => {
+    setActivity(done.stopped ? 'idle' : 'done');
     if (!chat) return done;
     addAnswer(chat, { text: done.text || '', via, steps, ms: done.ms, runId, model: done.model, ok: !done.stopped });
     return { ...done, chat: { id: chat.id, title: chat.title } };
@@ -125,6 +127,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
     const brain = brainFor();
     const usedModel = brain.id === 'claude-code' ? (model || config().brain.providers['claude-code']?.model) : undefined;
     emit({ type: 'status', text: `${thinker(brain, model)} düşünüyor…` });
+    setActivity('thinking');
     // The chat's own session, told what happened without it and what is on screen now.
     const key = `${brain.id}|${usedModel || model || ''}`;
     const turn = chat ? brainTurn(chat, text, { key, screen: await screenNow() }) : { message: text, sessionId, fresh: !sessionId };
@@ -138,6 +141,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
     }
     return record(finish({ text: out.text, sessionId: out.sessionId }, { brain: brain.id, model: usedModel, stopped: Boolean(out.stopped), learned }), 'brain');
   } catch (err) {
+    setActivity(signal?.aborted ? 'idle' : 'error');
     if (chat) addAnswer(chat, { text: signal?.aborted ? 'Durduruldu.' : `Olmadı: ${err.message}`, via: 'error', steps, runId, ok: false });
     throw err;
   } finally {
