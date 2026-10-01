@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-10-01):** Faz 0-10 ✅, sohbetler ✅, zamanlayıcı/nöbet/güç ✅, hızlı yol sohbeti komut sanmıyor ✅. Varsayılan beyin Sonnet 5.5. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
+> **Durum (2026-10-01):** Faz 0-11 ✅ (uygulamanın adı artık Foxie), sohbetler ✅, zamanlayıcı/nöbet/güç ✅, hızlı yol sohbeti komut sanmıyor ✅. Kullanıcı Foxie'nin izinlerini veriyor ve tilkiyi deniyor. Varsayılan beyin Sonnet 5.5. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -407,10 +407,11 @@ Kullanıcının gerçek sohbetinden: "saat 01:01 olunca … ekranı kilitle" ded
 ### Faz 11 — Foxie: yeni ad, izinler ekranı, ekranda gezen tilki (2026-10-01, başladı)
 Kullanıcının istekleri: uygulamanın adı ve ikonu tilkiyle ilgili olsun; arkadaki kimlik de değişsin (sıfırdan kurulum ve izinlerin testi için); tıkla tıkla bütün izinlerin verildiği bir ekran olsun; ekranda arka planı olmayan bir piksel tilki gezsin (yatsın, uyusun, kuyruk sallasın; "Hey Foxie" deyince kulakları dikilsin; iş yaparken ekranın o tarafına koşsun, düşünürken masada kod yazsın); kapatma ve gizleme menü çubuğundan.
 - Görseller kullanıcının Blender → piksel art hattından geldi (`app/foxie/sprites`, tarif `app/foxie/TARIF.md`): 21 animasyon, 878 kare, 180×146 (tutulma 180×190), 24 kare/sn, `manifest.json` (zemin 128, yürüme 36.8 px/sn, koşu 245 px/sn, tutma noktaları). Kontrol: yarı saydam piksel yok, palet sabit (20-28 renk). Görseller değiştirilmez; eksik ya da yanlış olursa kullanıcıya söylenir.
-- [ ] Ad **Foxie**, kimlik `studio.purpfox.foxie`, ikon bu tilkiden. İç adlar (`~/.jevis`, MCP sunucusu `jevis`, araç adları) aynı kalır; kullanıcının gördüğü her yerde Foxie.
-- [ ] İzinler ekranı: Erişilebilirlik, Ekran Kaydı, Mikrofon, Konuşma Tanıma, klasörler, uygulama izinleri (System Events, Spotify, Müzik, Notlar, Anımsatıcılar, Takvim, Mesajlar); canlı ✅/❌, her satırda "İzin Ver"; ilk açılışta ve eksik izin varken kendiliğinden.
-- [ ] Ekranda gezen tilki (Swift, şeffaf ve tıklamaları geçiren pencere): tarifteki davranışlar (yürüme, oturma, sıkılma, uyuma, pencere üstüne zıplama ve onunla gitme, köşede sarkma, kuyruğundan/ensesinden tutup taşıma, düşme) + asistan olayları (çağrılınca `ears_up` → `listen`, düşünürken `desk`, işin yapıldığı yere `run`, bitince `happy`, olmayınca `sad`). Menü çubuğundan göster/gizle/uyut, boyut.
-- [ ] "Hey Foxie" (Türkçe ses tanıma varyantlarıyla), "Hey Jev" de kalır.
+- [x] Ad **Foxie**, kimlik `studio.purpfox.foxie`, ikon bu tilkiden (mor zeminde piksel büst; menü çubuğunda ön cepheden tilki başı şablon simgesi; pencere ve çubuk logosu). İç adlar (`~/.jevis`, MCP sunucusu `jevis`, araç adları) aynı kalır; kullanıcının gördüğü her yerde Foxie.
+- [x] İzinler ekranı (`app/macos/Permissions.swift`, SwiftUI): Erişilebilirlik, Ekran Kaydı, Mikrofon, Konuşma Tanıma, klasörler, uygulama izinleri (System Events, Spotify, Müzik, Notlar, Anımsatıcılar, Takvim, Mesajlar); canlı ✅/❌, her satırda "İzin Ver"; ilk açılışta ve eksik izin varken kendiliğinden.
+- [x] Ekranda gezen tilki (`app/macos/Fox.swift`; şeffaf, sadece tilkinin pikselleri fareyi alıyor; varsayılan boyut Retina'da 0.5 = her sprite pikseli bir ekran pikseli; tam ekran uygulamada saklanıyor; asistan olayları `~/.jevis/activity.json` ile — `core/activity.js`, her araç çağrısı, beyin, uyarılar; VS Code'daki Claude JEVIS araçlarını kullanınca da): tarifteki davranışlar (yürüme, oturma, sıkılma, uyuma, pencere üstüne zıplama ve onunla gitme, köşede sarkma, kuyruğundan/ensesinden tutup taşıma, düşme) + asistan olayları (çağrılınca `ears_up` → `listen`, düşünürken `desk`, işin yapıldığı yere `run`, bitince `happy`, olmayınca `sad`). Menü çubuğundan göster/gizle/uyut, boyut.
+- [x] "Hey Foxie" (foxie, foxy, foksi, fox… varyantları; Listener.swift ve voice/stt.js), "Hey Jev" de kalır. Uçtan uca ses testi (listener-e2e) kullanıcı Foxie'ye Konuşma Tanıma iznini verince çalıştırılacak.
+- Kuruldu (2026-10-01 16:20): eski JEVIS.app Çöp Sepeti'nde; Foxie ilk açılışta İzinler penceresini açtı; tilki Dock'un üstünde yürüyor. Kullanıcının denemesi bekleniyor: sevme, kuyruktan taşıma, pencere üstüne zıplama, "Hey Foxie". Eski kimliğin (com.jevis.menubar) izin kayıtları Sistem Ayarları'nda duruyor; silmek kullanıcıya soruldu.
 
 ## 7. Sınırlar ve riskler
 
@@ -511,6 +512,8 @@ Kullanıcının istekleri: uygulamanın adı ve ikonu tilkiyle ilgili olsun; ark
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-10-01:** Faz 11 — Foxie: yeni ad, kimlik ve tilkiden ikon; İzinler penceresi; kullanıcının Blender piksel tilkisi ekranda geziyor (pencerelere zıplama, taşıma, köşede sarkma, uyku; düşünürken masada, iş bitince sevinç); "Hey Foxie".
 
 - **2026-10-01:** Zamanlayıcıya tıklayınca kurulduğu sohbet açılıyor; zamanlanan komut sonucu o sohbete yazıyor; JEVIS.app menü çubuğunda ⚡ zamanlayıcıyla genişliyor, menüde liste (Sohbeti Aç / İptal Et).
 
