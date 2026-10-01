@@ -519,3 +519,26 @@ kbd {
   .msg-user { max-width: 88%; }
 }
 .icon-btn.danger { color: var(--red); background: var(--red-soft); }
+
+/* Timers and watches: a count on the ⏰ button, the list in a drawer. */
+.timers-btn { position: relative; }
+.timers-btn .badge {
+  position: absolute; top: 1px; right: 0; min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 999px; background: var(--accent); color: #fff;
+  font: 700 10px/16px var(--font, -apple-system, system-ui, sans-serif); text-align: center;
+}
+.timers-btn.alarm { color: var(--red); background: var(--red-soft); }
+.timers-btn.alarm .badge { background: var(--red); }
+.timer-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.timer-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.timer-item.firing { border-color: var(--red); background: var(--red-soft); }
+.timer-icon { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: var(--accent-soft); color: var(--accent); }
+.timer-item.firing .timer-icon { background: var(--red); color: #fff; }
+.timer-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.timer-text { flex: 1; min-width: 0; }
+.timer-title { font-weight: 600; overflow-wrap: anywhere; }
+.timer-sub { font-size: 12.5px; color: var(--text-2); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.timer-item.firing .timer-sub { color: var(--red); font-weight: 600; }
+.timer-said { font-size: 12px; color: var(--text-3); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.timer-cancel { flex: none; }
+.timer-cancel.sure, #cancelAllTimers.sure { background: var(--red); color: #fff; }

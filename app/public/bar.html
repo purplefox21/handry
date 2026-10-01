@@ -18,12 +18,20 @@
       <button class="icon-btn" id="micBtn" type="button" title="Konuş (⌥⇧Space basılı tut)" aria-label="Konuş">
         <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
       </button>
+      <button class="chip timers-chip" id="timersChip" type="button" title="Zamanlayıcılar" hidden></button>
       <button class="chip" id="modelBtn" type="button" title="Model: Hızlı (Sonnet 5.5, varsayılan) / Güçlü (Opus 5.5)">Hızlı</button>
       <button class="icon-btn" id="expandBtn" type="button" title="Büyük pencere (ayrıntılar ve geçmiş)" aria-label="Büyük pencere">
         <svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
       </button>
     </div>
     <div class="countdown" id="countdown"></div>
+    <div class="timers" id="timersPanel" hidden>
+      <div class="alarm" id="alarm" hidden>
+        <span class="alarm-text" id="alarmText"></span>
+        <button class="alarm-cancel" id="alarmCancel" type="button">İptal</button>
+      </div>
+      <ul class="timer-rows" id="timerRows"></ul>
+    </div>
     <div class="panel" id="panel" hidden>
       <div class="now" id="now" hidden>
         <span class="spinner" aria-hidden="true"></span>

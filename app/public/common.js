@@ -188,6 +188,56 @@ function adoptDefaultModel(defaultModel) {
   store.set('model', defaultModel);
 }
 
+// Timers and watches (the window's list and the bar's list share these).
+
+async function fetchTimers() {
+  return (await (await api('/api/timers')).json()).jobs;
+}
+
+async function cancelTimer(id) {
+  await api('/api/timers/cancel', { method: 'POST', body: JSON.stringify(id === 'all' ? { all: true } : { id }) });
+}
+
+// "2 sa 14 dk", "12 dk 3 sn", "45 sn"
+function timeLeft(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h) return `${h} sa ${m} dk`;
+  if (m) return `${m} dk ${s % 60} sn`;
+  return `${s} sn`;
+}
+
+const TIMER_ICONS = { shutdown: 'power', restart: 'power', sleep: 'clock', lock: 'lock', remind: 'message', command: 'play' };
+const timerIcon = job => (job.kind === 'watch' ? 'eye' : TIMER_ICONS[job.action] || 'clock');
+
+/** Seconds left of a shutdown countdown, or null. */
+const countdownLeft = job => (job.firing ? Math.max(0, Math.ceil((job.firing.started + job.firing.seconds * 1000 - Date.now()) / 1000)) : null);
+
+function timerSub(job) {
+  const left = countdownLeft(job);
+  if (left !== null) return `${left} sn sonra ${job.action === 'restart' ? 'yeniden başlıyor' : 'kapanıyor'}`;
+  if (job.kind === 'watch') return `${job.when}${job.note ? ` · son bakış: ${job.note}` : ' · bakılıyor'}`;
+  return `${job.when} · ${timeLeft(job.at - Date.now())} kaldı`;
+}
+
+/** A button that asks "emin misin?" first; the second press within 3 s does it. */
+function twoStep(button, sureLabel, action) {
+  const label = button.textContent;
+  button.addEventListener('click', async e => {
+    e.stopPropagation();
+    if (!button.dataset.sure) {
+      button.dataset.sure = '1';
+      button.textContent = sureLabel;
+      button.classList.add('sure');
+      setTimeout(() => { delete button.dataset.sure; button.textContent = label; button.classList.remove('sure'); }, 3000);
+      return;
+    }
+    button.disabled = true;
+    await action();
+  });
+}
+
 // Audio for whisper.cpp: 16 kHz mono WAV.
 
 function toWav(samples, rate) {

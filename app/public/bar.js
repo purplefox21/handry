@@ -72,6 +72,82 @@ $('expandBtn').addEventListener('click', () => native({ type: 'openMain' }));
 $('micBtn').addEventListener('click', () => native({ type: 'mic' }));
 
 // ---------------------------------------------------------------------------
+// Timers: "⏰ 2" when some wait; a click lists them (✕ asks once more). A
+// shutdown countdown opens the list by itself with a big İptal and keeps the
+// bar up until it is over.
+// ---------------------------------------------------------------------------
+
+const timersChip = $('timersChip');
+const timersPanel = $('timersPanel');
+const timerRows = $('timerRows');
+const alarm = $('alarm');
+const timers = { jobs: [], open: false, alarmOn: false };
+
+async function refreshTimers() {
+  try { timers.jobs = await fetchTimers(); } catch { return; }
+  renderTimers();
+}
+
+function timerRow(job) {
+  const li = el('li', 'timer-row');
+  li.dataset.id = job.id;
+  const text = el('div', 'timer-row-text');
+  text.append(el('div', 'timer-row-title', job.what), el('div', 'timer-row-sub'));
+  const x = el('button', 'icon-btn timer-x', '✕');
+  x.type = 'button';
+  x.title = 'İptal';
+  twoStep(x, 'İptal?', async () => { await cancelTimer(job.id); refreshTimers(); });
+  li.append(text, x);
+  return li;
+}
+
+function renderTimers() {
+  const { jobs } = timers;
+  timersChip.hidden = !jobs.length;
+  timersChip.textContent = `⏰ ${jobs.length}`;
+  const firing = jobs.find(j => j.firing);
+  if (!jobs.length) timers.open = false;
+  alarm.hidden = !firing;
+  if (firing) alarm.dataset.id = firing.id;
+  // Keep the bar up while a shutdown is counting down (the app hides an idle bar).
+  if (Boolean(firing) !== timers.alarmOn) {
+    timers.alarmOn = Boolean(firing);
+    if (firing) clearTimeout(hideTimer);
+    native({ type: 'busy', value: timers.alarmOn || run.active });
+  }
+  timersPanel.hidden = !(timers.open || firing);
+  const sig = jobs.filter(j => !j.firing).map(j => j.id).join();
+  if (timerRows.dataset.sig !== sig) {
+    timerRows.replaceChildren(...jobs.filter(j => !j.firing).map(timerRow));
+    timerRows.dataset.sig = sig;
+  }
+  timerRows.hidden = !timers.open;
+  updateTimerTexts();
+}
+
+function updateTimerTexts() {
+  const firing = timers.jobs.find(j => j.firing);
+  if (firing) $('alarmText').textContent = `${firing.what} · ${timerSub(firing)}`;
+  for (const li of timerRows.children) {
+    const job = timers.jobs.find(j => j.id === li.dataset.id);
+    if (job) li.querySelector('.timer-row-sub').textContent = timerSub(job);
+  }
+}
+
+timersChip.addEventListener('click', () => {
+  timers.open = !timers.open;
+  renderTimers();
+  input.focus();
+});
+$('alarmCancel').addEventListener('click', async () => {
+  await cancelTimer(alarm.dataset.id);
+  refreshTimers();
+});
+setInterval(updateTimerTexts, 1000);
+setInterval(refreshTimers, 3000);
+refreshTimers();
+
+// ---------------------------------------------------------------------------
 // Result panel
 // ---------------------------------------------------------------------------
 
@@ -328,8 +404,12 @@ window.jevisBar = {
     answer.hidden = false;
     answer.classList.add('error');
     answer.textContent = `${ev.title}: ${ev.message}`;
-    foot.replaceChildren(el('span', null, 'Bitirince JEVIS kendiliğinden devam eder.'));
-    foot.hidden = false;
+    // Timer notices and reminders are news, not a login JEVIS waits for.
+    const news = ev.title === 'Zamanlayıcı' || ev.title === 'Hatırlatma';
+    answer.classList.toggle('error', !news);
+    foot.replaceChildren(el('span', null, news ? '' : 'Bitirince JEVIS kendiliğinden devam eder.'));
+    foot.hidden = news;
+    refreshTimers();
     bar.dataset.attention = '1';
   },
   submit

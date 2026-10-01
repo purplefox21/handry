@@ -31,6 +31,10 @@
       </div>
 
       <div class="top-actions">
+        <button class="icon-btn timers-btn" id="timersBtn" title="Zamanlayıcılar" aria-label="Zamanlayıcılar">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span class="badge" id="timersBadge" hidden></span>
+        </button>
         <button class="icon-btn" id="chatsBtn" title="Sohbetler" aria-label="Sohbetler">
           <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </button>
@@ -157,6 +161,18 @@
       <p class="setting-help">Her sohbetin kendi Claude oturumu var: "bunu", "bi daha dene" gibi devamları anlar. Çubuk, ses ve bu pencere aynı sohbete yazar. Konu değişince "yeni konu" de; 2 saat sessizlikte yenisi kendiliğinden açılır.</p>
       <button class="btn btn-primary" id="newChatInDrawer" type="button">Yeni sohbet</button>
       <div class="chat-list" id="chatList"></div>
+    </div>
+  </aside>
+
+  <aside class="drawer" id="timersDrawer" hidden aria-label="Zamanlayıcılar">
+    <div class="drawer-head">
+      <h2>Zamanlayıcılar</h2>
+      <button class="icon-btn" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="drawer-body">
+      <p class="setting-help">JEVIS'e söylediğin zamanlı ve koşullu işler: "3 saat sonra bilgisayarı kapat", "VS Code'daki işler bitince kapat", "10 dakika sonra Spotify'ı durdur". İptal ettiğin iş, saati gelince ya da koşul olunca yapılmaz.</p>
+      <div class="timer-list" id="timerList"></div>
+      <button class="btn btn-danger-ghost" id="cancelAllTimers" type="button" hidden>Hepsini iptal et</button>
     </div>
   </aside>
 

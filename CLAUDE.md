@@ -31,7 +31,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 
 ## Çalıştırma
 
-- `npm start` → http://localhost:3000 — JEVIS sohbeti: Hızlı (Sonnet 5.5, varsayılan) / Güçlü (Opus 5.5) model düğmesi, sohbet listesi, katlanan adım listesi, tarifler ve ayarlar paneli, bas-konuş, DURDUR
+- `npm start` → http://localhost:3000 — JEVIS sohbeti: Hızlı (Sonnet 5.5, varsayılan) / Güçlü (Opus 5.5) model düğmesi, sohbet listesi, ⏰ zamanlayıcı listesi, katlanan adım listesi, tarifler ve ayarlar paneli, bas-konuş, DURDUR
 - `node cli.js` → JEVIS komutları: `do "…"` (komut ver), `listen --do` (sesle), tarayıcı (open, read, click, type…), masaüstü (`desk …`, `app`, `mac`), `recipe …`, `secret`, `stop`, `doctor`
 - `node cli.js app install && node cli.js app open` → JEVIS.app: ⌥Space üstten inen kompakt çubuk, ⌥⇧Space bas-konuş, "Hey Jev" ile sesli uyandırma, ⌥Esc acil durdur; Dock simgesi büyük pencereyi açar
 - `node appstore/privacy-scan.js <klasör>` → App Privacy taslağı
@@ -59,5 +59,6 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/listener-e2e.mjs` → "Hey Jev" ve canlı yazı: Yelda sesiyle üretilen kayıtlar JEVIS.app'in dinleyicisinden geçer (mikrofon gerekmez; JEVIS'in Konuşma Tanıma izni gerekir)
 - `node tests/chats-e2e.mjs` → sohbetler ve Claude oturumları (sahte beyin, geçici JEVIS klasörü)
 - `node tests/chats-ui-e2e.mjs` → sohbetler pencerede ve çubukta (ayrı sunucu, geçici JEVIS klasörü, sadece hızlı yol)
+- `node tests/timers-ui-e2e.mjs` → zamanlayıcı listesi pencerede ve çubukta, iptal, geri sayımda İptal (görünmez Chrome, ayrı sunucu, geçici klasör; ses ve ekran yok)
 - `node tests/timers-e2e.mjs` → zamanlayıcı, nöbet, "işler bitince kapat", geri sayım ve iptal, hızlı yolun sohbeti komut sanmaması (geçici klasör, sahte Claude oturumları; kapatma/kilit/iMessage sadece kaydedilir, ses yok)
 - `node tests/dispatcher-dryrun.mjs` → eski macOS komut yönlendirici (deneme modu)

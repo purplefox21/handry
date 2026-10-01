@@ -183,3 +183,21 @@ body.standalone .bar { max-width: 680px; margin: 0 auto; background: var(--card)
   flex-wrap: wrap;
 }
 .foot a { color: var(--accent); text-decoration: none; cursor: default; }
+
+/* Timers: the chip, the short list and a shutdown countdown. */
+.timers-chip { color: var(--text-2); background: var(--hover); font-variant-numeric: tabular-nums; }
+.timers { border-top: 1px solid var(--line); padding: 8px 14px 10px; }
+.alarm {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 6px;
+  border-radius: 12px; background: var(--red-soft); color: var(--red); font-weight: 600;
+}
+.alarm-text { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
+.alarm-cancel { border: 0; border-radius: 999px; padding: 6px 16px; font: 700 14px var(--font); color: #fff; background: var(--red); }
+.timer-rows { list-style: none; margin: 0; padding: 0; }
+.timer-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.timer-row + .timer-row { border-top: 1px solid var(--line); }
+.timer-row-text { flex: 1; min-width: 0; }
+.timer-row-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.timer-row-sub { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.timer-x { width: auto; min-width: 32px; padding: 0 8px; font-size: 13px; color: var(--text-3); }
+.timer-x.sure { color: #fff; background: var(--red); }

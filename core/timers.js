@@ -33,6 +33,7 @@ export const POWER = new Set(['lock', 'sleep', 'restart', 'shutdown']);
 const OFF = new Set(['restart', 'shutdown']);
 const ACTIONS = new Set([...POWER, 'remind', 'command']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+export const TITLE = 'Zamanlayıcı'; // notices from here (the bar shows them without "JEVIS goes on by itself")
 
 const file = () => path.join(HOME, 'timers.json');
 const lockFile = () => path.join(HOME, 'timers.lock');
@@ -192,6 +193,30 @@ export function confirmText(job) {
   return lines.join(' ');
 }
 
+const capital = t => t.charAt(0).toLocaleUpperCase('tr') + t.slice(1);
+
+/** The list order: a running countdown first, then the soonest time, then the watches. */
+export function sortedJobs(jobs = listJobs()) {
+  const rank = j => (j.firing ? 0 : j.until && !j.at ? 2 : 1);
+  return [...jobs].sort((a, b) => rank(a) - rank(b) || (a.at || 0) - (b.at || 0) || a.created - b.created);
+}
+
+/** One task for the timer list in the window and the bar. */
+export function jobView(job) {
+  return {
+    id: job.id,
+    kind: job.until ? 'watch' : 'timer',
+    action: job.action,
+    what: job.action === 'command' ? capital(job.text) : job.action === 'remind' ? `Hatırlat: "${job.text}"` : capital(whatText(job)),
+    when: capital(whenPart(job)),
+    at: job.at,
+    said: job.said || '',
+    note: job.lastNote || '',
+    firing: job.firing ? { started: job.firing, seconds: job.countdown } : null,
+    created: job.created
+  };
+}
+
 export function formatJobs(jobs = listJobs()) {
   if (!jobs.length) return 'Bekleyen zamanlanmış iş yok.';
   return jobs.map((j, i) => `${i + 1}. ${describe(j)}${j.lastNote ? ` — son bakış: ${j.lastNote}` : ''} (id ${j.id})`).join('\n');
@@ -333,19 +358,19 @@ async function tick() {
     const off = OFF.has(job.action) || job.action === 'sleep';
     if (job.expires && now > job.expires) {
       removeJob(job.id);
-      alertUser(`Beklediğim şey 24 saatte olmadı, bıraktım: ${describe(job)}`, { speak: false });
+      alertUser(`Beklediğim şey 24 saatte olmadı, bıraktım: ${describe(job)}`, { title: TITLE, speak: false });
       continue;
     }
     if (woke && off) {
       updateJob(job.id, { notBefore: now + LATE_MS });
-      alertUser(`Mac uykudan uyandı. Bekleyen bir iş var: ${describe(job)}. 10 dakika bir şey yapmayacağım; istemiyorsan "zamanlayıcıyı iptal et" de.`, { speak: false });
+      alertUser(`Mac uykudan uyandı. Bekleyen bir iş var: ${describe(job)}. 10 dakika bir şey yapmayacağım; istemiyorsan "zamanlayıcıyı iptal et" de.`, { title: TITLE, speak: false });
       continue;
     }
     if (job.notBefore && now < job.notBefore) continue;
     if (job.at && now < job.at) continue;
     if (job.at && !job.until && off && now - job.at > LATE_MS) {
       removeJob(job.id);
-      alertUser(`Mac uyuduğu için ${whenText(job.at)} yapılacak işi zamanında yapamadım, geç de yapmadım: ${describe(job)}`, { speak: false });
+      alertUser(`Mac uyuduğu için ${whenText(job.at)} yapılacak işi zamanında yapamadım, geç de yapmadım: ${describe(job)}`, { title: TITLE, speak: false });
       continue;
     }
     if (job.until) {
@@ -355,7 +380,7 @@ async function tick() {
       const patch = { lastCheck: now, lastNote: r.note, nextCheck: now + job.every };
       // A Claude session that needs an answer can't finish: tell the user once (an iMessage if they don't come).
       if (r.waiting?.length && !job.waitAlert) {
-        patch.waitAlert = alertUser(`${r.waiting.map(n => `"${n}"`).join(', ')} senden cevap bekliyor. O bitmeden ${HOLDING[job.action]} bekletiyorum.`, { imessage: true, speak: false });
+        patch.waitAlert = alertUser(`${r.waiting.map(n => `"${n}"`).join(', ')} senden cevap bekliyor. O bitmeden ${HOLDING[job.action]} bekletiyorum.`, { title: TITLE, imessage: true, speak: false });
       } else if (!r.waiting?.length && job.waitAlert) {
         resolveAlert(job.waitAlert);
         patch.waitAlert = null;
@@ -389,14 +414,14 @@ async function fire(job) {
     if (OFF.has(job.action) && job.countdown > 0) {
       const started = Date.now();
       const verb = job.action === 'restart' ? 'yeniden başlayacak' : 'kapanacak';
-      const alertId = alertUser(`${reason} Mac ${job.countdown} saniye sonra ${verb}. İptal için ⌥Esc'ye bas ya da "dur" de.`, { speak: false });
+      const alertId = alertUser(`${reason} Mac ${job.countdown} saniye sonra ${verb}. İptal için ⌥Esc'ye bas ya da "dur" de.`, { title: TITLE, speak: false });
       updateJob(job.id, { firing: started });
       while (Date.now() - started < job.countdown * 1000) {
         await sleep(500);
         if (!listJobs().some(j => j.id === job.id) || stopRequestedSince(started)) {
           resolveAlert(alertId);
           removeJob(job.id);
-          alertUser(job.action === 'restart' ? 'Yeniden başlatma iptal edildi.' : 'Kapatma iptal edildi.', { speak: false });
+          alertUser(job.action === 'restart' ? 'Yeniden başlatma iptal edildi.' : 'Kapatma iptal edildi.', { title: TITLE, speak: false });
           return;
         }
       }
@@ -416,7 +441,7 @@ async function fire(job) {
       await runCommand({ text: job.text, source: 'timer' });
     }
   } catch (err) {
-    alertUser(`Zamanlanmış iş yapılamadı (${describe(job)}): ${err.message}`, { imessage: true });
+    alertUser(`Zamanlanmış iş yapılamadı (${describe(job)}): ${err.message}`, { title: TITLE, imessage: true });
   } finally {
     firing.delete(job.id);
   }

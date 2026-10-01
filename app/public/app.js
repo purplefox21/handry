@@ -155,6 +155,7 @@ function handleEvent(turn, ev) {
       break;
     case 'done':
       finishTurn(turn, ev);
+      refreshTimers(); // the command may have set or cancelled a timer
       break;
     case 'error':
       failTurn(turn, ev.message);
@@ -519,6 +520,7 @@ function openDrawer(id) {
   openDrawerId = id;
   $('scrim').hidden = false;
   $(id).hidden = false;
+  if (id === 'timersDrawer') { renderTimers(); refreshTimers(); }
   if (id === 'recipesDrawer') loadRecipes();
   if (id === 'chatsDrawer') loadChats().catch(err => toast(err.message));
   if (id === 'settingsDrawer') loadStatus().catch(() => {});
@@ -532,10 +534,88 @@ function closeDrawer() {
 }
 
 $('settingsBtn').addEventListener('click', () => openDrawer('settingsDrawer'));
+$('timersBtn').addEventListener('click', () => openDrawer('timersDrawer'));
 $('recipesBtn').addEventListener('click', () => openDrawer('recipesDrawer'));
 $('scrim').addEventListener('click', closeDrawer);
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeDrawer));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+// ---------------------------------------------------------------------------
+// Timers and watches: a count on the ⏰ button, the list in a drawer, cancel
+// one (asks "emin misin?" first) or all. The list is fetched every few
+// seconds, so a timer set from the bar, by voice or from another Claude
+// session shows up by itself; the time left counts down every second.
+// ---------------------------------------------------------------------------
+
+let timerJobs = [];
+
+async function refreshTimers() {
+  try { timerJobs = await fetchTimers(); } catch { return; }
+  const badge = $('timersBadge');
+  badge.hidden = !timerJobs.length;
+  badge.textContent = String(timerJobs.length);
+  $('timersBtn').classList.toggle('alarm', timerJobs.some(j => j.firing));
+  if (openDrawerId === 'timersDrawer') renderTimers();
+}
+
+function timerItem(job) {
+  const item = el('div', 'timer-item');
+  item.dataset.id = job.id;
+  const mark = el('span', 'timer-icon');
+  mark.append(icon(timerIcon(job)));
+  const text = el('div', 'timer-text');
+  text.append(el('div', 'timer-title', job.what), el('div', 'timer-sub'));
+  if (job.said) text.append(el('div', 'timer-said', `“${job.said}”`));
+  const cancel = el('button', 'btn btn-danger-ghost timer-cancel', 'İptal');
+  cancel.type = 'button';
+  const done = async () => {
+    await cancelTimer(job.id);
+    toast(`İptal edildi: ${job.what}`);
+    refreshTimers();
+  };
+  // A running shutdown countdown is cancelled at once; anything else asks first.
+  if (job.firing) cancel.addEventListener('click', done);
+  else twoStep(cancel, 'Emin misin?', done);
+  item.append(mark, text, cancel);
+  return item;
+}
+
+function updateTimerTexts() {
+  for (const item of $('timerList').querySelectorAll('.timer-item')) {
+    const job = timerJobs.find(j => j.id === item.dataset.id);
+    if (!job) continue;
+    item.querySelector('.timer-sub').textContent = timerSub(job);
+    item.classList.toggle('firing', Boolean(job.firing));
+  }
+}
+
+function renderTimers() {
+  const list = $('timerList');
+  $('cancelAllTimers').hidden = timerJobs.length < 2;
+  if (!timerJobs.length) {
+    list.replaceChildren(el('div', 'empty', 'Bekleyen zamanlayıcı yok.'));
+    list.dataset.sig = '';
+    return;
+  }
+  // Same tasks as on screen: only the texts change (an armed "emin misin?" stays armed).
+  const sig = timerJobs.map(j => `${j.id}${j.firing ? '!' : ''}`).join();
+  if (list.dataset.sig !== sig) {
+    list.replaceChildren(...timerJobs.map(timerItem));
+    list.dataset.sig = sig;
+  }
+  updateTimerTexts();
+}
+
+twoStep($('cancelAllTimers'), 'Hepsi iptal olsun mu?', async () => {
+  await cancelTimer('all');
+  $('cancelAllTimers').disabled = false;
+  toast('Bütün zamanlayıcılar iptal edildi.');
+  refreshTimers();
+});
+
+setInterval(() => { if (openDrawerId === 'timersDrawer') updateTimerTexts(); }, 1000);
+setInterval(refreshTimers, 4000);
+window.addEventListener('focus', () => refreshTimers());
 
 async function loadRecipes() {
   const { recipes } = await (await api('/api/recipes')).json();
@@ -675,6 +755,7 @@ async function init() {
   await Promise.all([
     loadBrains(),
     loadRecipes().catch(() => {}),
+    refreshTimers(),
     api('/api/voice').then(r => r.json()).then(v => {
       micBtn.hidden = !v.stt.ok;
       $('speakRow').hidden = !v.tts.ok;

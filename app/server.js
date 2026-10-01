@@ -11,7 +11,7 @@ import { runCommand } from '../core/runner.js';
 import { listChats, peekChat, newChat, switchChat, deleteChat, IDLE_MS } from '../core/chats.js';
 import { listBrains } from '../brain/index.js';
 import { requestStop } from '../guard/stop.js';
-import { startScheduler } from '../core/timers.js';
+import { startScheduler, sortedJobs, jobView, cancelJobs } from '../core/timers.js';
 import { recentActions } from '../guard/log.js';
 import { sttStatus, transcribe, stripWake } from '../voice/stt.js';
 import { ttsStatus, speak, stopSpeaking } from '../voice/tts.js';
@@ -176,6 +176,13 @@ const ROUTES = {
   'POST /api/chats/delete': async (req, res) => {
     deleteChat(JSON.parse((await readBody(req)).toString()).id);
     sendJson(res, 200, { ok: true });
+  },
+  // Timers and watches: the list (with what JEVIS saw last) and cancelling one or all.
+  'GET /api/timers': (req, res) => sendJson(res, 200, { now: Date.now(), jobs: sortedJobs().map(jobView) }),
+  'POST /api/timers/cancel': async (req, res) => {
+    const { id, all } = JSON.parse((await readBody(req)).toString() || '{}');
+    if (!id && !all) return sendJson(res, 400, { error: 'id ya da all ver.' });
+    sendJson(res, 200, { cancelled: cancelJobs(all ? 'all' : id).map(jobView) });
   },
   'POST /api/say': handleSay,
   'GET /api/recipes': (req, res) => sendJson(res, 200, { recipes: listRecipes() }),

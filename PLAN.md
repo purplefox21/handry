@@ -392,6 +392,11 @@ Kullanıcının gerçek sohbetinden: "saat 01:01 olunca … ekranı kilitle" ded
   - Güvenlik: Mac uyurken kaçan kapatma sonradan yapılmıyor (haber veriliyor); Mac uyanınca 10 dk hiçbir şey kapanmıyor; güç işi beklerken `caffeinate -i` Mac'in kendi kendine uyumasını engelliyor; nöbet 24 saatte bırakılıyor. Gece çalışan bildirimler sessiz (konuşma ve ses yok).
 - [x] **Beyin kendini tanıyor ve konuşuyor:** BRAIN_PROMPT'a JEVIS'in kim olduğu, parçaları, nasıl ulaşıldığı ve neler yapabildiği eklendi. "sen" diye, samimi ve kısa konuşuyor; selam, sohbet, itiraz ve "ne dedim" sorularında araç kullanmadan konuşuyor; JEVIS yanlış bir şey yaptıysa söyleyip düzeltiyor; bir dakikadan uzun beklemeyi görevin içinde değil `schedule_task` ile yapıyor.
 - [x] Testler: `tests/timers-e2e.mjs` **14/14** (geçici klasör, sahte Claude oturumları; kapatma, kilit ve iMessage sadece kaydediliyor). `chats-e2e` 9/9, `mcp-smoke` 11/11. Kullanıcı uyurken ses çıkarabilecek testler (`fast-e2e`, `app-e2e`, `learn-e2e`, `recipe-e2e`, `chats-ui-e2e`) çalıştırılmadı; sıradaki oturumda çalıştırılacak.
+- [x] **Zamanlayıcı listesi** (kullanıcı: "14 dk sonra şunu yap dedim, gözükmüyor, iptal de edemiyorum"):
+  - Büyük pencerede ⏰ düğmesi (bekleyen iş sayısıyla) ve "Zamanlayıcılar" çekmecesi: her iş için ne yapılacağı, ne zaman / hangi koşulla, canlı kalan süre, koşullularda JEVIS'in son bakışta gördüğü, kullanıcının kendi sözü. "İptal" önce "Emin misin?" diyor (3 sn); "Hepsini iptal et" de iki basışla. Geri sayımdaki kapatma en üstte kırmızı, tek basışla iptal.
+  - Çubukta "⏰ 2" düğmesi → kısa liste, her satırda ✕ (iki basış). Kapatma geri sayımı başlayınca çubukta büyük kırmızı "İptal" düğmesi; geri sayım bitene kadar çubuk kapanmıyor. Zamanlayıcı bildirimleri çubukta "giriş bekleniyor" gibi değil, haber olarak görünüyor.
+  - Liste birkaç saniyede bir tazeleniyor; çubuktan, sesle ya da başka bir Claude oturumundan kurulan iş kendiliğinden görünüyor. Sunucu: `GET /api/timers` (sıralı: geri sayım, en yakın saat, koşullular), `POST /api/timers/cancel` (`id` ya da `all`).
+  - `tests/timers-ui-e2e.mjs` **9/9** (görünmez Chrome, ayrı sunucu, geçici klasör, ses yok): 2 zamanlayıcı + 1 koşul, ortadakine iptal → diğer ikisi yapıldı, iptal edilen hiç yapılmadı; tek basış iptal etmiyor; "Hepsini iptal et"; çubukta geri sayım İptal ile durdu, Mac "kapanmadı"; açık ve koyu temada ekran görüntüleriyle bakıldı.
 - Not: bu işin testi sırasında eski hâliyle "bunu bir daha yap" (önceki cevap Spotify'dı) hızlı yoldan play/pause'a gitti ve kullanıcının Spotify'ını iki kez durdurup başlattı (sonuç: eski hâli, duraklatılmış). Düzeltildi: geri gönderen cümleler Claude'a gidiyor, router-e2e'de 3 cümleyle test ediliyor.
 
 ## 7. Sınırlar ve riskler
@@ -493,6 +498,8 @@ Kullanıcının gerçek sohbetinden: "saat 01:01 olunca … ekranı kilitle" ded
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-10-01:** Zamanlayıcı listesi: büyük pencerede ⏰ çekmecesi, çubukta "⏰ N" ve geri sayımda büyük İptal; tek tek ya da hepsini iptal (iki basış). timers-ui-e2e 9/9.
 
 - **2026-10-01:** Zamanlayıcı, nöbet ve güç işleri (Apple menüsünden kilit/uyku/yeniden başlat/kapat); "VS Code'daki işler bitince kapat" Claude Code oturum dosyalarından; hızlı yol artık niyete bakıyor (sohbet, itiraz, cevap ve "sonra" Claude'a); beyin kendini tanıyor, "sen" diye konuşuyor. timers-e2e 14/14, router-e2e 51/51.
 
