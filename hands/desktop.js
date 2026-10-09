@@ -9,7 +9,7 @@ import { promisify } from 'node:util';
 import { ROOT, homeDir, loadState, saveState } from '../core/config.js';
 import { JevisError } from '../core/errors.js';
 import * as jev from '../core/jev.js';
-import { needsConfirm, confirmAction, dialogOpen } from '../guard/confirm.js';
+import { needsConfirm, confirmAction, dialogOpen, harmlessByKind } from '../guard/confirm.js';
 import { isStopped } from '../guard/stop.js';
 import { APP_NAME } from '../core/brand.js';
 
@@ -149,6 +149,7 @@ async function resolve(target, purpose, { app, withRisk = false } = {}) {
 async function guard(el, riskP, actionText, app) {
   const verdict = needsConfirm({ name: el.name, role: el.role }, riskP, app || '');
   if (!verdict.ask) return null;
+  if (await harmlessByKind(verdict, `${actionText} (uygulama: ${app})`)) return null;
   const ok = await confirmAction(`${APP_NAME} şunu yapmak istiyor:\n\n${actionText}\n\nUygulama: ${app}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`);
   if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
   return { reason: verdict.reason };
@@ -237,10 +238,35 @@ export async function key(combo, { app } = {}) {
   return { key: combo, ...(await after(front.pid)) };
 }
 
-export async function scroll(direction = 'down', amount = 400) {
+/**
+ * Scrolls an app's front window: over its middle, or over a point (x, y) of the last desktop_screenshot
+ * (a side panel, a list). The pointer moves there first, so the scroll goes to that window and not to what was under the mouse.
+ */
+export async function scroll(direction = 'down', amount = 400, { app, x, y } = {}) {
+  notDuringDialog();
   await ensureTrusted();
-  await ax('scroll', direction === 'up' ? amount : -amount);
-  return { scrolled: direction };
+  const px = Math.max(50, Math.min(5000, Math.round(Number(amount) || 400)));
+  const dy = direction === 'up' ? px : direction === 'down' ? -px : 0;
+  const dx = direction === 'left' ? px : direction === 'right' ? -px : 0;
+  let front, point;
+  if (x !== undefined && y !== undefined) {
+    const shot = loadState().shot;
+    if (!shot || Date.now() - shot.at > SHOT_MAX_AGE_MS) throw new JevisError('NO_SHOT', 'Bir noktada kaydırmak için önce desktop_screenshot al (ya da x, y vermeden pencerenin ortasında kaydır).');
+    front = await ensureFront(shot.pid);
+    let area = shot.area;
+    if (shot.windowId) {
+      if (front.windowId !== shot.windowId) throw new JevisError('STALE', `${shot.app} içinde önde başka bir pencere var; yeni bir desktop_screenshot al.`);
+      area = { ...area, x: front.bounds.X, y: front.bounds.Y };
+    }
+    point = { x: Math.round(area.x + (Number(x) * area.w) / shot.image.w), y: Math.round(area.y + (Number(y) * area.h) / shot.image.h) };
+  } else {
+    front = await ensureFront(app);
+    const b = front.bounds;
+    if (b) point = { x: Math.round(b.X + b.Width / 2), y: Math.round(b.Y + b.Height / 2) };
+  }
+  await ax('scroll', dy, dx, ...(point ? ['--at', `${point.x},${point.y}`] : []));
+  await sleep(200);
+  return { scrolled: direction, pixels: px, point, ...(await after(front.pid)) };
 }
 
 export async function activate(app) {
@@ -467,4 +493,71 @@ export function formatOutcome(res) {
   if (res.note) parts.push(res.note);
   if (res.app !== undefined) parts.push(`Önde: ${res.app}${res.window ? ` — ${res.window}` : ''}`);
   return parts.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Şifre alanı ve pencere yerleştirme 
+// ---------------------------------------------------------------------------
+
+/**
+ * Bir uygulamanın alanına kasadaki şifreyi yazar. Değer hiçbir mesaja, onaya ya da kayda girmez.
+ * Terminallere hiç yazılmaz. Şifre sadece izin listesinde "app:<uygulama adı ya da paket kimliği>" olan uygulamalarda.
+ */
+export async function fillSecret(target, secretName, { app } = {}) {
+  notDuringDialog();
+  await ensureTrusted();
+  const { listSecrets, readSecret } = await import('../guard/vault.js');
+  const kayit = listSecrets().find(s => s.name === secretName);
+  if (!kayit) throw new JevisError('NOT_ALLOWED', `"${secretName}" adında kayıtlı bir şifre yok.`);
+  const el = await resolve(target, 'type', { app });
+  if (SHELL_APPS.has(el.bundleId)) throw new JevisError('NOT_ALLOWED', 'Terminale şifre yazılmaz.');
+  const uygulama = (await apps()).find(a => String(a.pid) === String(el.pid));
+  const adlar = [uygulama?.name, el.bundleId].filter(Boolean).map(x => `app:${String(x).toLowerCase()}`);
+  if (!kayit.sites.some(s => adlar.includes(String(s).toLowerCase()))) {
+    throw new JevisError('NOT_ALLOWED', `"${secretName}" bu uygulamada kullanılamaz. İzinli olanlar: ${kayit.sites.join(', ') || '(hiçbiri)'}. Bu uygulama: ${adlar.join(' / ')}`);
+  }
+  const deger = await readSecret(secretName);
+  const res = await ax('setvalue', el.path, deger, '--pid', el.pid);
+  return { element: { name: el.name, role: el.role }, jev: { confidence: pct(el.pick.confidence), ms: el.pick.ms }, typed: deger.length, method: res.method, note: 'Şifre yazıldı (değer gösterilmez).', ...(await after(el.pid)) };
+}
+
+/** Ekranların kullanılabilir alanları (menü çubuğu ve Dock hariç), sol üst köşe başlangıçlı. */
+async function ekranlar() {
+  const { stdout } = await execFileAsync('osascript', ['-l', 'JavaScript', '-e',
+    "ObjC.import('AppKit'); const s = $.NSScreen.screens.js; const anaY = s[0].frame.size.height; JSON.stringify(s.map(e => { const v = e.visibleFrame; return { x: v.origin.x, y: anaY - (v.origin.y + v.size.height), w: v.size.width, h: v.size.height }; }))"]);
+  return JSON.parse(stdout.trim());
+}
+
+const YERLER = {
+  tam: e => [e.x, e.y, e.w, e.h],
+  sol: e => [e.x, e.y, Math.floor(e.w / 2), e.h],
+  sag: e => [e.x + Math.floor(e.w / 2), e.y, Math.ceil(e.w / 2), e.h],
+  ust: e => [e.x, e.y, e.w, Math.floor(e.h / 2)],
+  alt: e => [e.x, e.y + Math.floor(e.h / 2), e.w, Math.ceil(e.h / 2)],
+  orta: e => [e.x + Math.floor(e.w * 0.15), e.y + Math.floor(e.h * 0.1), Math.floor(e.w * 0.7), Math.floor(e.h * 0.8)]
+};
+
+async function pencereYerlestir(pid, pencere, [x, y, w, h]) {
+  const r = await ax('setframe', x, y, w, h, '--pid', pid, ...(pencere ? ['--title', pencere] : []));
+  const fark = Math.abs(r.w - w) > 8 || Math.abs(r.h - h) > 8;
+  return `${r.title || '(adsız pencere)'} (${r.w}×${r.h}${fark ? `; istenen ${w}×${h}, uygulama daha küçük/büyük olamıyor` : ''})`;
+}
+
+/**
+ * Pencereyi ekranda yerleştirir: tam, sol, sag, ust, alt, orta. ikinci verilirse iki uygulama yan yana
+ * (ilki sol, ikincisi sağ). ekran: 1 = ana ekran.
+ */
+export async function arrange(app, yer = 'tam', { pencere, ikinci, ekran = 1 } = {}) {
+  notDuringDialog();
+  await ensureTrusted();
+  const liste = await ekranlar();
+  const e = liste[Math.min(Math.max(1, Number(ekran) || 1), liste.length) - 1];
+  if (!YERLER[yer]) throw new JevisError('BAD_ARGS', `yer şunlardan biri olmalı: ${Object.keys(YERLER).join(', ')}`);
+  const [, pid] = await appArgs(app);
+  const yapilan = [`${app}: ${await pencereYerlestir(pid, pencere, YERLER[ikinci ? 'sol' : yer](e))} → ${ikinci ? 'sol' : yer}`];
+  if (ikinci) {
+    const [, pid2] = await appArgs(ikinci);
+    yapilan.push(`${ikinci}: ${await pencereYerlestir(pid2, '', YERLER.sag(e))} → sağ`);
+  }
+  return { note: `Yerleştirildi (ekran ${liste.indexOf(e) + 1}/${liste.length}):\n${yapilan.join('\n')}` };
 }

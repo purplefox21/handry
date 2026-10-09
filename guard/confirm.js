@@ -5,6 +5,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { config, HOME } from '../core/config.js';
 import { APP_NAME } from '../core/brand.js';
+import { actionKind } from '../core/jev.js';
 
 // While one of these dialogs is up, the hands must not touch the screen: a
 // click could otherwise answer "Evet" itself. The mark is a file, so it holds
@@ -47,17 +48,28 @@ export function needsConfirm(element, riskP, host = '') {
   const label = `${element.name || ''} ${element.ctx || ''}`;
   const always = alwaysAsk.find(w => hasWord(label, w));
   if (!always && neverAsk.some(w => hasWord(label, w))) return { ask: false };
-  if (always) return { ask: true, reason: `her zaman sorulacaklar listesinde: "${always}"` };
+  if (always) return { ask: true, hard: true, reason: `her zaman sorulacaklar listesinde: "${always}"` };
   // Strong words always ask. Soft ones ("sil", "delete") ask unless Jev is
   // nearly sure it's harmless, like "Tümünü Sil" on a calculator.
   const keyword = c.keywords.find(w => hasWord(element.name || '', w));
-  if (keyword) return { ask: true, reason: `riskli kelime: "${keyword}"` };
+  if (keyword) return { ask: true, hard: true, reason: `riskli kelime: "${keyword}"` };
   const soft = c.softKeywords.find(w => hasWord(element.name || '', w));
   if (soft && (riskP === null || riskP === undefined || riskP >= c.keywordFloor)) return { ask: true, reason: `riskli kelime: "${soft}"` };
   if (riskP !== null && riskP !== undefined && riskP >= c.riskThreshold) {
     return { ask: true, reason: `Jev bu işlemi riskli buldu (%${Math.round(riskP * 100)})` };
   }
   return { ask: false };
+}
+
+/**
+ * A soft verdict (a soft keyword like "sil", or Jev's broad risk question) is looked at once more: what kind of
+ * action is it really, on this page? Harmless, undoable things (saving a draft, removing an item from a form) go
+ * through without asking. Money, permanent deletes, sending or publishing, access changes, and anything Jev is
+ * unsure about still ask. Strong keywords and "always ask" words never get here. confirm.kindCheck: false turns it off.
+ */
+export async function harmlessByKind(verdict, action) {
+  if (!verdict.ask || verdict.hard || config().confirm.kindCheck === false) return false;
+  return (await actionKind(action)) === 'diger';
 }
 
 /**

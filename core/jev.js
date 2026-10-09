@@ -34,7 +34,9 @@ export async function ask(state, questions) {
       res = await fetch(API_URL, {
         method: 'POST',
         headers: { Authorization: `Bearer ${getApiKey()}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: config().jev.model, state, questions })
+        body: JSON.stringify({ model: config().jev.model, state, questions }),
+        // Jev cevap vermezse araç sonsuza kadar beklemesin
+        signal: AbortSignal.timeout(20000)
       });
     } catch (err) {
       if (attempt === 0) { await sleep(400); continue; }
@@ -149,6 +151,32 @@ export async function checkState(expectation, page) {
   });
   const p = answers.holds?.noul ?? 0;
   return { yes: p >= 0.5, p, ms };
+}
+
+const KIND_QUESTION = {
+  type: 'choice',
+  instructions: 'What kind of action is `action` (done on a computer, on behalf of its user)?',
+  criteria: {
+    para: 'Spends or moves money: pay, buy, place an order, subscribe, transfer, change a price or a bill.',
+    silme: 'Permanently destroys something that already exists and cannot be restored: deleting an account, a project, a published post, stored data, files, or messages. NOT removing an item from a form, a draft or an upload area that is still being edited, NOT clearing a field, NOT closing a dialog.',
+    disari: 'Sends or publishes something that other people will see: an email, a message, a comment, a post, a submitted form or application, a review, publishing or launching a product, saving a change to a public profile.',
+    yetki: 'Changes access or security: passwords, users, permissions, roles, API keys, 2FA, connecting apps, installing software.',
+    diger: 'None of these: saving or editing a private draft, removing or replacing an item inside a draft or form, uploading into a draft, creating something private, searching, navigating, downloading, filling a form without submitting it.'
+  }
+};
+
+/**
+ * What kind of action is this (para, silme, disari, yetki, diger)? Asked together with the page, so removing an
+ * image from a draft is "diger" and not "silme". Used to skip the confirmation for harmless, undoable actions.
+ * When Jev can't be reached the answer is 'bilinmiyor': the caller then asks the user.
+ */
+export async function actionKind(action) {
+  try {
+    const { answers } = await ask({ action: String(action).slice(0, 1500) }, { tur: KIND_QUESTION });
+    return answers.tur?.choice || 'bilinmiyor';
+  } catch {
+    return 'bilinmiyor';
+  }
 }
 
 /** Is this action risky? Used when no element pick happened (e.g. pressing Enter). */

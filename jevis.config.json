@@ -16,6 +16,7 @@
   "confirm": {
     "enabled": true,
     "riskThreshold": 0.5,
+    "kindCheck": true,
     "timeoutSec": 120,
     "keywords": [
       "submit",

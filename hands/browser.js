@@ -8,7 +8,7 @@ import { spawn } from 'node:child_process';
 import { chromium } from 'playwright-core';
 import { config, expandHome, homeDir, loadState, saveState } from '../core/config.js';
 import * as jev from '../core/jev.js';
-import { needsConfirm, confirmAction } from '../guard/confirm.js';
+import { needsConfirm, confirmAction, harmlessByKind } from '../guard/confirm.js';
 import { JevisError } from '../core/errors.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -191,7 +191,30 @@ function snapshotInFrame({ prefix, max }) {
     }
     const text = textOf(el);
     if (text) return text;
-    return clean(el.getAttribute('title') || el.querySelector('img[alt]')?.alt || el.querySelector('svg title')?.textContent || el.getAttribute('name') || '');
+    const direkt = clean(el.getAttribute('title') || el.querySelector('img[alt]')?.alt || el.querySelector('svg title')?.textContent || el.getAttribute('name') || '');
+    return direkt || simgeIpucu(el);
+  };
+
+  // Yazısız simge düğmeleri (×, çöp kutusu, kalem...): sitelerin bıraktığı ipuçlarından bir ad.
+  // Jev "x remove icon" gibi tarifleri bu adla bulur.
+  const SIMGE = /^(close|remove|delete|trash|bin|edit|pencil|plus|add|minus|search|settings|gear|cog|menu|hamburger|more|kebab|ellipsis|dots|share|upload|download|play|pause|next|prev|back|forward|arrow|chevron|caret|expand|collapse|heart|like|star|bookmark|copy|clipboard|link|dismiss|cancel|check|tick|info|help|filter|sort|refresh|reload|camera|image|photo|attach|paperclip|send|mic|bell|notification|user|profile|home|calendar|x-?mark|\btimes\b|cross)$/i;
+  const simgeIpucu = el => {
+    const parcalar = [];
+    for (const a of ['data-testid', 'data-test', 'data-qa', 'data-tooltip', 'data-tip', 'data-original-title', 'data-title', 'data-icon', 'aria-description']) {
+      const v = clean(el.getAttribute(a) || el.querySelector(`[${a}]`)?.getAttribute(a) || '');
+      if (v) parcalar.push(v);
+    }
+    const tarif = el.getAttribute('aria-describedby');
+    if (tarif) parcalar.push(clean(tarif.split(/\s+/).map(id => document.getElementById(id)?.innerText || '').join(' ')));
+    const use = el.querySelector('use');
+    const href = use?.getAttribute('href') || use?.getAttribute('xlink:href') || '';
+    if (href) parcalar.push(href.replace(/^.*#/, ''));
+    const siniflar = [el, ...el.querySelectorAll('svg, i, span, img')].slice(0, 6).flatMap(x => String(x.getAttribute('class') || '').split(/\s+/)).filter(c => c.split(/[-_:.]+/).some(t => SIMGE.test(t)));
+    parcalar.push(...siniflar.slice(0, 3));
+    const ipucu = [...new Set(parcalar.map(p => p.replace(/[-_]+/g, ' ').trim()).filter(Boolean))].join(', ');
+    if (ipucu) return cut(`simge: ${ipucu}`, 80);
+    // hiçbir ipucu yoksa en azından ne olduğu: içinde sadece simge (svg/img) olan bir düğme
+    return el.querySelector('svg, img, i') ? 'simge (yazısız)' : '';
   };
 
   // Plain text near the element that tells same-named controls apart
@@ -551,6 +574,8 @@ async function guardRisk(page, item, riskP, actionText) {
   const verdict = needsConfirm(item, riskP, host);
   if (!verdict.ask) return null;
   const title = await page.title().catch(() => '');
+  // geri alınabilir, zararsız işlemler (taslağı kaydet, formdan öğe çıkar) sorulmadan geçer; sayfa bağlamıyla bakılır
+  if (await harmlessByKind(verdict, `${actionText} (sayfa: ${title}, ${page.url()})`)) return null;
   const changes = pendingChanges.get(page) || [];
   const changed = changes.length ? `\n\nBu sayfada JEVIS'in girdikleri:\n${changes.slice(-12).map(c => `• ${c.field}: ${c.value}`).join('\n')}` : '';
   const ok = await confirmAction(`JEVIS şunu yapmak istiyor:\n\n${actionText}${changed}\n\nSayfa: ${title}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`);
@@ -994,11 +1019,24 @@ export async function check(target, on = true) {
 }
 
 export async function upload(target, filePath) {
+  if (!String(filePath ?? '').trim()) throw new JevisError('BAD_ARGS', 'Yüklenecek dosyanın yolunu ver (file_path).');
   const abs = path.resolve(expandHome(filePath));
   if (!fs.existsSync(abs)) throw new JevisError('NOT_FOUND', `Dosya yok: ${abs}`);
+  if (fs.statSync(abs).isDirectory()) throw new JevisError('BAD_ARGS', `${abs} bir klasör; yüklenecek dosyanın kendisini ver.`);
   const page = await activePage();
   const before = { url: page.url() };
-  const { loc, item, pick } = await resolve(page, target, 'upload');
+  let bulunan;
+  try {
+    bulunan = await resolve(page, target, 'upload');
+  } catch (err) {
+    if (!['LOW_CONFIDENCE', 'NOT_FOUND'].includes(err.code)) throw err;
+    // Dosya alanları çoğu zaman gizli ve teknik adlıdır: sayfadaki bütün dosya alanları tarifleriyle toplanır
+    const alan = await dosyaAlaniSec(page, target);
+    await alan.loc.setInputFiles(abs);
+    await settle(page);
+    return { element: { name: alan.etiket, role: 'file' }, file: path.basename(abs), ...(await outcome(page, before)) };
+  }
+  const { loc, item, pick } = bulunan;
   const isFileInput = await loc.evaluate(el => el.tagName === 'INPUT' && el.type === 'file');
   if (isFileInput) {
     await loc.setInputFiles(abs);
@@ -1015,6 +1053,25 @@ export async function upload(target, filePath) {
   }
   await settle(page);
   return { element: item, jev: pickInfo(pick), file: path.basename(abs), ...(await outcome(page, before)) };
+}
+
+/** Sayfadaki dosya alanlarından (gizliler dahil) tarife uyanı: tek alan varsa o, birden çoksa Jev seçer. */
+async function dosyaAlaniSec(page, target) {
+  const tarifler = await page.mainFrame().evaluate(() => [...document.querySelectorAll('input[type=file]')].map(el => {
+    const clean = s => (s || '').replace(/\s+/g, ' ').trim();
+    let yakin = '';
+    for (let p = el.parentElement, i = 0; p && i < 6 && !yakin; p = p.parentElement, i++) {
+      const baslik = p.querySelector('h1, h2, h3, h4, h5, h6, label, legend, [class*=title], [class*=label]');
+      yakin = clean(baslik?.innerText || '').slice(0, 80) || clean(p.innerText || '').slice(0, 80);
+    }
+    return clean([el.getAttribute('aria-label'), el.labels?.[0]?.innerText, el.name, el.id, el.accept && `kabul eder: ${el.accept}`, el.multiple && 'çoklu', yakin && `yakınında: ${yakin}`].filter(Boolean).join(' · '));
+  }));
+  if (!tarifler.length) throw new JevisError('NOT_FOUND', 'Sayfada dosya yükleme alanı yok. Önce yükleme düğmesine tıklayıp alanın açılmasını sağla.');
+  const loc = i => page.locator('input[type=file]').nth(i);
+  if (tarifler.length === 1) return { loc: loc(0), etiket: tarifler[0] || 'dosya alanı' };
+  const pick = await jev.pickOption('file upload field', String(target), tarifler);
+  if (pick.index !== null && jev.isConfident(pick)) return { loc: loc(pick.index), etiket: tarifler[pick.index] };
+  throw new JevisError('LOW_CONFIDENCE', `Sayfada ${tarifler.length} dosya alanı var, hangisi olduğundan emin değilim. Tarifini şunlardan birinin kelimeleriyle ver:\n${tarifler.map((t, i) => `  ${i + 1}. ${t}`).join('\n')}`);
 }
 
 export async function press(keys) {

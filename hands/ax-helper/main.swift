@@ -473,9 +473,20 @@ case "click":
     emit(["ok": true])
 
 case "scroll":
+    // scroll <dy> [dx] [--at x,y]: with --at the pointer moves there first; the scroll goes to what is under it.
+    let at = option("--at")?.split(separator: ",").compactMap { Double($0) }
     let dy = Int32(args.first ?? "") ?? -300
     let dx = Int32(args.count > 1 ? args[1] : "") ?? 0
-    CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0)?.post(tap: .cghidEventTap)
+    if let at, at.count == 2 {
+        CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: CGPoint(x: at[0], y: at[1]), mouseButton: .left)?.post(tap: .cghidEventTap)
+        usleep(60000)
+    }
+    // In steps like a real wheel: some apps drop one huge event.
+    let steps = max(1, Int((max(abs(dy), abs(dx)) + 199) / 200))
+    for _ in 0..<steps {
+        CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: dy / Int32(steps), wheel2: dx / Int32(steps), wheel3: 0)?.post(tap: .cghidEventTap)
+        usleep(16000)
+    }
     emit(["ok": true])
 
 case "record":
@@ -513,6 +524,28 @@ case "windows":
                 "minimized": (attribute(w, "AXMinimized") as? Bool) ?? false,
                 "x": Int(pos.x), "y": Int(pos.y), "w": Int(size.width), "h": Int(size.height)]
     }])
+
+case "setframe":
+    // setframe <x> <y> <w> <h> [--title T]: moves and resizes one window of the app (the first, or the first whose
+    // title contains T). Uses the accessibility API directly: AppleScript's "set position" fails on many windows.
+    let baslik = option("--title")
+    guard args.count >= 4, let fx = Double(args[0]), let fy = Double(args[1]), let fw = Double(args[2]), let fh = Double(args[3]) else { fail("Kullanım: setframe <x> <y> <w> <h>", code: "BAD_ARGS") }
+    let app = targetApp(pid: pidOpt, name: appOpt)
+    let appEl = AXUIElementCreateApplication(app.processIdentifier)
+    let windows = (attribute(appEl, "AXWindows") as? [AXUIElement]) ?? []
+    guard let win = windows.first(where: { baslik == nil || (text(attribute($0, "AXTitle")) ?? "").localizedCaseInsensitiveContains(baslik!) }) else { fail("Böyle bir pencere yok.", code: "NOT_FOUND") }
+    AXUIElementSetAttributeValue(win, "AXMinimized" as CFString, kCFBooleanFalse)
+    var konum = CGPoint(x: fx, y: fy)
+    var boyut = CGSize(width: fw, height: fh)
+    // boyut, konum, boyut: bazı uygulamalar boyutu eski konumdaki ekrana göre kısıyor
+    AXUIElementSetAttributeValue(win, kAXSizeAttribute as CFString, AXValueCreate(.cgSize, &boyut)!)
+    AXUIElementSetAttributeValue(win, kAXPositionAttribute as CFString, AXValueCreate(.cgPoint, &konum)!)
+    let sonuc = AXUIElementSetAttributeValue(win, kAXSizeAttribute as CFString, AXValueCreate(.cgSize, &boyut)!)
+    if sonuc != .success { fail("Pencere yerleştirilemedi (kod \(sonuc.rawValue)). Pencere tam ekranda ya da yerleştirmeye kapalı olabilir.", code: "NOT_SETTABLE") }
+    let son = fetch(win)
+    let p2 = son["AXPosition"] as? CGPoint ?? .zero
+    let s2 = son["AXSize"] as? CGSize ?? .zero
+    emit(["ok": true, "title": text(son["AXTitle"]) ?? "", "x": Int(p2.x), "y": Int(p2.y), "w": Int(s2.width), "h": Int(s2.height)])
 
 case "raise":
     // raise <index>: brings one window of the app to the front.
