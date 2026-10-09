@@ -1,8 +1,8 @@
-// "Hey Foxie" and live speech in the app (Inaro.app), without a microphone: phrases are
+// "Hey Foxie" and live speech in the app (Handry.app), without a microphone: phrases are
 // spoken by macOS (Yelda) into files and run through the app's own listener
 // (JEVIS --test-listener), the same steps the microphone goes through. Then
 // the phrase audio it keeps goes through whisper, as in the bar.
-// Needs the app (Inaro.app) installed and its Speech Recognition permission.
+// Needs the app (Handry.app) installed and its Speech Recognition permission.
 // Usage: node tests/listener-e2e.mjs
 import fs from 'node:fs';
 import os from 'node:os';
@@ -63,9 +63,9 @@ try {
     return { ok: events.some(e => e.type === 'wake') && f?.woke && /ekran/.test(norm(f.text)), note: describe(events) };
   });
 
-  // "Hey Inaro" is heard as "Hayır" / "Hey Mero" by the Turkish recognizer; the name alone is heard well.
-  await check('"Inaro, …" (adıyla) uyandırıyor', async () => {
-    const events = listen(speak('inaro', '[[slnc 700]] İnaro, karanlık moda geç. [[slnc 300]]'));
+  // The app's name alone wakes it (with "Inaro" the recognizer heard the name alone far better than after "hey").
+  await check('"Handry, …" (adıyla) uyandırıyor', async () => {
+    const events = listen(speak('handry', '[[slnc 700]] Hendri, karanlık moda geç. [[slnc 300]]'));
     const f = final(events);
     return { ok: events.some(e => e.type === 'wake') && f?.woke && /karanl/.test(norm(f.text)), note: describe(events) };
   });

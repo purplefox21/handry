@@ -1,4 +1,4 @@
-// Inaro, JEVIS's app (the name comes from core/brand.js): starts the JEVIS
+// Handry, JEVIS's app (the name comes from core/brand.js): starts the JEVIS
 // server and shows it three ways:
 //   - the bar: a compact field that drops from the top of the screen
 //     (app/public/bar.html on a floating panel), and
@@ -25,7 +25,7 @@ let PORT = env["JEVIS_PORT"] ?? info["JEVISPort"] as? String ?? "3000"
 let HOME = FileManager.default.homeDirectoryForCurrentUser.path
 let URL_BASE = "http://127.0.0.1:\(PORT)/"
 // The app's name and its Turkish endings, the fox's name and the wake word (core/brand.js, via Info.plist).
-let APP_NAME = info["CFBundleDisplayName"] as? String ?? "Inaro"
+let APP_NAME = info["CFBundleDisplayName"] as? String ?? "Handry"
 let APP_ACC = info["AppAccusative"] as? String ?? "\(APP_NAME)'yu"
 let APP_ABL = info["AppAblative"] as? String ?? "\(APP_NAME)'dan"
 let APP_GEN = info["AppGenitive"] as? String ?? "\(APP_NAME)'nun"

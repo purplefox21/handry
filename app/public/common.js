@@ -21,8 +21,8 @@ const store = {
 
 // The app's name and its Turkish endings (core/brand.js, put into the page by the server).
 const BRAND = (() => { try { return JSON.parse(decodeURIComponent(document.querySelector('meta[name="app-brand"]').content)); } catch { return {}; } })();
-const APP_NAME = BRAND.name || 'Inaro';
-const SAY_TO = `${BRAND.dative || "Inaro'ya"} söyle…`;
+const APP_NAME = BRAND.name || 'Handry';
+const SAY_TO = `${BRAND.dative || "Handry'ye"} söyle…`;
 
 const MODEL_NAMES = { 'claude-sonnet-5-5': 'Sonnet 5.5', 'claude-sonnet-5': 'Sonnet 5', 'claude-opus-5-5': 'Opus 5.5', 'claude-haiku-4-5': 'Haiku 4.5' };
 const BRAIN_NAMES = { 'claude-code': 'Claude Code', codex: 'Codex', anthropic: 'Claude API', openai: 'OpenAI uyumlu', ollama: 'Ollama' };
@@ -154,6 +154,8 @@ const STEPS = {
   scheduled_tasks: [() => 'Zamanlayıcılara bakılıyor', 'clock'],
   cancel_scheduled: [() => 'Zamanlayıcı iptal ediliyor', 'clock'],
   claude_sessions: [() => 'Açık Claude oturumlarına bakılıyor', 'layers'],
+  handry_do: [a => `Hızlı yola veriliyor: “${short(a.command, 50)}”`, 'zap'],
+  handry_teach: [a => `Öğreniliyor: “${short(a.command, 50)}”`, 'bookmark'],
   inaro_do: [a => `Hızlı yola veriliyor: “${short(a.command, 50)}”`, 'zap'],
   inaro_teach: [a => `Öğreniliyor: “${short(a.command, 50)}”`, 'bookmark'],
   browser_fill: [a => `Form dolduruluyor (${Object.keys(a.fields || {}).length} alan)`, 'type'],

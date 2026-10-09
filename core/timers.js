@@ -309,7 +309,7 @@ function takeLock() {
 export async function ensureScheduler() {
   if (schedulerAlive()) return true;
   if (process.env.JEVIS_HOME || process.env.JEVIS_NO_TIMERS === '1') return false; // tests, throwaway homes
-  const app = [`${APP_NAME}.app`, 'Foxie.app', 'JEVIS.app'].map(name => path.join(os.homedir(), 'Applications', name)).find(p => fs.existsSync(p));
+  const app = [`${APP_NAME}.app`, 'Inaro.app', 'Foxie.app', 'JEVIS.app'].map(name => path.join(os.homedir(), 'Applications', name)).find(p => fs.existsSync(p));
   if (!app) return false;
   execFile('open', ['-g', app], () => {});
   for (let i = 0; i < 60; i++) {

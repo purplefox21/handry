@@ -10,12 +10,12 @@ import { WAKE_SOURCE } from '../core/brand.js';
 const execFileAsync = promisify(execFile);
 
 // Names whisper would otherwise hear as Turkish words ("jev" → "REV").
-const VOCABULARY = 'Inaro, Foxie, Hey Foxie, Hey Inaro, jev projesi, VS Code, Claude, Claude Code, Chrome, Safari, Spotify, Xcode, App Store Connect, TestFlight, TypeSafe, GitHub';
+const VOCABULARY = 'Handry, Foxie, Hey Foxie, Hey Handry, jev projesi, VS Code, Claude, Claude Code, Chrome, Safari, Spotify, Xcode, App Store Connect, TestFlight, TypeSafe, GitHub';
 
 // What whisper tends to "hear" in silence or noise.
 const HALLUCINATIONS = [/^(www\.|https?:)/i, /altyaz/i, /abone ol/i, /izlediğiniz için teşekkür/i, /^\[.*\]$/, /^\(.*\)$/, /^[.\s…-]*$/];
 
-const FIXES = [[/\bvs\.?\s?code\b/gi, 'VS Code'], [/\binaro\b/gi, 'Inaro'], [/\bfoxie\b/gi, 'Foxie']];
+const FIXES = [[/\bvs\.?\s?code\b/gi, 'VS Code'], [/\bhandry\b/gi, 'Handry'], [/\bfoxie\b/gi, 'Foxie']];
 
 // "Hey Foxie" (and how it gets misheard) at the start of a phrase; the same
 // pattern runs in Listener.swift (core/brand.js keeps the words).

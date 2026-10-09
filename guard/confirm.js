@@ -73,7 +73,7 @@ export async function harmlessByKind(verdict, action) {
 }
 
 /**
- * Shows "Inaro … İzin veriyor musun?" and resolves true only on "Evet".
+ * Shows "<app name> … İzin veriyor musun?" and resolves true only on "Evet".
  * No answer within the timeout counts as "Hayır".
  * JEVIS_TEST_CONFIRM=deny|allow skips the dialog in automated tests.
  */

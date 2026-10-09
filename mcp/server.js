@@ -7,7 +7,7 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprot
 import { TOOLS, INSTRUCTIONS, callTool } from '../core/tools.js';
 import { MCP_NAME } from '../core/brand.js';
 
-// One Claude session = one run in the action log (inaro_teach learns from it),
+// One Claude session = one run in the action log (the teach tool learns from it),
 // unless JEVIS started this server for one of its own runs.
 process.env.JEVIS_RUN_ID ||= `mcp-${Date.now().toString(36)}`;
 

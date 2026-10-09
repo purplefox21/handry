@@ -13,7 +13,7 @@ import { APP, FOX, WAKE_LABEL, WAKE_SOURCE } from '../../core/brand.js';
 export const APP_PATH = path.join(ROOT, 'dist', `${APP.name}.app`);
 export const INSTALLED = path.join(os.homedir(), 'Applications', `${APP.name}.app`);
 /** The app under its earlier names; moved to the Trash when this one is installed. */
-export const OLD_INSTALLED = ['JEVIS.app', 'Foxie.app'].filter(n => n !== `${APP.name}.app`).map(n => path.join(os.homedir(), 'Applications', n));
+export const OLD_INSTALLED = ['JEVIS.app', 'Foxie.app', 'Inaro.app'].filter(n => n !== `${APP.name}.app`).map(n => path.join(os.homedir(), 'Applications', n));
 export const BUNDLE_ID = 'studio.purpfox.foxie';
 
 const plist = values => `<?xml version="1.0" encoding="UTF-8"?>

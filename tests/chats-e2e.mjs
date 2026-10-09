@@ -51,7 +51,7 @@ try {
   await check('Hızlı yol işi sohbete yazılıyor, sonraki Claude mesajında "Sen yokken" diye geçiyor; oturum sürüyor', async () => {
     const quick = await ask('şu an hangi şarkı çalıyor');
     await ask('bunu bir daha yap');
-    return { ok: quick.fast && last().sessionId === 'sess-1' && /Sen yokken Inaro'nun Claude'suz yaptıkları/.test(last().text) && /şu an hangi şarkı çalıyor/.test(last().text), note: last().text.split('\n').slice(0, 3).join(' / ') };
+    return { ok: quick.fast && last().sessionId === 'sess-1' && /Sen yokken Handry'nin Claude'suz yaptıkları/.test(last().text) && /şu an hangi şarkı çalıyor/.test(last().text), note: last().text.split('\n').slice(0, 3).join(' / ') };
   });
 
   await check('Sen yokken listesi bir kez gidiyor (Claude artık biliyor)', async () => {
@@ -61,7 +61,7 @@ try {
 
   await check('Model değişince bağlam özetle taşınıyor (yeni oturum)', async () => {
     await ask('aynısını daha dikkatli yap', { model: 'claude-opus-5-5' });
-    return { ok: last().sessionId === null && /Bu sohbette daha önce \(Inaro'nun özeti\)/.test(last().text) && /şu an hangi şarkı çalıyor/.test(last().text), note: last().text.split('\n').slice(0, 4).join(' / ') };
+    return { ok: last().sessionId === null && /Bu sohbette daha önce \(Handry'nin özeti\)/.test(last().text) && /şu an hangi şarkı çalıyor/.test(last().text), note: last().text.split('\n').slice(0, 4).join(' / ') };
   });
 
   await check(`${chats.ROTATE_TURNS} turda bir oturum özetle tazeleniyor (pahalılaşmasın diye)`, async () => {
@@ -98,7 +98,7 @@ try {
     return { ok: out.chat.id !== chat.id && list.some(c => c.id === chat.id) && list.length === 3, note: `${list.length} sohbet: ${list.map(c => c.title).join(' | ')}` };
   });
 
-  await check('chat: false (inaro_do gibi) sohbete yazılmıyor', async () => {
+  await check('chat: false (handry_do gibi) sohbete yazılmıyor', async () => {
     const before = chats.loadChat(loadState().chat).entries.length;
     await runCommand({ text: 'şu an hangi şarkı çalıyor', chat: false, brainOverride: brain });
     return chats.loadChat(loadState().chat).entries.length === before;

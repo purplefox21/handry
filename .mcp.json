@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "inaro": {
+    "handry": {
       "type": "stdio",
       "command": "/opt/homebrew/bin/node",
       "args": [

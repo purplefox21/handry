@@ -1,6 +1,6 @@
 // Faz 10 end to end: login alerts (and the iMessage a minute later, recorded
 // instead of sent), browser_sessions against a local site with a login,
-// browser_fill, Claude teaching Inaro (inaro_teach → inaro_do without a
+// browser_fill, Claude teaching Handry (handry_teach → handry_do without a
 // brain), site notes, downloads, saving a value from the page, the approval
 // dialog listing what was typed, tables, and numbered screenshots.
 // Works in a throwaway JEVIS home; the Keychain check adds and removes a test entry.
@@ -111,17 +111,17 @@ try {
   });
 
   // 10.3 — teaching (the fill below is the task being taught)
-  await check('inaro_teach: Claude bir işi öğretiyor (değişkenleriyle)', async () => {
-    await call('inaro_teach', { command: 'hazırlık', last_steps: 1 }).catch(() => {}); // start the lesson from here
+  await check('handry_teach: Claude bir işi öğretiyor (değişkenleriyle)', async () => {
+    await call('handry_teach', { command: 'hazırlık', last_steps: 1 }).catch(() => {}); // start the lesson from here
     await call('browser_open', { url: STORE });
     await call('browser_fill', { fields: { Name: 'Kuzey Işığı', Price: '$0.99' } });
-    const r = await call('inaro_teach', { command: 'Test formunda adı Kuzey Işığı yap ve fiyatı $0.99 seç' });
+    const r = await call('handry_teach', { command: 'Test formunda adı Kuzey Işığı yap ve fiyatı $0.99 seç' });
     return { ok: /Öğrendim/.test(r.text) && /\[x1\]/.test(r.text), note: r.text };
   });
 
-  await check('Öğretilen iş inaro_do ile Claude\'suz, başka değerlerle yapılıyor', async () => {
+  await check('Öğretilen iş handry_do ile Claude\'suz, başka değerlerle yapılıyor', async () => {
     await call('browser_open', { url: 'about:blank' });
-    const r = await call('inaro_do', { command: 'Test formunda adı Güney Rüzgarı yap ve fiyatı $4.99 seç' });
+    const r = await call('handry_do', { command: 'Test formunda adı Güney Rüzgarı yap ve fiyatı $4.99 seç' });
     const s = await dom(() => [document.getElementById('name')?.value, document.getElementById('price')?.value]);
     return { ok: /Yapıldı \(öğrenilmiş iş/.test(r.text) && s[0] === 'Güney Rüzgarı' && s[1] === '$4.99', note: `${r.text.split('\n')[0]} · ${s.join(' / ')}` };
   });

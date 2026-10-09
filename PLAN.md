@@ -421,6 +421,12 @@ Kullanıcının istekleri: uygulamanın adı ve ikonu tilkiyle ilgili olsun; ark
   - Testler: `tests/files-change-e2e.mjs` **11/11**; mcp-smoke 11/11, chats 9/9, timers 15/15, timers-ui 10/10, router 51/51. `files-e2e` (TextEdit açıp kapatıyor) kullanıcı bilgisayardayken çalıştırılmadı.
 - Kuruldu (2026-10-01 16:20): eski JEVIS.app Çöp Sepeti'nde; Foxie ilk açılışta İzinler penceresini açtı; tilki Dock'un üstünde yürüyor. Kullanıcının denemesi bekleniyor: sevme, kuyruktan taşıma, pencere üstüne zıplama, "Hey Foxie". Eski kimliğin (com.jevis.menubar) izin kayıtları Sistem Ayarları'nda duruyor; silmek kullanıcıya soruldu.
 
+### Ad: Handry (2026-10-09, kullanıcı)
+Kullanıcı Inaro'yu akılda tutamadı; işlevi anlatan, "do it with your hands"teki "hands"i çağrıştıran, insan adı gibi bir isim istedi. Elenenler: Dex (Samsung DeX tescili; aynı işi yapan birkaç "Dex" AI asistanı, getdex.com'un MCP sunucusu; alan adları alınmış), Dobby (Warner Bros. tescili; Karpathy'nin ve başkalarının "Dobby" asistanları), Handrix, Thingers, Kumanda, Servo… Seçilen **Handry** (Henry + hand + handy). Aramada bu adla ürün yok; boş alan adları: handry.ai, heyhandry.com, usehandry.com, gethandry.com, handry.io, handry.co (handry.com alınmış). "Handy" adlı benzer işte ürünler var (karışma riski düşük). Hukuki marka kontrolü yayından önce yapılacak.
+- [x] Uygulama Handry.app (kimlik aynı: `studio.purpfox.foxie`, izinler kalıyor), MCP sunucusu `handry`, araçlar `handry_do` / `handry_teach` (adlar `core/brand.js`'teki MCP_NAME'den türüyor; `jevis_*`, `inaro_*` takma ad), Türkçe ekler söylenişten ("hendri": Handry'ye, Handry'nin). Uyandırma "Hey Foxie" / "Hey Fox" / "Handry, …" (Handry sesle henüz denenmedi). Tilki yine Foxie.
+- [x] Depo GitHub'da: github.com/purplefox21/handry (gizli). Yerel klasör hâlâ `~/Desktop/jev`.
+- Başka bir Claude oturumunun commit'lenmemiş işi (onayda işlem türü, `confirm.kindCheck`) bulundu, testlerden geçti, ayrı commit olarak kaydedildi (fd4e189).
+
 ## 7. Sınırlar ve riskler
 
 - CAPTCHA ve 2FA'yı JEVIS çözmez. Durur, sen çözersin.
@@ -520,6 +526,8 @@ Kullanıcının istekleri: uygulamanın adı ve ikonu tilkiyle ilgili olsun; ark
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-10-09:** Adı Handry (MCP `handry`, Handry.app); depo github.com/purplefox21/handry (gizli). Başka oturumun onay türü işi ayrı commit'lendi.
 
 - **2026-10-01:** Dosya değiştirme araçları (klasör, taşı, kopyala, Çöp Sepeti, geri al; kurallar kodda), kayıtta "kim", büyük pencerede "Yapılanlar"; onay penceresi açıkken ekrana dokunulmuyor. files-change-e2e 11/11.
 
