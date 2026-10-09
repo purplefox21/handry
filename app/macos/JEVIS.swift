@@ -21,7 +21,7 @@ let info = Bundle.main.infoDictionary ?? [:]
 let env = ProcessInfo.processInfo.environment
 let ROOT = env["JEVIS_ROOT"] ?? info["JEVISRoot"] as? String ?? ""
 let NODE = env["JEVIS_NODE"] ?? info["JEVISNode"] as? String ?? "/opt/homebrew/bin/node"
-let PORT = env["JEVIS_PORT"] ?? info["JEVISPort"] as? String ?? "3000"
+let PORT = env["JEVIS_PORT"] ?? info["JEVISPort"] as? String ?? "4263"
 let HOME = FileManager.default.homeDirectoryForCurrentUser.path
 let URL_BASE = "http://127.0.0.1:\(PORT)/"
 // The app's name and its Turkish endings, the fox's name and the wake word (core/brand.js, via Info.plist).
@@ -724,10 +724,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
     // MARK: Server
 
+    /// Our own server answers /api/ping with {"jevis": true}; anything else on the port (another dev server) does not count.
     func serverUp(_ done: @escaping (Bool) -> Void) {
-        var req = URLRequest(url: URL(string: URL_BASE)!)
+        var req = URLRequest(url: URL(string: "\(URL_BASE)api/ping")!)
         req.timeoutInterval = 1
-        URLSession.shared.dataTask(with: req) { _, res, _ in done((res as? HTTPURLResponse)?.statusCode == 200) }.resume()
+        URLSession.shared.dataTask(with: req) { data, res, _ in
+            guard (res as? HTTPURLResponse)?.statusCode == 200, let data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return done(false) }
+            done(json["jevis"] as? Bool == true)
+        }.resume()
     }
 
     /// Reuses a server that is already running (e.g. `npm start`), otherwise starts one.

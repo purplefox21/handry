@@ -83,7 +83,7 @@ export function buildApp() {
     WakePattern: WAKE_SOURCE,
     JEVISRoot: ROOT,
     JEVISNode: process.execPath,
-    JEVISPort: String(config().server.port || 3000)
+    JEVISPort: String(config().server.port || 4263)
   }));
   execFileSync('swiftc', ['-O', '-o', path.join(APP_PATH, 'Contents', 'MacOS', APP.name),
     ...['JEVIS.swift', 'Listener.swift', 'Fox.swift', 'Permissions.swift'].map(f => path.join(ROOT, 'app', 'macos', f)),

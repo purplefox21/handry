@@ -12,7 +12,7 @@ import * as desktop from '../hands/desktop.js';
 const HELPER = new URL('../bin/jevis-ax', import.meta.url).pathname;
 const helper = (...args) => JSON.parse(execFileSync(HELPER, args.map(String)).toString() || '{}');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const BASE = 'http://127.0.0.1:3000';
+const BASE = `http://127.0.0.1:${JSON.parse(fs.readFileSync(new URL('../jevis.config.json', import.meta.url))).server.port}`;
 
 let passed = 0;
 let total = 0;

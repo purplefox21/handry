@@ -20,7 +20,7 @@ import { ttsStatus, speak, stopSpeaking } from '../voice/tts.js';
 import { listRecipes, loadRecipe, saveFromRun, deleteRecipe } from '../core/recipes.js';
 import { APP_NAME } from '../core/brand.js';
 
-const PORT = Number(process.env.PORT) || config().server.port || 3000;
+const PORT = Number(process.env.PORT) || config().server.port || 4263;
 process.env.JEVIS_UI_PORT = String(PORT); // browser hands skip this app's own tab
 const HOST = '127.0.0.1';
 const PUBLIC_DIR = path.join(ROOT, 'app', 'public');
@@ -220,6 +220,8 @@ const ROUTES = {
     deleteRecipe(JSON.parse((await readBody(req)).toString()).name);
     sendJson(res, 200, { ok: true });
   },
+  // "Is this really our server?" The app asks before reusing whatever answers on its port.
+  'GET /api/ping': (req, res) => sendJson(res, 200, { jevis: true, name: APP_NAME, pid: process.pid }),
   'GET /api/status': (req, res) => {
     let jev = true;
     try { getApiKey(); } catch { jev = false; }
@@ -244,7 +246,7 @@ const server = http.createServer(async (req, res) => {
   const urlPath = req.url.split('?')[0];
 
   if (urlPath.startsWith('/api/')) {
-    if (!hasValidToken(req)) return sendJson(res, 401, { error: 'Geçersiz oturum anahtarı. Sayfayı yenileyin.' });
+    if (urlPath !== '/api/ping' && !hasValidToken(req)) return sendJson(res, 401, { error: 'Geçersiz oturum anahtarı. Sayfayı yenileyin.' });
     const handler = ROUTES[`${req.method} ${urlPath}`];
     if (!handler) return sendJson(res, 404, { error: 'Bilinmeyen adres.' });
     try {
@@ -300,6 +302,12 @@ async function runScheduled(text, job = {}) {
     remember(entry);
   }
 }
+
+server.on('error', err => {
+  if (err.code === 'EADDRINUSE') console.error(`${APP_NAME} başlamadı: ${PORT} portunu başka bir program kullanıyor (jevis.config.json › server.port ile değiştirilebilir).`);
+  else console.error(err);
+  process.exit(1);
+});
 
 server.listen(PORT, HOST, () => {
   console.log(`🤖 ${APP_NAME} hazır: http://localhost:${PORT}`);
