@@ -1,0 +1,152 @@
+{
+  "frame": [
+    720,
+    584
+  ],
+  "ground": 513,
+  "facing": "right",
+  "animations": {
+    "idle": {
+      "fps": 24,
+      "loop": true,
+      "frames": 96
+    },
+    "walk": {
+      "fps": 24,
+      "loop": true,
+      "frames": 24,
+      "speed": 147.0
+    },
+    "run": {
+      "fps": 24,
+      "loop": true,
+      "frames": 12,
+      "speed": 980.1
+    },
+    "stop": {
+      "fps": 24,
+      "loop": false,
+      "frames": 30,
+      "next": "idle"
+    },
+    "ears_up": {
+      "fps": 24,
+      "loop": false,
+      "frames": 14,
+      "next": "listen"
+    },
+    "listen": {
+      "fps": 24,
+      "loop": true,
+      "frames": 72
+    },
+    "desk": {
+      "fps": 24,
+      "loop": true,
+      "frames": 48
+    },
+    "lie_down": {
+      "fps": 24,
+      "loop": false,
+      "frames": 40,
+      "next": "sleep"
+    },
+    "sleep": {
+      "fps": 24,
+      "loop": true,
+      "frames": 96
+    },
+    "wake_up": {
+      "fps": 24,
+      "loop": false,
+      "frames": 48,
+      "next": "idle"
+    },
+    "happy": {
+      "fps": 24,
+      "loop": false,
+      "frames": 32,
+      "next": "idle"
+    },
+    "sad": {
+      "fps": 24,
+      "loop": false,
+      "frames": 60,
+      "next": "idle"
+    },
+    "bored": {
+      "fps": 24,
+      "loop": true,
+      "frames": 96
+    },
+    "held_tail": {
+      "fps": 24,
+      "loop": true,
+      "frames": 24,
+      "frame": [
+        720,
+        760
+      ],
+      "anchor": [
+        360,
+        152
+      ],
+      "anchor_type": "grab"
+    },
+    "held_scruff": {
+      "fps": 24,
+      "loop": true,
+      "frames": 48,
+      "frame": [
+        720,
+        760
+      ],
+      "anchor": [
+        360,
+        236
+      ],
+      "anchor_type": "grab"
+    },
+    "fall": {
+      "fps": 24,
+      "loop": true,
+      "frames": 12
+    },
+    "land": {
+      "fps": 24,
+      "loop": false,
+      "frames": 14,
+      "next": "idle"
+    },
+    "jump": {
+      "fps": 24,
+      "loop": false,
+      "frames": 16,
+      "next": "fall",
+      "liftoff_frame": 11
+    },
+    "edge_hang": {
+      "fps": 24,
+      "loop": true,
+      "frames": 48,
+      "anchor": [
+        497,
+        362
+      ],
+      "anchor_type": "edge_corner"
+    },
+    "turn": {
+      "fps": 24,
+      "loop": false,
+      "frames": 12,
+      "next": "idle",
+      "mirror_after": true
+    },
+    "petted": {
+      "fps": 24,
+      "loop": false,
+      "frames": 36,
+      "next": "idle"
+    }
+  }
+}
