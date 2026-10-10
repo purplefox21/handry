@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-10-01):** Faz 0-11 ✅ (uygulamanın adı artık Foxie), sohbetler ✅, zamanlayıcı/nöbet/güç ✅, hızlı yol sohbeti komut sanmıyor ✅. Kullanıcı Foxie'nin izinlerini veriyor ve tilkiyi deniyor. Varsayılan beyin Sonnet 5.5. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde (App Store işi, izinler, JEVIS.app kurulumu).
+> **Durum (2026-10-10):** Faz 0-11 ✅. Uygulamanın adı Handry (MCP `handry`); ekranda parmaklarının üstünde yürüyen el (tilki Foxie seçilebilir), uyandırma "Hey Handry". Sunucu portu 4263. Sohbetler, zamanlayıcı/nöbet/güç, dosya değiştirme, kayıt ✅. Varsayılan beyin Sonnet 5.5. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde.
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -427,6 +427,15 @@ Kullanıcı Inaro'yu akılda tutamadı; işlevi anlatan, "do it with your hands"
 - [x] Depo GitHub'da: github.com/purplefox21/handry (gizli). Yerel klasör hâlâ `~/Desktop/jev`.
 - Başka bir Claude oturumunun commit'lenmemiş işi (onayda işlem türü, `confirm.kindCheck`) bulundu, testlerden geçti, ayrı commit olarak kaydedildi (fd4e189).
 
+### El: Handry'nin maskotu ve ikonu (2026-10-10, kullanıcı)
+Kullanıcı: "logosunu elli bir şey yap, Wednesday'deki gibi; tilki yerine o elden yap, o hareket eder"; menüde "Hey Foxie" yerine "Hey Handry".
+- [x] Port 4263 (başka bir projenin Next.js sunucusu 3000'de; uygulama 3000'de ne cevap verirse onu açıyordu). Uygulama sunucuyu yeniden kullanmadan önce `GET /api/ping` → `{"jevis": true}` bakıyor; port doluysa sunucu açık bir mesajla çıkıyor.
+- [x] "Inaro" görünmesinin büyük ihtimalle kaynağı: `dist/` içinde aynı kimlikli eski Inaro.app / Foxie.app / JEVIS.app (LaunchServices'te kayıtlıydı). Çöp Sepeti'ne atıldı, kayıttan silindi.
+- [x] `app/hand/make.mjs`: küçük bir 3B el (parmaklar yuvarlak koniler, avuç elipsoidler, mor kol ağzı, beyaz şerit, altın düğme) her kare için pozlanıyor ve yandan ışın izlenerek piksel art çiziliyor (dört tonlu gölge, dış çizgi, arkadaki parçalarla arasına çizgi), her piksel 2×2. Parmaklar ters kinematikle yere basıyor; yürürken uçlar kaymıyor (hız manifest'te). Tilkinin animasyon adlarının hepsi, ayrıca `listen_out`, `bored_in`, `bored_out`. Ne yaptığı: avucu sana dönük kalkma ("Hey Handry"), laptop'ta yazma (Claude düşünürken), sevilince kalpler, iş bitince jazz hands, sıkılınca parmaklarla tempo, sırtüstü uyku ve Z'ler, kol ağzından tutulunca çırpınma, pencere köşesinden parmak sarkıtma. Uygulama ikonu (çapraz yandan, parmaklarının üstünde) ve menü çubuğu simgesi (kalkmış el ✋) de buradan. Çıktılar git'te değil, derleme üretiyor (4 sn).
+- [x] Fox.swift döngülerin giriş/çıkışını oynuyor (`<ad>_in`, `<ad>_out`); menü › Ekrandaki El ▸ gizle/göster, uyut, boyut, El / Tilki (varsayılan el). Uygulamada `Resources/pets/{hand,fox}`.
+- [x] Uyandırma etiketi "Hey Handry"; Foxie/Fox da çalışıyor. Sentetik sesle (Yelda): "Hey Hendri, Spotify'ı aç" uyandırıyor; "…, müziği durdur"da tanıyıcı "müziği"yi sonradan yuttu; "…, karanlık moda geç" uyanmadı ("Tayland"); "Handry" yazıldığı gibi okununca "Seyhan"/"Android", yalnız ad "Camby" duyuldu. Konuşma tanıma ipuçlarına (contextualStrings) "Hey Handry", "Hendri" eklendi, bu sesle fark etmedi. Kullanıcının kendi sesiyle denemesi gerekiyor. listener-e2e 7/7.
+- Kuruldu (2026-10-10 13:54): menü çubuğunda el, Dock'ta yeni ikon, el Dock'un üstünde yürüyor (ekran görüntüsüyle bakıldı). Tilkiyi daha önce gizlemişti; yeni el için gizleme kapatıldı.
+
 ## 7. Sınırlar ve riskler
 
 - CAPTCHA ve 2FA'yı JEVIS çözmez. Durur, sen çözersin.
@@ -526,6 +535,8 @@ Kullanıcı Inaro'yu akılda tutamadı; işlevi anlatan, "do it with your hands"
 3. `server.js`'te CORS herkese açık (`*`) ve `/api/macos/execute` şifresiz. Herhangi bir site bu bilgisayara komut gönderebilir.
 
 ## 13. Geçmiş
+
+- **2026-10-10:** El: Handry ekranda parmaklarının üstünde yürüyen piksel art el (`app/hand/make.mjs`, 3B el → ışın izleme → piksel art), yeni ikon ve menü çubuğu simgesi, "Hey Handry"; port 4263 (başka sunucularla çakışmıyor), `/api/ping` kimlik kontrolü; `dist/`teki eski aynı kimlikli uygulamalar kaldırıldı. mcp-smoke 11/11, chats 9/9, timers 15/15, timers-ui 10/10, files-change 11/11, listener 7/7.
 
 - **2026-10-09:** Adı Handry (MCP `handry`, Handry.app); depo github.com/purplefox21/handry (gizli). Başka oturumun onay türü işi ayrı commit'lendi.
 
