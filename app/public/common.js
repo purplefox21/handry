@@ -110,6 +110,7 @@ const STEPS = {
   browser_upload: [a => `Dosya yükleniyor: ${String(a.file_path || '').split('/').pop()}`, 'upload'],
   browser_fill_secret: [a => `Şifre giriliyor (${a.secret})`, 'lock'],
   wait_for_user: [a => `Seni bekliyor: ${short(a.message, 80)}`, 'user'],
+  human_mode: [a => (a.on === false ? 'İnsan gibi giriş kapatılıyor' : a.on ? 'İnsan gibi giriş açılıyor (engel var)' : 'İnsan gibi giriş durumuna bakılıyor'), 'user'],
   browser_press: [a => `Tuş: ${a.key}`, 'command'],
   browser_scroll: [a => `Sayfa kaydırılıyor${a.direction === 'up' ? ' (yukarı)' : ''}`, 'arrow-down'],
   browser_back: [() => 'Geri gidiliyor', 'back'],

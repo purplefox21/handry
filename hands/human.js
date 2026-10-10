@@ -3,22 +3,108 @@
 // arrives key by key at a typing pace. Sites that judge "is this a person?"
 // (Google sign-in for one) then see real mouse movement and keystrokes
 // instead of a pointer that appears on the button and a value that shows up
-// with no key events. JEVIS_HUMAN=0 or `human.enabled: false` in the config
-// turns it off (tests that only want speed).
-import { config } from '../core/config.js';
+// with no key events.
+//
+// It is slower (a click ~1 s, typing ~0.1 s a character), so it is OFF by
+// default. The brain turns it on with the human_mode tool when a site blocks
+// automation: for one site (remembered until turned off) or for everything
+// for a while. JEVIS_HUMAN=1 forces it on, JEVIS_HUMAN=0 (or `human.enabled:
+// false` in the config) keeps it off whatever the brain says.
+import { config, loadState, saveState } from '../core/config.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rand = (a, b) => a + Math.random() * (b - a);
 const gauss = () => Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
-export const humanOn = () => process.env.JEVIS_HUMAN !== '0' && config().human?.enabled !== false;
 /** Longer text is pasted the old way: nobody types a 2000 character description key by key. */
 export const maxTypeChars = () => config().human?.maxTypeChars ?? 120;
 
-// Hosts where being taken for a bot ends the login: forms there are always typed by hand.
-const STRICT_HOSTS = /(^|\.)(accounts\.google\.com|idmsa\.apple\.com|appleid\.apple\.com|login\.microsoftonline\.com|login\.live\.com|github\.com|facebook\.com|instagram\.com|linkedin\.com|x\.com|twitter\.com)$/;
-export const strictHost = url => { try { return STRICT_HOSTS.test(new URL(url).host); } catch { return false; } };
+// ---------------------------------------------------------------------------
+// Mode: which sites (or everything, for a while) get human input
+// ---------------------------------------------------------------------------
+
+const SECOND_LEVEL = new Set(['co', 'com', 'org', 'net', 'gov', 'edu', 'ac']);
+
+/** "https://accounts.google.com/x" or "accounts.google.com" → "google.com". Empty for pages without a host. */
+export function siteKey(urlOrHost) {
+  const input = String(urlOrHost || '').trim();
+  let host = '';
+  try { host = new URL(/^[a-z][\w+.-]*:\/\//i.test(input) ? input : `https://${input}`).hostname; } catch { return ''; }
+  const parts = host.replace(/^www\./, '').split('.').filter(Boolean);
+  if (parts.length <= 2) return parts.join('.');
+  const tld = parts[parts.length - 1], second = parts[parts.length - 2];
+  return parts.slice(-(tld.length === 2 && SECOND_LEVEL.has(second) ? 3 : 2)).join('.');
+}
+
+const killed = () => process.env.JEVIS_HUMAN === '0' || config().human?.enabled === false;
+const modeState = () => loadState().human || {};
+const allOn = m => Number(m.allUntil) > Date.now();
+
+/** Should this page get human input right now? */
+export function humanOn(page) {
+  if (killed()) return false;
+  if (process.env.JEVIS_HUMAN === '1') return true;
+  const m = modeState();
+  if (allOn(m)) return true;
+  const key = siteKey(page?.url?.());
+  return Boolean(key && (m.sites || []).includes(key));
+}
+
+/** The Mac apps (desktop_*) have no site: only "everything" switches them. */
+export function desktopHumanOn() {
+  if (killed()) return false;
+  return process.env.JEVIS_HUMAN === '1' || allOn(modeState());
+}
+
+/**
+ * Switches human input. on: true/false; scope "site" (with `site`, remembered
+ * until turned off) or "all" (every browser and desktop action for `minutes`).
+ * Turning off without a scope clears everything. Returns the new mode.
+ */
+export function setMode({ on, scope, site, minutes = 30 } = {}) {
+  const m = { ...modeState(), sites: [...(modeState().sites || [])] };
+  const key = site ? siteKey(site) : '';
+  if (on && scope === 'all') {
+    m.allUntil = Date.now() + clamp(Number(minutes) || 30, 1, 480) * 60_000;
+  } else if (on) {
+    if (!key) throw new Error('Hangi site için açılacağı belli değil (site ver ya da önce sayfayı aç).');
+    if (!m.sites.includes(key)) m.sites.push(key);
+  } else if (scope === 'all') {
+    delete m.allUntil;
+  } else if (key) {
+    m.sites = m.sites.filter(x => x !== key);
+  } else {
+    delete m.allUntil;
+    m.sites = [];
+  }
+  saveState({ human: m });
+  return describeMode();
+}
+
+/** { all: minutes left or 0, sites: [...], forced: 'on' | 'off' | null } */
+export function describeMode() {
+  const m = modeState();
+  return {
+    all: allOn(m) ? Math.ceil((m.allUntil - Date.now()) / 60_000) : 0,
+    sites: m.sites || [],
+    forced: process.env.JEVIS_HUMAN === '1' ? 'on' : killed() ? 'off' : null
+  };
+}
+
+// Pages that say automation was noticed. Plain words on the page, no model involved.
+const BLOCKED = new RegExp([
+  'this browser or app may not be secure', 'bu tarayıcı veya uygulama güvenli olmayabilir',
+  "couldn[’']t sign you in", 'oturum açılamadı', 'giriş yapılamadı',
+  'unusual traffic', 'olağan dışı trafik', 'olağandışı trafik',
+  'verify (that )?you(?:[’\']re| are) (a )?human', 'are you a robot', 'robot olmadığınızı', 'insan olduğunuzu doğrula',
+  'automated (queries|access|software)', 'otomatik (sorgu|erişim|yazılım)',
+  'could(?:n[’\']t| not) create your google account', 'hesabınızı oluşturamadık', 'google hesabınız oluşturulamadı',
+  'checking your browser before accessing', 'tarayıcınız kontrol ediliyor'
+].join('|'), 'i');
+
+/** The words that gave a block away, or null. */
+export const blockedBy = blob => String(blob || '').match(BLOCKED)?.[0] ?? null;
 
 const pointer = new WeakMap(); // page → where JEVIS left the pointer
 

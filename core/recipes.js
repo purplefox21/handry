@@ -18,7 +18,7 @@ const REPLAYABLE = new Set([
   'browser_open', 'browser_click', 'browser_type', 'browser_select', 'browser_check', 'browser_upload',
   'browser_press', 'browser_scroll', 'browser_back', 'browser_tabs', 'browser_fill_secret', 'browser_wait', 'browser_verify',
   'wait_for_user', 'desktop_open_app', 'desktop_quit_app', 'desktop_click', 'desktop_type', 'desktop_key', 'mac_action',
-  'desktop_focus_window', 'desktop_wait', 'desktop_click_at', 'browser_fill', 'browser_download'
+  'desktop_focus_window', 'desktop_wait', 'desktop_click_at', 'browser_fill', 'browser_download', 'human_mode'
 ]);
 
 // Roles the desktop tools press by name (a click at a point on one of these

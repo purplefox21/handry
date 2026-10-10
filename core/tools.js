@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import * as browser from '../hands/browser.js';
+import * as human from '../hands/human.js';
 import * as desktop from '../hands/desktop.js';
 import * as mac from '../hands/mac.js';
 import * as files from '../hands/files.js';
@@ -30,8 +31,30 @@ const text = (t, meta) => ({ content: [{ type: 'text', text: t }], meta });
 // Aynı sayfa için "giriş gerekiyor mu" sorusu 1 dakika içinde tekrar sorulmaz (her tıklamada Jev'e gitmesin)
 const girisBakilan = new Map(); // url → son bakılan an
 
+const describeHuman = m => m.forced === 'off'
+  ? 'İnsan gibi giriş ayardan (JEVIS_HUMAN=0 ya da config) kapalı tutuluyor; açılamaz.'
+  : [
+      m.forced === 'on' ? 'Her yerde açık (JEVIS_HUMAN=1).' : '',
+      m.all ? `Her şeyde açık: ${m.all} dk daha.` : '',
+      m.sites.length ? `Açık siteler: ${m.sites.join(', ')}.` : '',
+      !m.forced && !m.all && !m.sites.length ? 'Kapalı: hızlı mod.' : ''
+    ].filter(Boolean).join(' ');
+
+// A page that says automation was noticed: tell the brain what to try (human_mode) once, or to hand over.
+function blockHint(url, ...parts) {
+  const hit = human.blockedBy(parts.flat().join('\n'));
+  if (!hit) return '';
+  const on = human.humanOn({ url: () => url });
+  return on
+    ? `\n⚠️ Site otomasyonu engellemiş ("${hit}") ve insan gibi giriş zaten açıktı. Tekrar tekrar deneme: wait_for_user ile kullanıcıdan bu adımı elle yapmasını iste (giriş bir kez elle yapılırsa oturum kalır).`
+    : `\n⚠️ Site otomasyonu fark etmiş gibi görünüyor ("${hit}"). human_mode aracıyla insan gibi girişi aç (on: true; Google/Apple için scope site yeter), sayfayı yenileyip adımı tekrar dene. Yine engellenirse wait_for_user ile kullanıcıdan elle yapmasını iste.`;
+}
+
 async function outcome(res) {
   let out = browser.formatOutcome(res);
+  if (res.navigated || res.opened || res.alerts?.length) {
+    out += blockHint(res.url, res.title, res.alerts || [], await browser.pageText(1200).catch(() => ''));
+  }
   const yakindaBakildi = Date.now() - (girisBakilan.get(res.url) || 0) < 60_000;
   if ((res.navigated || res.opened) && !yakindaBakildi) {
     girisBakilan.set(res.url, Date.now());
@@ -65,6 +88,7 @@ How to work:
 Mac apps (desktop_* tools) work the same way: desktop_read lists the front window's controls as #d1, #d2… and its texts; desktop_click / desktop_type act on them. The Mac's language is Turkish, so buttons and menus have Turkish names ("Kaydet", "Sil", "Dosya > Yeni"); use the words the app shows. Menu items are found without opening menus. Prefer desktop_click/desktop_type over desktop_key and desktop_screenshot. Chromium-based apps (Spotify, Slack, Discord, VS Code) are read the same way; the first read can take a second. Use the app itself for app tasks (Spotify app, not the Spotify website). Only when desktop_read doesn't list a control (canvas, games), take desktop_screenshot and use desktop_click_at with that image's pixels. desktop_windows / desktop_focus_window switch between an app's windows; desktop_wait waits until something appears. For quick system things (volume, music, dark mode, notifications) use mac_action. desktop_scroll scrolls an app's window (or one part of it, given a point of the last desktop_screenshot). window_arrange places windows: full, left or right half, top, bottom, centered, or two apps side by side. totp_code and desktop_fill_secret type a saved two-step code or password without you seeing it.
 Teaching ${APP_NAME}: after finishing a task the user may want again, call ${MCP_NAME}_teach with the command in the user's words; next time ${APP_NAME} does it without an LLM. When a site hid something or needed a trick, leave a site_note; notes come back whenever the site is opened or read.
 Logins: before work on sites that need one, call browser_sessions with those sites so the user can log in to all of them first. When a page asks for a login, the user is alerted (sound, notification, ${APP_NAME} bar, an iMessage after a minute); call wait_for_user with leave_url or until_text so the work goes on by itself once they are done.
+Speed vs. human input: the mouse and keyboard are fast and plain by default. When a site blocks automation (Google "This browser or app may not be secure", "Couldn't sign you in", a bot or CAPTCHA wall, "unusual traffic"; tool results warn you when a page looks like that), call human_mode on: true (gliding mouse, key-by-key typing; slower) and retry; before a Google or Apple sign-in you may switch it on up front. Turn it off again when done. If it is on and the site still blocks, ask the user to do that step by hand with wait_for_user.
 Forms: fill many fields with one browser_fill call instead of one browser_type/browser_select per field.
 For simple one-step commands (volume, music, open or quit an app, open a site, a web search, play on Spotify, a note, today's calendar) try ${MCP_NAME}_do first: ${APP_NAME}'s fast path does them in 1-3 s. If it answers that it needs thinking, do the task with the other tools.
 App shortcuts: spotify_play, music_play, notes_add / notes_find, reminders_add / reminders_list, calendar_events / calendar_add are faster and surer than clicking through those apps. The user's message ends with the current local date and time ("[Şu an: …]"); work out dates from it ("yarın 9'da", "cuma") as local "YYYY-MM-DDTHH:MM".
@@ -99,6 +123,8 @@ export const TOOLS = [
           alertUser(`${siteName(r.url)} için giriş yapman gerekiyor. ${APP.genitive} Chrome penceresine bak.`, { title: 'Giriş gerekiyor' });
         }
       }
+      const blocked = blockHint(r.url, r.title, r.text || '').trim();
+      if (blocked) notes.push(blocked);
       const siteNotes = notesBlock(r.url);
       return text([siteNotes, browser.formatRead(r, { all }), ...notes].filter(Boolean).join('\n\n'), r);
     }
@@ -283,6 +309,27 @@ export const TOOLS = [
         rows.push('', `Kullanıcıya haber verildi. Giriş sayfalarını açıp (browser_open) wait_for_user ile bekleyebilirsin; leave_url ver ki giriş bitince kendiliğinden devam edilsin.`);
       }
       return text(rows.join('\n'), { results: results.map(({ text: _t, ...r }) => r) });
+    }
+  },
+  {
+    name: 'human_mode',
+    description: `Human-like input: the mouse glides along a curve and clicks with a short hold, text is typed key by key, scrolling uses wheel ticks. It is OFF by default because it is slower (a click ~1 s, typing ~0.1 s a character). Turn it ON when a site blocks automation: Google "This browser or app may not be secure" / "Couldn't sign you in", a bot or CAPTCHA wall right after the login form, "unusual traffic", a correct password refused again and again; the tool results warn you when a page looks like that. For a Google/Apple sign-in you may also turn it on before the first try. scope "site" (default): the current page's site (or the site you name), remembered until you turn it off. scope "all": every browser and desktop action for \`minutes\` (default 30). on: false turns it off (no scope: everything). Without on it only reports the state. Turn it off again when the blocked part is done.`,
+    inputSchema: obj({
+      on: { type: 'boolean', description: 'true: switch on, false: switch off. Leave out to just see the state.' },
+      scope: { type: 'string', enum: ['site', 'all'], description: 'site (default) or all. Desktop apps only follow "all".' },
+      site: { type: 'string', description: 'A site such as "google.com"; default: the site of the current page.' },
+      minutes: { type: 'number', description: 'For scope all: how long it stays on (default 30, at most 480).' }
+    }),
+    run: async ({ on, scope, site, minutes }) => {
+      if (on === undefined) return text(describeHuman(human.describeMode()), human.describeMode());
+      let target = site;
+      if (!target && scope !== 'all' && (on || scope === 'site')) target = await browser.currentHost().catch(() => '');
+      try {
+        const mode = human.setMode({ on: Boolean(on), scope: scope || (target || on ? 'site' : undefined), site: target, minutes });
+        return text(`${on ? 'İnsan gibi giriş açıldı.' : 'İnsan gibi giriş kapatıldı.'} ${describeHuman(mode)}`, mode);
+      } catch (err) {
+        return text(`Olmadı: ${err.message}`, { error: err.message });
+      }
     }
   },
   {

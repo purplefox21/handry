@@ -1,8 +1,9 @@
-// Does JEVIS move and type like a person? Real Chrome in its own profile and
-// port (the JEVIS Chrome you use is not touched); a page records every mouse
-// and key event, and the test checks what a site would see: a curved, gradual
-// pointer path, a held click, wheel ticks for scrolling, one key event per
-// character instead of a value that appears at once.
+// Does JEVIS move and type like a person when asked to, and stay fast when
+// not? Real Chrome in its own profile and port (the JEVIS Chrome you use is
+// not touched); a page records every mouse and key event, and the test checks
+// what a site would see: a curved, gradual pointer path, a held click, wheel
+// ticks for scrolling, one key event per character instead of a value that
+// appears at once. Also the human_mode tool and the hint on a block page.
 // Usage: node tests/human-e2e.mjs
 import fs from 'node:fs';
 import os from 'node:os';
@@ -15,6 +16,11 @@ delete process.env.JEVIS_HUMAN;
 process.env.JEVIS_TEST_CONFIRM = 'allow';
 const b = await import('../hands/browser.js');
 const human = await import('../hands/human.js');
+const { callTool } = await import('../core/tools.js');
+const call = async (name, args) => {
+  const r = await callTool(name, args);
+  return { ...r, text: r.content.filter(c => c.type === 'text').map(c => c.text).join('\n') };
+};
 
 const FIXTURE = new URL('./fixtures/human-probe.html', import.meta.url).href;
 const dom = async fn => (await b.activePage()).evaluate(fn);
@@ -31,6 +37,10 @@ async function check(name, fn) {
   console.log(`${ok ? '✅' : '❌'} ${String(Date.now() - started).padStart(6)} ms  ${name}${note ? `\n          → ${note}` : ''}`);
 }
 
+const inputs = ev => ev.filter(e => e.t === 'input').length;
+const google = { url: () => 'https://accounts.google.com/v3/signin' };
+const other = { url: () => 'https://example.com/' };
+
 try {
   await b.open(FIXTURE);
   const listing = b.formatRead(await b.read({ text: false }), { all: true });
@@ -39,17 +49,58 @@ try {
     return line ? line.match(/^#(\d+)/)[0] : word;
   };
 
-  await check('E-posta: harf harf yazılıyor (her karakter için tuş olayı)', async () => {
+  // --- default: fast and plain ---------------------------------------------
+  await check('Varsayılan kapalı: yazma tek input olayı, tıklama ışınlanır (hızlı)', async () => {
+    await clear();
+    const t = Date.now();
+    await b.type(id('Email'), 'Bora.Test@example.com');
+    await b.click(id('Continue'));
+    const ev = await events();
+    const moves = ev.filter(e => e.t === 'mousemove').length;
+    return { ok: inputs(ev) === 1 && moves <= 4 && !human.humanOn(google), note: `${inputs(ev)} input, ${moves} fare olayı, ${Date.now() - t} ms` };
+  });
+
+  await check('human_mode durum: kapalı, hızlı mod', async () => {
+    const r = await call('human_mode', {});
+    return { ok: /Kapalı: hızlı mod/.test(r.text), note: r.text };
+  });
+
+  await check('human_mode: dosya sayfasında site belli değil → anlaşılır hata', async () => {
+    const r = await call('human_mode', { on: true });
+    return { ok: /Olmadı/.test(r.text) && !human.describeMode().sites.length, note: r.text };
+  });
+
+  // --- site scope -------------------------------------------------------------
+  await check('human_mode site: sadece o site (google.com), diğerleri hızlı', async () => {
+    const r = await call('human_mode', { on: true, site: 'accounts.google.com' });
+    const ok = human.humanOn(google) && human.humanOn({ url: () => 'https://mail.google.com/' }) && !human.humanOn(other);
+    return { ok: ok && /google\.com/.test(r.text), note: r.text };
+  });
+
+  await check('human_mode site kapat: sadece o site kapanır', async () => {
+    await call('human_mode', { on: true, site: 'example.org' });
+    await call('human_mode', { on: false, site: 'google.com' });
+    const m = human.describeMode();
+    await call('human_mode', { on: false });
+    return { ok: !m.sites.includes('google.com') && m.sites.includes('example.org') && human.describeMode().sites.length === 0, note: JSON.stringify(m) };
+  });
+
+  // --- everything, for a while ------------------------------------------------
+  await check('human_mode all: dakika sayacıyla açılır', async () => {
+    const r = await call('human_mode', { on: true, scope: 'all', minutes: 5 });
+    return { ok: human.humanOn(other) && human.desktopHumanOn() && human.describeMode().all >= 4 && /Her şeyde açık/.test(r.text), note: r.text };
+  });
+
+  await check('Açıkken e-posta: harf harf yazılıyor (her karakter için tuş olayı)', async () => {
     await clear();
     const text = 'Bora.Test@example.com';
     const t = Date.now();
     await b.type(id('Email'), text);
     const took = Date.now() - t;
     const ev = await events();
-    const downs = ev.filter(e => e.t === 'keydown' && e.k.length === 1 || e.k === 'Shift').length;
-    const inputs = ev.filter(e => e.t === 'input').length;
+    const keydowns = ev.filter(e => e.t === 'keydown').length;
     const value = await dom(() => document.getElementById('email').value);
-    return { ok: value === text && inputs >= text.length && ev.filter(e => e.t === 'keydown').length >= text.length && took > text.length * 50, note: `değer ${value === text ? 'doğru' : value}, ${inputs} input, ${ev.filter(e => e.t === 'keydown').length} tuş, ${took} ms` };
+    return { ok: value === text && inputs(ev) >= text.length && keydowns >= text.length && took > text.length * 50, note: `değer ${value === text ? 'doğru' : value}, ${inputs(ev)} input, ${keydowns} tuş, ${took} ms` };
   });
 
   await check('Büyük harf ve simge Shift ile yazılıyor, tuş kodları gerçek', async () => {
@@ -65,7 +116,7 @@ try {
     await b.fillHidden(id('Password'), pw);
     const ev = await events();
     const value = await dom(() => document.getElementById('password').value);
-    return { ok: value === pw && ev.filter(e => e.t === 'input').length >= pw.length, note: `${ev.filter(e => e.t === 'input').length} input olayı` };
+    return { ok: value === pw && inputs(ev) >= pw.length, note: `${inputs(ev)} input olayı` };
   });
 
   await check('Eski içerik seçilip yerine yazılıyor', async () => {
@@ -75,7 +126,7 @@ try {
 
   await check('Tıklama: eğri yol, ışınlanma yok, tuş basılı kalıyor', async () => {
     await clear();
-    const r = await b.click(id('Continue'));
+    await b.click(id('Continue'));
     const ev = await events();
     const moves = ev.filter(e => e.t === 'mousemove');
     const down = ev.find(e => e.t === 'mousedown'), up = ev.find(e => e.t === 'mouseup');
@@ -99,29 +150,54 @@ try {
     return { ok: clicked.join() === 'far' && wheels >= 5, note: `${wheels} tekerlek olayı` };
   });
 
-  await check('Toplu doldurma yolu (fast) hızlı kalıyor: tek input olayı', async () => {
+  await check('Açıkken uzun metin (>120 karakter) yine tek seferde giriyor', async () => {
     await clear();
-    await b.type(id('Email'), 'hizli@ornek.com', { fast: true });
-    const ev = await events();
-    return { ok: ev.filter(e => e.t === 'input').length === 1 && (await dom(() => document.getElementById('email').value)) === 'hizli@ornek.com', note: `${ev.filter(e => e.t === 'input').length} input olayı` };
+    await b.type(id('Email'), 'Uzun metin '.repeat(20));
+    return { ok: inputs(await events()) === 1 };
   });
 
-  await check('JEVIS_HUMAN=0 eski hızlı davranışa döner', async () => {
+  await check('JEVIS_HUMAN=0 kilidi: mod açık olsa da kapalı kalır (human_mode açamaz)', async () => {
     process.env.JEVIS_HUMAN = '0';
     try {
       await clear();
       await b.type(id('Email'), 'kapali@ornek.com');
-      const ev = await events();
-      return { ok: ev.filter(e => e.t === 'input').length === 1 && !human.humanOn(), note: `${ev.filter(e => e.t === 'input').length} input olayı` };
+      const r = await call('human_mode', {});
+      return { ok: inputs(await events()) === 1 && !human.humanOn(other) && /kapalı tutuluyor/.test(r.text), note: r.text };
     } finally { delete process.env.JEVIS_HUMAN; }
   });
 
-  await check('Uzun metin (>120 karakter) tek seferde giriyor', async () => {
+  await check('JEVIS_HUMAN=1 her yerde açar', async () => {
+    await call('human_mode', { on: false });
+    process.env.JEVIS_HUMAN = '1';
+    try { return human.humanOn(other) && human.desktopHumanOn(); } finally { delete process.env.JEVIS_HUMAN; }
+  });
+
+  await check('human_mode kapat (kapsamsız): her şey kapanır, yazma yine hızlı', async () => {
+    await call('human_mode', { on: true, scope: 'all', minutes: 5 });
+    await call('human_mode', { on: true, site: 'google.com' });
+    const r = await call('human_mode', { on: false });
     await clear();
-    const long = 'Uzun metin '.repeat(20);
-    await b.type(id('Email'), long);
-    const ev = await events();
-    return { ok: ev.filter(e => e.t === 'input').length === 1, note: `${ev.filter(e => e.t === 'input').length} input olayı` };
+    await b.type(id('Email'), 'hizli@ornek.com');
+    const m = human.describeMode();
+    return { ok: m.all === 0 && m.sites.length === 0 && inputs(await events()) === 1 && /Kapalı/.test(r.text), note: r.text };
+  });
+
+  // --- the brain is told when a page blocks automation --------------------------
+  await check('Engel sayfası: sonuç human_mode önerir', async () => {
+    const r = await call('browser_open', { url: new URL('./fixtures/blocked.html', import.meta.url).href });
+    return { ok: /human_mode/.test(r.text) && /Couldn.t sign you in|may not be secure/i.test(r.text) && !/zaten açıktı/.test(r.text), note: r.text.split('\n').slice(-2).join(' ').slice(0, 220) };
+  });
+
+  await check('Engel sayfası, mod zaten açıkken: tekrar deneme demez, elle yapmayı ister', async () => {
+    await call('human_mode', { on: true, scope: 'all', minutes: 5 });
+    const r = await call('browser_open', { url: new URL('./fixtures/blocked.html', import.meta.url).href + '?again' });
+    await call('human_mode', { on: false });
+    return { ok: /zaten açıktı/.test(r.text) && /wait_for_user/.test(r.text), note: r.text.split('\n').slice(-1)[0].slice(0, 200) };
+  });
+
+  await check('browser_read de engeli söylüyor', async () => {
+    const r = await call('browser_read', {});
+    return { ok: /human_mode/.test(r.text) };
   });
 } finally {
   console.log(`\n${passed}/${total}`);

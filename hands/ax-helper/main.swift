@@ -306,8 +306,8 @@ func sendKey(_ combo: String) {
 // The pointer glides along a curve instead of appearing on its target, a click
 // is held for a moment, and short text is typed key by key with uneven gaps.
 // Sites and apps that ask "is this a person?" see real movement and keystrokes.
-// JEVIS_HUMAN=0 gives back the old instant behaviour.
-let humanPace = ProcessInfo.processInfo.environment["JEVIS_HUMAN"] != "0"
+// Off unless JEVIS_HUMAN=1 (the Node side sets it from human_mode); it is slower.
+let humanPace = ProcessInfo.processInfo.environment["JEVIS_HUMAN"] == "1"
 
 func randomIn(_ a: Double, _ b: Double) -> Double { Double.random(in: a...b) }
 func gaussian() -> Double { sqrt(-2 * log(1 - Double.random(in: 0..<1))) * cos(2 * Double.pi * Double.random(in: 0..<1)) }

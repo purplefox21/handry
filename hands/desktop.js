@@ -8,6 +8,7 @@ import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { ROOT, homeDir, loadState, saveState } from '../core/config.js';
 import { JevisError } from '../core/errors.js';
+import { desktopHumanOn } from './human.js';
 import * as jev from '../core/jev.js';
 import { needsConfirm, confirmAction, dialogOpen, harmlessByKind } from '../guard/confirm.js';
 import { isStopped } from '../guard/stop.js';
@@ -36,7 +37,9 @@ export function ensureHelper() {
 async function ax(...args) {
   ensureHelper();
   try {
-    const { stdout } = await execFileAsync(HELPER, args.map(String), { timeout: 20000, maxBuffer: 20 * 1024 * 1024 });
+    // human input (gliding pointer, key-by-key typing) only when human_mode says so
+    const env = { ...process.env, JEVIS_HUMAN: desktopHumanOn() ? '1' : '0' };
+    const { stdout } = await execFileAsync(HELPER, args.map(String), { timeout: 20000, maxBuffer: 20 * 1024 * 1024, env });
     return JSON.parse(stdout);
   } catch (err) {
     let out = null;
