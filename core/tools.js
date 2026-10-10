@@ -10,11 +10,13 @@ import * as desktop from '../hands/desktop.js';
 import * as mac from '../hands/mac.js';
 import * as files from '../hands/files.js';
 import * as apps from '../hands/apps.js';
+import * as codes from '../hands/codes.js';
 import * as jev from './jev.js';
+import { config } from './config.js';
 import { isStopped } from '../guard/stop.js';
 import { logAction } from '../guard/log.js';
 import { guardPage } from '../guard/page-guard.js';
-import { waitForUser } from '../guard/confirm.js';
+import { waitForUser, confirmAction } from '../guard/confirm.js';
 import { alertUser, resolveAlert, siteName } from '../guard/notify.js';
 import { notesBlock, addNote, removeNote, notesFor, siteOf } from './sites.js';
 import * as vault from '../guard/vault.js';
@@ -46,8 +48,8 @@ function blockHint(url, ...parts) {
   if (!hit) return '';
   const on = human.humanOn({ url: () => url });
   return on
-    ? `\n⚠️ Site otomasyonu engellemiş ("${hit}") ve insan gibi giriş zaten açıktı. Tekrar tekrar deneme: wait_for_user ile kullanıcıdan bu adımı elle yapmasını iste (giriş bir kez elle yapılırsa oturum kalır).`
-    : `\n⚠️ Site otomasyonu fark etmiş gibi görünüyor ("${hit}"). human_mode aracıyla insan gibi girişi aç (on: true; Google/Apple için scope site yeter), sayfayı yenileyip adımı tekrar dene. Yine engellenirse wait_for_user ile kullanıcıdan elle yapmasını iste.`;
+    ? `\n⚠️ Site otomasyonu engellemiş ("${hit}") ve insan gibi giriş zaten açıktı. Tekrar tekrar deneme: login_window ile profili bağlantısız bir Chrome olarak açtır, kullanıcı girişi orada elle yapsın (oturum profilde kalır).`
+    : `\n⚠️ Site otomasyonu fark etmiş gibi görünüyor ("${hit}"). human_mode aracıyla insan gibi girişi aç (on: true; Google/Apple için scope site yeter), sayfayı yenileyip adımı tekrar dene. Yine engellenirse login_window ile kullanıcıya girişi bağlantısız Chrome'da yaptır.`;
 }
 
 async function outcome(res) {
@@ -88,7 +90,8 @@ How to work:
 Mac apps (desktop_* tools) work the same way: desktop_read lists the front window's controls as #d1, #d2… and its texts; desktop_click / desktop_type act on them. The Mac's language is Turkish, so buttons and menus have Turkish names ("Kaydet", "Sil", "Dosya > Yeni"); use the words the app shows. Menu items are found without opening menus. Prefer desktop_click/desktop_type over desktop_key and desktop_screenshot. Chromium-based apps (Spotify, Slack, Discord, VS Code) are read the same way; the first read can take a second. Use the app itself for app tasks (Spotify app, not the Spotify website). Only when desktop_read doesn't list a control (canvas, games), take desktop_screenshot and use desktop_click_at with that image's pixels. desktop_windows / desktop_focus_window switch between an app's windows; desktop_wait waits until something appears. For quick system things (volume, music, dark mode, notifications) use mac_action. desktop_scroll scrolls an app's window (or one part of it, given a point of the last desktop_screenshot). window_arrange places windows: full, left or right half, top, bottom, centered, or two apps side by side. totp_code and desktop_fill_secret type a saved two-step code or password without you seeing it.
 Teaching ${APP_NAME}: after finishing a task the user may want again, call ${MCP_NAME}_teach with the command in the user's words; next time ${APP_NAME} does it without an LLM. When a site hid something or needed a trick, leave a site_note; notes come back whenever the site is opened or read.
 Logins: before work on sites that need one, call browser_sessions with those sites so the user can log in to all of them first. When a page asks for a login, the user is alerted (sound, notification, ${APP_NAME} bar, an iMessage after a minute); call wait_for_user with leave_url or until_text so the work goes on by itself once they are done.
-Speed vs. human input: the mouse and keyboard are fast and plain by default. When a site blocks automation (Google "This browser or app may not be secure", "Couldn't sign you in", a bot or CAPTCHA wall, "unusual traffic"; tool results warn you when a page looks like that), call human_mode on: true (gliding mouse, key-by-key typing; slower) and retry; before a Google or Apple sign-in you may switch it on up front. Turn it off again when done. If it is on and the site still blocks, ask the user to do that step by hand with wait_for_user.
+Speed vs. human input: the mouse and keyboard are fast and plain by default. When a site blocks automation (Google "This browser or app may not be secure", "Couldn't sign you in", a bot or CAPTCHA wall, "unusual traffic"; tool results warn you when a page looks like that), call human_mode on: true (gliding mouse, key-by-key typing; slower) and retry; before a Google or Apple sign-in you may switch it on up front. Turn it off again when done. If it is on and the site still blocks (Google sign-in above all), call login_window: it opens the profile as a plain Chrome with nothing attached, the user signs in by hand once, the login stays in the profile.
+Codes by SMS or e-mail: when a site says it sent a code, call verification_code (source sms = Messages on this Mac, gmail = the Gmail inbox in the Chrome); give target to have it typed into the field. Do not open the user's Messages or mail to look for codes yourself. A CAPTCHA is never solved by you or by a service: it is the user's, call wait_for_user.
 Forms: fill many fields with one browser_fill call instead of one browser_type/browser_select per field.
 For simple one-step commands (volume, music, open or quit an app, open a site, a web search, play on Spotify, a note, today's calendar) try ${MCP_NAME}_do first: ${APP_NAME}'s fast path does them in 1-3 s. If it answers that it needs thinking, do the task with the other tools.
 App shortcuts: spotify_play, music_play, notes_add / notes_find, reminders_add / reminders_list, calendar_events / calendar_add are faster and surer than clicking through those apps. The user's message ends with the current local date and time ("[Şu an: …]"); work out dates from it ("yarın 9'da", "cuma") as local "YYYY-MM-DDTHH:MM".
@@ -309,6 +312,69 @@ export const TOOLS = [
         rows.push('', `Kullanıcıya haber verildi. Giriş sayfalarını açıp (browser_open) wait_for_user ile bekleyebilirsin; leave_url ver ki giriş bitince kendiliğinden devam edilsin.`);
       }
       return text(rows.join('\n'), { results: results.map(({ text: _t, ...r }) => r) });
+    }
+  },
+  {
+    name: 'verification_code',
+    description: `Read the newest one-time code the user just got: source "sms" = the Messages app on this Mac (iPhone text forwarding must be on; the app that runs ${APP_NAME} needs Full Disk Access, which only the user can grant), source "gmail" = the Gmail inbox in the ${APP_NAME} Chrome (the user must be logged in there). Only the code and the sender come back, never other messages. The user is asked first, every time; if they say no, stop. target: also type the code into that field. from: a word of the sender or subject ("google", "github") to skip other codes. within_min: how fresh (default 5). wait_sec: keep looking for a code that has not arrived yet (up to 90).`,
+    inputSchema: obj({
+      source: { type: 'string', enum: ['sms', 'gmail'] },
+      target: { type: 'string', description: 'Page field to type the code into (optional).' },
+      from: { type: 'string' },
+      within_min: { type: 'number' },
+      wait_sec: { type: 'number' }
+    }, ['source']),
+    run: async ({ source, target, from, within_min, wait_sec }) => {
+      const within = Math.min(Math.max(Number(within_min) || config().codes?.withinMin || 5, 1), 30);
+      const wait = Math.min(Math.max(Number(wait_sec) || 0, 0), 90);
+      const where = source === 'sms' ? "Mesajlar'dan" : `${APP_NAME}'nin Chrome'undaki Gmail gelen kutusundan`;
+      const host = target ? await browser.currentHost() : '';
+      if (config().codes?.ask !== false) {
+        const ok = await confirmAction(`${APP_NAME} ${where} son ${within} dakikadaki doğrulama kodunu okumak istiyor.\nSadece kod ve gönderen alınır; diğer mesajlar okunmaz${host ? `.\nKod ${host} sayfasındaki alana yazılacak` : ''}.\n\nİzin veriyor musun?`);
+        if (!ok) throw Object.assign(new Error('Kullanıcı kod okumaya izin vermedi. Devam etme; kullanıcıya bildir ve kodu kendisinin yazmasını iste.'), { code: 'DENIED' });
+      }
+      const found = await codes.waitForCode({ source, withinMin: within, from, waitSec: wait });
+      if (!found) {
+        return text(`Son ${within} dakikada ${source === 'sms' ? "Mesajlar'da" : 'Gmail gelen kutusunda'} bir doğrulama kodu bulunamadı${from ? ` ("${from}" için)` : ''}. Kod henüz gelmemiş olabilir: wait_sec ile bekleterek tekrar dene, ya da kullanıcıdan wait_for_user ile kodu elle yazmasını iste.`, { logSummary: `kod bulunamadı (${source})` });
+      }
+      const age = found.ageSec < 90 ? `${found.ageSec} sn` : `${Math.round(found.ageSec / 60)} dk`;
+      // The log never holds the code itself.
+      const log = `doğrulama kodu okundu (${source}, gönderen: ${found.from || '?'}, ${age} önce)`;
+      if (!target) return text(`Doğrulama kodu: ${found.code} (gönderen: ${found.from || 'bilinmiyor'}, ${age} önce)`, { logSummary: log });
+      const res = await browser.fillHidden(target, found.code);
+      return text(`Doğrulama kodu "${res.element.name}" alanına yazıldı: ${found.code} (gönderen: ${found.from || 'bilinmiyor'}, ${age} önce). Site: ${res.host}`, { ...res, logSummary: `${log}, "${res.element.name}" alanına yazıldı` });
+    }
+  },
+  {
+    name: 'login_window',
+    description: `Opens the ${APP_NAME} Chrome profile as an ordinary Chrome window with nothing attached (no debugging port), so the user can sign in by hand to a site that blocks automation: above all Google ("This browser or app may not be secure", "Couldn't sign you in"). The ${APP_NAME} Chrome is closed first (its tabs go) and comes back by itself afterwards; the login stays in the profile for good. The user presses OK in the dialog when done (or quits that Chrome); ${APP_NAME} closes the window itself. Use it once per site, not on every task. url: the sign-in page (default Google).`,
+    inputSchema: obj({
+      url: { type: 'string', description: 'Sign-in page to open, default https://accounts.google.com/' },
+      message: { type: 'string', description: 'What the user should do, in Turkish (optional).' }
+    }),
+    run: async ({ url, message }) => {
+      const start = /^https?:\/\//.test(url || '') ? url : `https://${String(url || 'accounts.google.com').replace(/^\/+/, '')}`;
+      const running = await browser.chromeConnectable();
+      const ok = await confirmAction(`${APP_NAME}'nin Chrome penceresi ${running ? 'kapatılacak (açık sekmeleri gider) ve ' : ''}giriş için sıradan bir Chrome olarak açılacak; ${APP_NAME} o pencereye bağlı olmayacak.\nGiriş bitince pencereyi ${APP_NAME} kapatır, oturum kalır.\n\nDevam edeyim mi?`);
+      if (!ok) throw Object.assign(new Error('Kullanıcı giriş penceresine izin vermedi. Devam etme; kullanıcıya bildir.'), { code: 'DENIED' });
+      if (!(await browser.closeChrome())) throw Object.assign(new Error(`${APP_NAME}'nin Chrome'u kapanmadı. Kullanıcı Cmd+Q ile kapatsın, sonra tekrar dene.`), { code: 'CLOSE_FAILED' });
+      await browser.launchPlainChrome(start);
+      const ask = message || `Açılan Chrome penceresinde ${siteName(start)} girişini yap (şifre, iki adım, her şey). Bu pencerede ${APP_NAME} yok; bitince "Tamam"a bas, pencereyi ben kapatırım.`;
+      const alert = alertUser(ask, { title: `${APP_NAME} seni bekliyor`, imessage: true });
+      const answer = await waitForUser(ask, { until: async () => !browser.profileChromePids().length }).finally(() => resolveAlert(alert));
+      if (!(await browser.closePlainChrome())) throw Object.assign(new Error('Giriş penceresi kapanmadı. Kullanıcı Cmd+Q ile kapatsın (kapatırken giriş kaydedilir), sonra devam et.'), { code: 'CLOSE_FAILED' });
+      const said = {
+        done: 'Giriş penceresi kapandı. Oturum profilde kaldı; Chrome bir sonraki tarayıcı aracında bağlantıyla kendiliğinden açılır.',
+        cancel: 'Kullanıcı vazgeçti; pencere kapatıldı. Devam etme, kullanıcıya bildir.',
+        timeout: 'Kullanıcı cevap vermedi; pencere kapatıldı. Devam etme.'
+      };
+      let note = '';
+      if (answer === 'done') {
+        const [s] = await browser.sessions([start], { deep: true }).catch(() => []);
+        if (s?.error) note = ` Kontrol: ${s.host} açılamadı (${s.error}).`;
+        else if (s) note = s.loginUrl ? ` Kontrol: ${s.host} hâlâ giriş sayfası gösteriyor; giriş tamamlanmamış olabilir.` : ` Kontrol: ${s.host} girişli görünüyor.`;
+      }
+      return text(`${said[answer]}${note}`, { answer });
     }
   },
   {
@@ -889,7 +955,7 @@ export async function callTool(name, args = {}) {
   setActivity('tool', { tool: name, app: appOfTool(name, args) });
   try {
     const { meta, ...result } = await tool.run(args);
-    const summary = result.content.filter(c => c.type === 'text').map(c => c.text).join(' | ');
+    const summary = meta?.logSummary ?? result.content.filter(c => c.type === 'text').map(c => c.text).join(' | ');
     logAction({ tool: name, args, ok: true, summary, ms: Date.now() - started, elementRole: meta?.element?.role, screenshot: meta?.approval?.screenshot });
     return result;
   } catch (err) {

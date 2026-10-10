@@ -4,12 +4,13 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { chromium } from 'playwright-core';
 import { config, expandHome, homeDir, loadState, saveState } from '../core/config.js';
 import * as jev from '../core/jev.js';
 import { needsConfirm, confirmAction, harmlessByKind } from '../guard/confirm.js';
 import { JevisError } from '../core/errors.js';
+import { APP_NAME } from '../core/brand.js';
 import * as human from './human.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -33,11 +34,36 @@ async function cdpUp(port) {
   }
 }
 
+/**
+ * Main Chrome processes (not helpers) that run on the JEVIS profile, with or
+ * without a debugging port. A second Chrome can't open the same profile: it
+ * hands over to the one that runs, so this must be checked before starting.
+ */
+export function profileChromePids() {
+  const dir = expandHome(config().browser.profileDir);
+  let listed = '';
+  try {
+    listed = execFileSync('pgrep', ['-f', '--', `user-data-dir=${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( |$)`], { encoding: 'utf-8' });
+  } catch { return []; }
+  const pids = listed.split('\n').map(Number).filter(p => p && p !== process.pid);
+  if (!pids.length) return [];
+  try {
+    return execFileSync('ps', ['-o', 'pid=,command=', '-p', pids.join(',')], { encoding: 'utf-8' })
+      .split('\n').filter(l => l.trim() && !/ --type=/.test(l)).map(l => Number(l.trim().split(/\s+/)[0]));
+  } catch { return []; }
+}
+
 /** Starts Chrome with the JEVIS profile and a local-only debugging port, unless it already runs. */
 export async function ensureChrome() {
   const { cdpPort, chromePath, profileDir } = config().browser;
   if (await cdpUp(cdpPort)) return false;
   if (!fs.existsSync(chromePath)) throw new JevisError('NO_CHROME', `Chrome bulunamadı: ${chromePath}`);
+  // The profile is open in a Chrome without the debugging port (a login window)? Give a just-started one a moment.
+  if (profileChromePids().length) {
+    for (let i = 0; i < 15 && !(await cdpUp(cdpPort)); i++) await sleep(200);
+    if (await cdpUp(cdpPort)) return false;
+    throw new JevisError('NO_CHROME', `${APP_NAME}'nin Chrome profili bağlantısız bir pencerede açık (giriş penceresi olabilir). O pencereyi kapat (Cmd+Q); ya da login_window açıksa orada "Tamam"a bas.`);
+  }
   const dir = expandHome(profileDir);
   fs.mkdirSync(dir, { recursive: true });
   const child = spawn(chromePath, [
@@ -52,6 +78,67 @@ export async function ensureChrome() {
     if (await cdpUp(cdpPort)) return true;
   }
   throw new JevisError('NO_CHROME', 'Chrome açıldı ama bağlantı noktası hazır olmadı.');
+}
+
+/** Is the JEVIS Chrome up with its debugging port? */
+export const chromeConnectable = () => cdpUp(config().browser.cdpPort);
+
+/**
+ * Quits the JEVIS Chrome the clean way (Chrome saves cookies on a normal exit).
+ * Only this profile's Chrome: the user's own Chrome is never touched.
+ */
+export async function closeChrome() {
+  const { cdpPort } = config().browser;
+  if (await cdpUp(cdpPort)) {
+    try {
+      await connect();
+      await (await browser.newBrowserCDPSession()).send('Browser.close').catch(() => {});
+    } catch {}
+  }
+  browser = null;
+  current = null;
+  for (let i = 0; i < 100; i++) {
+    if (!(await cdpUp(cdpPort)) && !profileChromePids().length) return true;
+    await sleep(200);
+  }
+  return false;
+}
+
+/** Opens the JEVIS profile as an ordinary Chrome window: no debugging port, nothing attached to it. */
+export async function launchPlainChrome(url) {
+  const { chromePath, profileDir } = config().browser;
+  if (!fs.existsSync(chromePath)) throw new JevisError('NO_CHROME', `Chrome bulunamadı: ${chromePath}`);
+  if (profileChromePids().length) throw new JevisError('PROFILE_BUSY', `${APP_NAME}'nin Chrome profili zaten açık.`);
+  const dir = expandHome(profileDir);
+  fs.mkdirSync(dir, { recursive: true });
+  spawn(chromePath, [`--user-data-dir=${dir}`, '--no-first-run', '--no-default-browser-check', url], { detached: true, stdio: 'ignore' }).unref();
+  for (let i = 0; i < 50; i++) {
+    await sleep(200);
+    if (profileChromePids().length) return true;
+  }
+  throw new JevisError('NO_CHROME', 'Chrome açılamadı.');
+}
+
+/** Quits the plain (login) Chrome of the JEVIS profile with a normal quit signal; never a hard kill, that could lose the login. */
+export async function closePlainChrome() {
+  for (const pid of profileChromePids()) { try { process.kill(pid, 'SIGTERM'); } catch {} }
+  for (let i = 0; i < 100; i++) {
+    if (!profileChromePids().length) return true;
+    await sleep(200);
+  }
+  return false;
+}
+
+/** Runs fn on a fresh tab that is closed afterwards; the tab the user works on stays as it is. */
+export async function withTempPage(url, fn, { timeout = 25000 } = {}) {
+  await connect();
+  const page = await context().newPage();
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout });
+    return await fn(page);
+  } finally {
+    await page.close().catch(() => {});
+  }
 }
 
 // On macOS Chrome keeps running after its last window is closed, and with no

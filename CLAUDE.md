@@ -21,6 +21,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - Yeni sayfada önce `browser_read`. Hedefi sayfadaki kelimelerle ver ("Save", "None under Cartoon or Fantasy Violence") ya da `#id` kullan.
 - Jev emin olmazsa adayları listeler; tahmin etme, `#id` ile seç.
 - Onay penceresinde kullanıcı "Hayır" derse dur ve bildir. Başka bir yol arama.
+- Google gibi siteler girişi engellerse: `login_window` (Chrome profilini bağlantısız açar, girişi kullanıcı elle yapar, oturum kalır). Telefona ya da Gmail'e gelen kodu `verification_code` (`sms` / `gmail`) okur, her seferinde sorar; Mesajlar'ı ya da postayı kendin açıp kod arama. CAPTCHA'yı ne sen ne bir servis çözer: `wait_for_user`.
 - Dosya değiştirme: `files_make_folder`, `files_move` (yeniden adlandırma da), `files_copy`, `files_trash` (kalıcı silme yok, Çöp Sepeti; Finder'ın "Geri Koy"u çalışır), `files_undo`. Sadece ev klasöründe; Library, gizli ve anahtar klasörleri, ana klasörler (Masaüstü, Belgeler…) ve projenin kendisi yasak; üstüne yazmaz; klasör ya da 3'ten fazla öğe çöpe atma, git projesi taşıma, 20'den fazla öğe sorar.
 - Kayıt: her araç çağrısını kod `~/.jevis/logs/<gün>.jsonl`'a yazar (kim: uygulamanın kendisi ve kaynağı ya da hangi Claude oturumu; ne, sonuç, sorulduysa cevap). Büyük pencerede "Yapılanlar". Onay penceresi açıkken masaüstü araçları ekrana dokunmaz (`~/.jevis/confirming.json`).
 
@@ -45,6 +46,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 
 - `node tests/browser-e2e.mjs` → tarayıcı elleri (gerçek Chrome + Jev, test sayfası)
 - `node tests/human-e2e.mjs` → insan gibi giriş ve `human_mode` aracı: varsayılan hızlı, açılınca eğrisel fare yolu, tıklamada basılı kalma, tekerlek, harf harf yazma, site/süreli kapsam, engel sayfasında beyne ipucu (kendi Chrome profili ve portu; JEVIS Chrome'una dokunmaz)
+- `node tests/codes-e2e.mjs` → doğrulama kodu okuma (sahte chat.db, Gmail benzeri sayfa; gerçek Mesajlar'a ve Gmail'e dokunmaz; kayıtta kod yok) ve `login_window` (kendi Chrome profili ve portu: temiz kapanma, bağlantısız açılma, çerezin kalması)
 - `node tests/faz10-e2e.mjs` → giriş uyarısı ve iMessage (kaydedilir, gönderilmez), oturum kontrolü, toplu doldurma, jevis_teach, site notu, indirme, değer kaydetme (Anahtar Zinciri'ne test kaydı ekleyip siler), onay penceresi, tablo, numaralı ekran görüntüsü
 - `node tests/forms-e2e.mjs` → zor formlar: görünmez select'li kutular, açılır listeler ve aynı adlı yan menü, sabit #id'ler, ekran dışı özeti, wait_for_user'ın sayfayı izlemesi
 - `node tests/mcp-smoke.mjs` → MCP sunucusu

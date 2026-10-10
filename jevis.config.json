@@ -13,6 +13,12 @@
     "maxElements": 400,
     "maxTextChars": 4000
   },
+  "codes": {
+    "ask": true,
+    "withinMin": 5,
+    "smsDb": "~/Library/Messages/chat.db",
+    "gmailUrl": "https://mail.google.com/mail/u/0/#inbox"
+  },
   "confirm": {
     "enabled": true,
     "riskThreshold": 0.5,

@@ -192,7 +192,7 @@ try {
     await call('human_mode', { on: true, scope: 'all', minutes: 5 });
     const r = await call('browser_open', { url: new URL('./fixtures/blocked.html', import.meta.url).href + '?again' });
     await call('human_mode', { on: false });
-    return { ok: /zaten açıktı/.test(r.text) && /wait_for_user/.test(r.text), note: r.text.split('\n').slice(-1)[0].slice(0, 200) };
+    return { ok: /zaten açıktı/.test(r.text) && /login_window/.test(r.text), note: r.text.split('\n').slice(-1)[0].slice(0, 200) };
   });
 
   await check('browser_read de engeli söylüyor', async () => {

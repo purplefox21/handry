@@ -43,6 +43,9 @@ Tarayıcı
   shot [--full]                       Ekran görüntüsü (~/.jevis/shots)
   verify "<beklenti>"                 Sayfa bu durumda mı? (Jev karar verir)
   wait "<metin>"                      Metin görünene kadar bekle
+  login-window [adres]                Google gibi girişi engelleyen siteler için: Chrome profili bağlantısız açılır, girişi sen yaparsın
+  code sms|gmail [--from=kelime] [--wait=sn] [--target="<alan>"]
+                                      Telefona/e-postaya gelen son doğrulama kodunu oku (önce sorar)
 
 Tarifler (bir işi kaydet, beyinsiz tekrar oynat)
   recipe list | recipe show <isim> | recipe rm <isim>
@@ -104,6 +107,8 @@ const TOOL_COMMANDS = {
   'close-tab': () => ['browser_tabs', { action: 'close', tab: args.length ? args.join(' ') : undefined }],
   verify: () => ['browser_verify', { expectation: args.join(' ') }],
   wait: () => ['browser_wait', { text: args.join(' ') }],
+  'login-window': () => ['login_window', { url: args[0] }],
+  code: () => ['verification_code', { source: args[0], from: flagValue('--from'), wait_sec: Number(flagValue('--wait')) || undefined, target: flagValue('--target') }],
   apps: () => ['desktop_apps', {}],
   app: () => ['desktop_open_app', { name: args.join(' ') }],
   quit: () => ['desktop_quit_app', { name: args.join(' ') }],
