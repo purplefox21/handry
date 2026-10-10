@@ -8,6 +8,7 @@
 //   jevis-ax setvalue <path> <text> [--app|--pid]
 //   jevis-ax focus <path> [--app|--pid]
 //   jevis-ax type <text> | key <combo> | click <x> <y> [--right] [--double] | scroll <dy> [dx]
+//   jevis-ax glide <x> <y> [--trace] | cursor
 //   jevis-ax activate [--app|--pid]
 //   jevis-ax windows [--app|--pid] | raise <index> [--app|--pid] | screen | hit <x> <y>
 //   jevis-ax automation <bundleId>
@@ -301,21 +302,82 @@ func sendKey(_ combo: String) {
     }
 }
 
+// MARK: - Human pace
+// The pointer glides along a curve instead of appearing on its target, a click
+// is held for a moment, and short text is typed key by key with uneven gaps.
+// Sites and apps that ask "is this a person?" see real movement and keystrokes.
+// JEVIS_HUMAN=0 gives back the old instant behaviour.
+let humanPace = ProcessInfo.processInfo.environment["JEVIS_HUMAN"] != "0"
+
+func randomIn(_ a: Double, _ b: Double) -> Double { Double.random(in: a...b) }
+func gaussian() -> Double { sqrt(-2 * log(1 - Double.random(in: 0..<1))) * cos(2 * Double.pi * Double.random(in: 0..<1)) }
+func cursorPosition() -> CGPoint { CGEvent(source: nil)?.location ?? .zero }
+
+func pointerMoved(_ q: CGPoint) {
+    CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: q, mouseButton: .left)?.post(tap: .cghidEventTap)
+}
+
+/// Moves the real pointer to p along a curve: slow start, fast middle, slow landing.
+func glide(to p: CGPoint) {
+    let a = cursorPosition()
+    let dx = Double(p.x - a.x), dy = Double(p.y - a.y), dist = hypot(dx, dy)
+    guard humanPace, dist >= 3 else { pointerMoved(p); return }
+    let duration = min(1.4, max(0.18, (0.2 + 0.14 * log2(dist / 40 + 1)) * randomIn(0.85, 1.25)))
+    let nx = -dy / dist, ny = dx / dist
+    let bow = dist * randomIn(0.04, 0.12) * (Bool.random() ? 1 : -1)
+    let ax = Double(a.x), ay = Double(a.y), px = Double(p.x), py = Double(p.y)
+    let c1x = ax + dx * 0.3 + nx * bow, c1y = ay + dy * 0.3 + ny * bow
+    let c2x = ax + dx * 0.7 + nx * bow * 0.6, c2y = ay + dy * 0.7 + ny * bow * 0.6
+    let steps = max(8, Int(duration / 0.009))
+    let start = Date()
+    for i in 1...steps {
+        let u = Double(i) / Double(steps)
+        let s = u * u * u * (u * (6 * u - 15) + 10), m = 1 - s
+        var x = m * m * m * ax + 3 * m * m * s * c1x + 3 * m * s * s * c2x + s * s * s * px
+        var y = m * m * m * ay + 3 * m * m * s * c1y + 3 * m * s * s * c2y + s * s * s * py
+        if i < steps { x += randomIn(-0.6, 0.6); y += randomIn(-0.6, 0.6) }
+        let wait = duration * u - Date().timeIntervalSince(start)
+        if wait > 0 { usleep(UInt32(wait * 1_000_000)) }
+        pointerMoved(i < steps ? CGPoint(x: x.rounded(), y: y.rounded()) : p)
+    }
+}
+
 func typeText(_ s: String) {
     let src = CGEventSource(stateID: .hidSystemState)
     let lines = s.components(separatedBy: "\n")
     for (n, line) in lines.enumerated() {
-        let units = Array(line.utf16)
-        var i = 0
-        while i < units.count {
-            let chunk = Array(units[i..<min(i + 16, units.count)])
-            for down in [true, false] {
-                let e = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: down)!
-                e.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
-                e.post(tap: .cghidEventTap)
+        if humanPace && line.count <= 120 {
+            // key by key; the text still comes from the unicode string, so the keyboard layout does not matter
+            usleep(UInt32(randomIn(0.12, 0.3) * 1_000_000))
+            for ch in line {
+                let units = Array(String(ch).utf16)
+                let lower = String(ch).lowercased()
+                let code: CGKeyCode = ch == " " ? (KEYCODES["space"] ?? 0) : (ch.isASCII ? (KEYCODES[lower] ?? 0) : 0)
+                let shift = ch.isASCII && ch.isLetter && ch.isUppercase
+                for down in [true, false] {
+                    let e = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: down)!
+                    if shift { e.flags = .maskShift }
+                    e.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+                    e.post(tap: .cghidEventTap)
+                    if down { usleep(UInt32(randomIn(0.03, 0.075) * 1_000_000)) }
+                }
+                var gap = min(0.18, max(0.04, 0.07 + gaussian() * 0.024))
+                if Double.random(in: 0..<1) < 0.04 { gap += randomIn(0.2, 0.45) }
+                usleep(UInt32(gap * 1_000_000))
             }
-            i += 16
-            usleep(8000)
+        } else {
+            let units = Array(line.utf16)
+            var i = 0
+            while i < units.count {
+                let chunk = Array(units[i..<min(i + 16, units.count)])
+                for down in [true, false] {
+                    let e = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: down)!
+                    e.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: chunk)
+                    e.post(tap: .cghidEventTap)
+                }
+                i += 16
+                usleep(8000)
+            }
         }
         if n < lines.count - 1 { sendKey("return") }
     }
@@ -324,14 +386,14 @@ func typeText(_ s: String) {
 func click(_ p: CGPoint, right: Bool = false, double: Bool = false) {
     let button: CGMouseButton = right ? .right : .left
     let (downType, upType): (CGEventType, CGEventType) = right ? (.rightMouseDown, .rightMouseUp) : (.leftMouseDown, .leftMouseUp)
-    CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: button)?.post(tap: .cghidEventTap)
-    usleep(30000)
+    glide(to: p)
+    usleep(humanPace ? UInt32(randomIn(0.07, 0.19) * 1_000_000) : 30000)
     for n in 1...(double ? 2 : 1) {
         for type in [downType, upType] {
             let e = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: p, mouseButton: button)!
             e.setIntegerValueField(.mouseEventClickState, value: Int64(n))
             e.post(tap: .cghidEventTap)
-            usleep(20000)
+            usleep(humanPace && type == downType ? UInt32(randomIn(0.045, 0.11) * 1_000_000) : 20000)
         }
     }
 }
@@ -472,14 +534,26 @@ case "click":
     click(CGPoint(x: x, y: y), right: right, double: double)
     emit(["ok": true])
 
+case "glide":
+    // glide <x> <y> [--trace]: only moves the pointer. --trace reports what the pointer really did.
+    guard args.count >= 2, let x = Double(args[0]), let y = Double(args[1]) else { fail("Kullanım: glide <x> <y>", code: "BAD_ARGS") }
+    let from = cursorPosition(), started = Date()
+    glide(to: CGPoint(x: x, y: y))
+    let final = cursorPosition()
+    emit(["ok": true, "from": [from.x, from.y], "final": [final.x, final.y], "ms": Int(Date().timeIntervalSince(started) * 1000)])
+
+case "cursor":
+    let c = cursorPosition()
+    emit(["ok": true, "x": c.x, "y": c.y])
+
 case "scroll":
     // scroll <dy> [dx] [--at x,y]: with --at the pointer moves there first; the scroll goes to what is under it.
     let at = option("--at")?.split(separator: ",").compactMap { Double($0) }
     let dy = Int32(args.first ?? "") ?? -300
     let dx = Int32(args.count > 1 ? args[1] : "") ?? 0
     if let at, at.count == 2 {
-        CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: CGPoint(x: at[0], y: at[1]), mouseButton: .left)?.post(tap: .cghidEventTap)
-        usleep(60000)
+        glide(to: CGPoint(x: at[0], y: at[1]))
+        usleep(humanPace ? UInt32(randomIn(0.06, 0.16) * 1_000_000) : 60000)
     }
     // In steps like a real wheel: some apps drop one huge event.
     let steps = max(1, Int((max(abs(dy), abs(dx)) + 199) / 200))

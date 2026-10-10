@@ -44,6 +44,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 ## Testler
 
 - `node tests/browser-e2e.mjs` → tarayıcı elleri (gerçek Chrome + Jev, test sayfası)
+- `node tests/human-e2e.mjs` → insan gibi giriş: eğrisel fare yolu, tıklamada basılı kalma, tekerlek, harf harf yazma (kendi Chrome profili ve portu; JEVIS Chrome'una dokunmaz). Hız isteyen testler `JEVIS_HUMAN=0` ile çalışabilir
 - `node tests/faz10-e2e.mjs` → giriş uyarısı ve iMessage (kaydedilir, gönderilmez), oturum kontrolü, toplu doldurma, jevis_teach, site notu, indirme, değer kaydetme (Anahtar Zinciri'ne test kaydı ekleyip siler), onay penceresi, tablo, numaralı ekran görüntüsü
 - `node tests/forms-e2e.mjs` → zor formlar: görünmez select'li kutular, açılır listeler ve aynı adlı yan menü, sabit #id'ler, ekran dışı özeti, wait_for_user'ın sayfayı izlemesi
 - `node tests/mcp-smoke.mjs` → MCP sunucusu

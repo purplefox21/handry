@@ -10,6 +10,7 @@ import { config, expandHome, homeDir, loadState, saveState } from '../core/confi
 import * as jev from '../core/jev.js';
 import { needsConfirm, confirmAction, harmlessByKind } from '../guard/confirm.js';
 import { JevisError } from '../core/errors.js';
+import * as human from './human.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const withTimeout = (promise, ms, fallback) => Promise.race([promise, sleep(ms).then(() => fallback)]);
@@ -602,6 +603,10 @@ async function outcome(page, before) {
 }
 
 async function clickLocator(loc) {
+  if (human.humanOn()) {
+    // a hand on the mouse: glide, rest, press; a covered element falls through to the plain click
+    try { await human.click(loc); return; } catch {}
+  }
   await loc.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
   try {
     await loc.click({ timeout: 4000 });
@@ -705,7 +710,8 @@ export async function click(target, { risk = true, purpose = 'click', scope } = 
     throw new JevisError('WRONG_TOOL', 'Bu bir dosya seçme alanı; dosya yüklemek için upload kullanın.');
   }
   const approval = risk ? await guardRisk(page, item, pick.risk, `"${item.name}" öğesine tıklamak`) : null;
-  const popup = context().waitForEvent('page', { timeout: 1500 }).catch(() => null);
+  // the pointer glides for a while before it presses, so the wait must outlast the glide
+  const popup = context().waitForEvent('page', { timeout: 8000 }).catch(() => null);
   await clickLocator(loc);
   const newPage = await withTimeout(popup, 300, null);
   let active = page;
@@ -719,7 +725,7 @@ export async function click(target, { risk = true, purpose = 'click', scope } = 
   return { element: item, jev: pickInfo(pick), newTab: Boolean(newPage), approval, ...(await outcome(active, before)) };
 }
 
-export async function type(target, text, { submit = false, append = false } = {}) {
+export async function type(target, text, { submit = false, append = false, fast = false } = {}) {
   const page = await activePage();
   const before = { url: page.url() };
   const { loc, item, pick } = await resolve(page, target, 'type');
@@ -729,7 +735,11 @@ export async function type(target, text, { submit = false, append = false } = {}
     approval = await guardRisk(page, item, risk.p, `"${item.name}" alanına yazıp Enter'a basmak (form gönderilebilir)`);
   }
   await loc.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
-  if (append) {
+  // Short text is typed key by key; long text (and bulk forms, `fast`) goes in at once.
+  const byHand = human.humanOn() && (!fast || human.strictHost(page.url())) && [...text].length <= human.maxTypeChars();
+  if (byHand && await human.fillField(loc, text, { append }).then(() => true, () => false)) {
+    // typed like a person
+  } else if (append) {
     await clickLocator(loc);
     await page.keyboard.press('End');
     await page.keyboard.type(text);
@@ -916,7 +926,7 @@ export async function fill(fields) {
         const r = await select(`#${item.id}`, value);
         row.after = r.selected;
       } else if (TEXT_ROLES.test(item.role)) {
-        await type(`#${item.id}`, value);
+        await type(`#${item.id}`, value, { fast: true });
         row.after = value;
       } else if (CHOICE_ROLES.includes(item.role)) {
         if (!item.state.includes('checked') && !item.state.includes('selected')) await click(`#${item.id}`, { risk: false });
@@ -955,7 +965,8 @@ export async function fillHidden(target, value) {
   const page = await activePage();
   const { loc, item, pick } = await resolve(page, target, 'secret');
   await loc.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
-  await loc.fill(value, { timeout: 4000 });
+  const byHand = human.humanOn() && [...value].length <= human.maxTypeChars();
+  if (!(byHand && await human.fillField(loc, value).then(() => true, () => false))) await loc.fill(value, { timeout: 4000 });
   noteChange(page, item.name, '••••');
   return { element: item, jev: pickInfo(pick), host: new URL(page.url()).host };
 }
@@ -1083,16 +1094,21 @@ export async function press(keys) {
     const risk = await jev.isRisky(`Press Enter in "${focused || 'the page'}" (this may submit a form)`, { url: page.url(), title: await page.title() });
     approval = await guardRisk(page, { name: focused || 'Enter' }, risk.p, `"${focused || 'sayfa'}" içinde Enter'a basmak`);
   }
-  await page.keyboard.press(keys);
+  if (human.humanOn()) await human.pressKey(page, keys);
+  else await page.keyboard.press(keys);
   await settle(page);
   return { approval, ...(await outcome(page, before)) };
 }
 
 export async function scroll(direction = 'down', amount = 600) {
   const page = await activePage();
-  const size = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
-  await page.mouse.move(size.width / 2, size.height / 2);
-  await page.mouse.wheel(0, direction === 'up' ? -amount : amount);
+  if (human.humanOn()) {
+    await human.wheel(page, direction === 'up' ? -amount : amount);
+  } else {
+    const size = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+    await page.mouse.move(size.width / 2, size.height / 2);
+    await page.mouse.wheel(0, direction === 'up' ? -amount : amount);
+  }
   await sleep(350);
   const pos = await page.evaluate(() => ({ y: Math.round(scrollY), max: Math.max(0, Math.round(document.documentElement.scrollHeight - innerHeight)) }));
   return { url: page.url(), scrollY: pos.y, maxY: pos.max };
