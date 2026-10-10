@@ -10,3 +10,7 @@ node_modules/
 # Derlenen dosyalar (kaynaktan kendiliğinden üretilir)
 bin/
 dist/
+
+# Elin çizilen kareleri ve ikonu (app/hand/make.mjs üretir)
+app/hand/sprites/
+app/hand/icon/

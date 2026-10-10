@@ -66,7 +66,7 @@ const MAT = {
   keys:   { tones: ['#2c313c', '#3a404c', '#484f5e', '#575e70'], line: '#171a20' },
   screen: { tones: ['#43a6da', '#62c5ee', '#94e2fd', '#c9f3ff'], line: '#262a34' },
   code:   { tones: ['#2a6f9e', '#2a6f9e', '#3a86b8', '#3a86b8'], line: '#262a34' },
-  white:  { tones: ['#f4f0ff', '#f4f0ff', '#f4f0ff', '#f4f0ff'], line: '#2b1556' },
+  white:  { tones: ['#ebe3f7', '#ebe3f7', '#ebe3f7', '#ebe3f7'], line: '#55308f' },
   heart:  { tones: ['#ff5d8f', '#ff5d8f', '#ff5d8f', '#ff5d8f'], line: '#5c1030' }
 };
 for (const m of Object.values(MAT)) { m.tones = m.tones.map(hex); m.line = hex(m.line); }
@@ -292,7 +292,7 @@ function viewCamera(w, h, center, fwd, size) {
   const right = norm(cross(fwd, [0, 1, 0])), up = cross(right, fwd), backDir = mul(fwd, -1);
   const k = size / w;
   return {
-    w, h,
+    w, h, right, up,
     ray: (px, py) => [add(add(add(center, mul(right, (px + 0.5 - w / 2) * k)), mul(up, (h / 2 - py - 0.5) * k)), mul(fwd, -500)), fwd],
     light: norm(add(add(mul(right, -0.45), mul(up, 0.75)), mul(backDir, 0.55))),
     back: backDir,
@@ -357,8 +357,8 @@ function paint(c) {
 
 // Small pixel pictures drawn over the frame (Z's while asleep, hearts when petted).
 const GLYPHS = {
-  Z: ['XXXXX', '...X.', '..X..', '.X...', 'XXXXX'],
-  z: ['XXXX', '..X.', '.X..', 'XXXX'],
+  Z: ['XXXXXXX', '.....X.', '....X..', '...X...', '..X....', '.X.....', 'XXXXXXX'],
+  z: ['XXXXX', '...X.', '..X..', '.X...', 'XXXXX'],
   heart: ['.X.X.', 'XXXXX', 'XXXXX', '.XXX.', '..X..']
 };
 function stamp(img, glyph, x0, y0, mat) {
@@ -460,8 +460,8 @@ function grounded(pose) {
 const flat = (o = {}) => stand({ dy: -7.4 + (o.dy || 0), pitch: -6 + (o.pitch || 0), tips: Object.fromEntries(NAMES.map(n => [n, [{ index: 23, middle: 25.5, ring: 23.5, pinky: 19.5 }[n] + (o.shift || 0), o.lift?.[n] || 0]])), thumb: [5, 11, 0], splay: 3 });
 // On its back, fingers loosely curled up (asleep).
 const asleep = (breath = 0) => bent({ root: [-8.5, 0, 0], pitch: -7, roll: 180,
-  fingers: Object.fromEntries(NAMES.map((n, i) => [n, [30 + 6 * breath + i * 3, 42 + 8 * breath, 30 + 6 * breath, STAND.spread[n] * 1.5]])),
-  thumb: [18, 22 + 6 * breath, 18, 0] });
+  fingers: Object.fromEntries(NAMES.map((n, i) => [n, [20 + 5 * breath + i * 3, 38 + 7 * breath, 28 + 5 * breath, STAND.spread[n] * 1.5]])),
+  thumb: [-14, 12 + 4 * breath, 10, -10] });
 // The raised hand: standing on the cuff, palm to the viewer, fingers up (listening).
 const RAISED = (o = {}) => ({
   root: [0, -CUFF.back + LIFT + 0.25 + (o.dy || 0), 0], yaw: -90, pitch: 90, roll: o.roll || 0,
@@ -613,7 +613,7 @@ const ANIMS = {
     const crouch = stand({ dy: -2.6, pitch: -3 });
     // At the top it turns towards you, fingers spread wide and wiggling (jazz hands).
     const wiggle = Math.sin(2 * Math.PI * 3 * t) * bump(t, 0.47, 0.12);
-    const jazz = RAISED({ dy: 8, spread: 2.2, curl: Object.fromEntries(NAMES.map((nm, k) => [nm, 14 * wiggle * (k % 2 ? 1 : -1)])) });
+    const jazz = RAISED({ dy: 3, spread: 2.2, curl: Object.fromEntries(NAMES.map((nm, k) => [nm, 14 * wiggle * (k % 2 ? 1 : -1)])) });
     let pose;
     if (t < 0.2) pose = mix(stand(), crouch, ease(t / 0.2));
     else if (t < 0.4) pose = mix(crouch, jazz, easeOut((t - 0.2) / 0.2));
@@ -658,7 +658,7 @@ const ANIMS = {
     const glyphs = [];
     for (const [k, start] of [[0, 0], [1, 0.33], [2, 0.66]]) {
       const life = (t - start + 1) % 1;
-      if (life < 0.6) glyphs.push([k === 1 ? 'Z' : 'z', FOOT + 8 + k * 3 + Math.round(5 * life), GROUND - 30 - Math.round(20 * life), 'white']);
+      if (life < 0.6) glyphs.push([k === 1 ? 'Z' : 'z', FOOT + 2 + Math.round(16 * life), GROUND - 30 - Math.round(34 * life), 'white']);
     }
     const p = grounded(asleep(breath));
     return { pose: { ...p, root: add(p.root, [0, 0.25 * breath, 0]) }, glyphs };
@@ -765,25 +765,38 @@ function manifest() {
 
 // MARK: Icons
 
-/** The app icon's art: the hand standing, seen from the front and a little above (64 × 64 art pixels). */
-function iconArt() {
-  const prims = handPrims(stand());
-  const cam = viewCamera(64, 64, [-1, 9, 0], [-0.85, -0.55, -1.0], 44);
-  return paint(cast(prims, cam));
+/** A camera along `fwd` framed so the primitives fill `fill` of a w × w picture (two passes: look, then fit). */
+function fitView(prims, fwd, w, fill) {
+  let center = [0, 10, 0], size = 90;
+  for (let pass = 0; pass < 2; pass++) {
+    const cam = viewCamera(w, w, center, fwd, size);
+    const c = cast(prims, cam);
+    let x0 = w, x1 = -1, y0 = w, y1 = -1;
+    c.mat.forEach((m, i) => { if (m) { const x = i % w, y = Math.floor(i / w); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } });
+    const k = size / w;
+    center = add(add(center, mul(cam.right, ((x0 + x1 + 1) / 2 - w / 2) * k)), mul(cam.up, (w / 2 - (y0 + y1 + 1) / 2) * k));
+    size = Math.max(x1 - x0 + 1, y1 - y0 + 1) * k / fill;
+  }
+  return viewCamera(w, w, center, fwd, size);
 }
 
-/** The menu bar glyph (36 × 36, a template: only the shape counts). */
+/** The app icon's art (64 × 64 art pixels): standing on its fingertips, seen from the side and a little above. */
+function iconArt(pose = stand(), fwd = [-0.35, -0.35, -1]) {
+  const prims = handPrims(pose);
+  return paint(cast(prims, fitView(prims, fwd, 64, 0.9)));
+}
+
+/** The menu bar glyph (36 × 36, a template: only the shape counts): the raised hand, fingers apart. */
 function menubarGlyph() {
-  const prims = handPrims(stand());
-  const cam = viewCamera(36, 36, [-1, 10, 0], [-0.85, -0.4, -1.0], 44);
-  const c = cast(prims, cam);
+  const prims = handPrims(RAISED({ spread: 2.6 }));
+  const c = cast(prims, fitView(prims, [0, 0, -1], 36, 0.94));
   const rgba = Buffer.alloc(36 * 36 * 4);
   for (let i = 0; i < 36 * 36; i++) {
     if (!c.mat[i]) continue;
     const x = i % 36, y = Math.floor(i / 36);
-    // Lines between parts stay open, so the fingers read apart.
+    // Lines between parts stay open, so the fingers read apart; so does the cuff's top edge.
     const nb = [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]].filter(([a, b]) => a >= 0 && b >= 0 && a < 36 && b < 36).map(([a, b]) => b * 36 + a);
-    if (nb.some(j => c.mat[j] && c.group[j] !== c.group[i] && c.depth[i] - c.depth[j] > 1.6)) continue;
+    if (nb.some(j => c.mat[j] && c.group[j] !== c.group[i] && (c.depth[i] - c.depth[j] > 1.6 || (c.group[i] === 'cuff' && c.group[j] === 'palm' && j < i)))) continue;
     rgba[i * 4 + 3] = 255;
   }
   return { w: 36, h: 36, rgba };

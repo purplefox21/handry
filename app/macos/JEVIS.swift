@@ -3,10 +3,11 @@
 //   - the bar: a compact field that drops from the top of the screen
 //     (app/public/bar.html on a floating panel), and
 //   - the big window: the full chat with details and history,
-//   - Foxie, the fox on the screen (Fox.swift), which shows what it is doing.
+//   - the pet on the screen (Fox.swift): the hand that walks on its fingers,
+//     or Foxie the fox; it shows what the assistant is doing.
 // The permissions window (Permissions.swift) asks for everything in one place.
 // It also owns the microphone (Listener.swift): push to talk, the bar's mic
-// button and "Hey Jev". Built by `node cli.js app build`.
+// button and the wake word ("Hey Handry"). Built by `node cli.js app build`.
 //   ⌥Space        open / close the bar
 //   ⌥⇧Space       hold to talk (push to talk)
 //   ⌥Esc          emergency stop
@@ -29,7 +30,7 @@ let APP_NAME = info["CFBundleDisplayName"] as? String ?? "Handry"
 let APP_ACC = info["AppAccusative"] as? String ?? "\(APP_NAME)'yu"
 let APP_ABL = info["AppAblative"] as? String ?? "\(APP_NAME)'dan"
 let APP_GEN = info["AppGenitive"] as? String ?? "\(APP_NAME)'nun"
-let WAKE_LABEL = info["WakeLabel"] as? String ?? "Hey Foxie"
+let WAKE_LABEL = info["WakeLabel"] as? String ?? "Hey Handry"
 let BAR_WIDTH: CGFloat = 680
 let BAR_HEIGHT: CGFloat = 58
 
@@ -184,7 +185,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             statusItem.button?.imagePosition = .imageLeading
             statusItem.button?.title = ""
         } else {
-            statusItem.button?.title = "🦊"
+            statusItem.button?.title = "✋"
         }
         statusItem.button?.toolTip = APP_NAME
         statusItem.button?.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
@@ -219,21 +220,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         return i
     }
 
-    // MARK: The fox
+    // MARK: The pet on the screen (the hand or the fox)
+
+    /// The pets: their sprites in the app (Resources/pets/<id>) or in the project, and their names in the menu.
+    static let pets: [(id: String, name: String, acc: String, project: String)] = [
+        ("hand", "El", "Eli", "app/hand/sprites"),
+        ("fox", "Tilki", "Tilkiyi", "app/foxie/sprites")
+    ]
+    var pet: (id: String, name: String, acc: String, project: String) {
+        let id = UserDefaults.standard.string(forKey: "pet") ?? "hand"
+        return Self.pets.first { $0.id == id } ?? Self.pets[0]
+    }
 
     func makeFox() {
-        let dir = Bundle.main.resourceURL?.appendingPathComponent("sprites")
-        let fallback = URL(fileURLWithPath: "\(ROOT)/app/foxie/sprites")
-        fox = FoxPet(spritesDir: dir.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil } ?? fallback)
+        let bundled = Bundle.main.resourceURL?.appendingPathComponent("pets/\(pet.id)")
+        let fallback = URL(fileURLWithPath: "\(ROOT)/\(pet.project)")
+        fox = FoxPet(spritesDir: bundled.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil } ?? fallback)
         fox?.menuProvider = { [weak self] in self?.foxMenuItem().submenu ?? NSMenu() }
     }
 
-    /// "Tilki ▸": show or hide it, put it to sleep, its size.
+    /// "Ekrandaki El ▸": show or hide it, put it to sleep, its size, which one.
     func foxMenuItem() -> NSMenuItem {
-        let root = NSMenuItem(title: "Tilki", action: nil, keyEquivalent: "")
+        let root = NSMenuItem(title: "Ekrandaki \(pet.name)", action: nil, keyEquivalent: "")
+        root.tag = 913
         let menu = NSMenu()
         menu.delegate = self
-        let toggle = item(fox?.visible == false ? "Tilkiyi Göster" : "Tilkiyi Gizle", #selector(toggleFox))
+        let toggle = item(fox?.visible == false ? "\(pet.acc) Göster" : "\(pet.acc) Gizle", #selector(toggleFox))
         toggle.tag = 910
         menu.addItem(toggle)
         menu.addItem(item("Uyut", #selector(foxSleep)))
@@ -245,6 +257,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             size.state = abs(Double(fox?.scale ?? 0) - value) < 0.01 ? .on : .off
             menu.addItem(size)
         }
+        menu.addItem(.separator())
+        for p in Self.pets {
+            let choice = item(p.name, #selector(choosePet(_:)))
+            choice.representedObject = p.id
+            choice.tag = 912
+            choice.state = p.id == pet.id ? .on : .off
+            menu.addItem(choice)
+        }
         root.submenu = menu
         return root
     }
@@ -255,6 +275,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     }
 
     @objc func foxSleep() { fox?.sleepNow() }
+
+    /// The other pet: the old one leaves the screen, the new one comes out where the old one was.
+    @objc func choosePet(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String, id != pet.id else { return }
+        fox?.retire()
+        UserDefaults.standard.set(id, forKey: "pet")
+        UserDefaults.standard.set(false, forKey: "foxHidden")
+        makeFox()
+    }
 
     @objc func foxSize(_ sender: NSMenuItem) {
         guard let value = sender.representedObject as? Double else { return }
@@ -305,7 +334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         return s >= 3600 ? "\(s / 3600) sa \((s % 3600) / 60) dk" : String(format: "%d:%02d", s / 60, s % 60)
     }
 
-    /// The fox in the menu bar widens to the left while something waits: the nearest time, how many there are, a shutdown countdown.
+    /// The hand in the menu bar widens to the left while something waits: the nearest time, how many there are, a shutdown countdown.
     func watchTimers() {
         Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self, Date() > self.flashUntil else { return }
@@ -327,7 +356,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
     /// Before the menu opens: the timers at the top, each with "Sohbeti Aç" / "İptal Et".
     func menuNeedsUpdate(_ menu: NSMenu) {
-        for entry in menu.items where entry.tag == 910 { entry.title = fox?.visible == false ? "Tilkiyi Göster" : "Tilkiyi Gizle" }
+        for entry in menu.items where entry.tag == 910 { entry.title = fox?.visible == false ? "\(pet.acc) Göster" : "\(pet.acc) Gizle" }
+        for entry in menu.items where entry.tag == 912 { entry.state = entry.representedObject as? String == pet.id ? .on : .off }
+        for entry in menu.items where entry.tag == 913 { entry.title = "Ekrandaki \(pet.name)" }
         for entry in menu.items where entry.tag == 911 { entry.state = abs(Double(fox?.scale ?? 0) - (entry.representedObject as? Double ?? -1)) < 0.01 ? .on : .off }
         guard menu === statusItem.menu else { return }
         for old in menu.items where old.tag == 900 { menu.removeItem(old) }

@@ -1,6 +1,7 @@
-// Builds the app (JEVIS's menu bar app: the bar, the window and the fox on
-// screen) into dist/<name>.app with its icons and the fox's sprites, signs it,
-// and installs it into ~/Applications. The name comes from core/brand.js; the
+// Builds the app (JEVIS's menu bar app: the bar, the window and the pet on
+// screen) into dist/<name>.app with its icons and both pets' sprites (the hand,
+// drawn by app/hand/make.mjs, and the fox), signs it, and installs it into
+// ~/Applications. The name comes from core/brand.js; the
 // bundle id stays the same across renames, so macOS keeps its permissions.
 // Used by `node cli.js app build|install`.
 import fs from 'node:fs';
@@ -27,14 +28,23 @@ ${Object.entries(values).map(([k, v]) => `  <key>${k}</key>\n  ${typeof v === 'b
 
 const ICON_SIZES = [16, 32, 128, 256, 512];
 
-const SPRITES = path.join(ROOT, 'app', 'foxie', 'sprites');
+const HAND = path.join(ROOT, 'app', 'hand');
+const PETS = { hand: path.join(HAND, 'sprites'), fox: path.join(ROOT, 'app', 'foxie', 'sprites') };
+
+/** The hand's sprites and icon art are drawn, not kept in git: drawn again when make.mjs is newer than them. */
+export function drawHand() {
+  const made = path.join(HAND, 'sprites', 'manifest.json');
+  const stale = !fs.existsSync(made) || !fs.existsSync(path.join(HAND, 'icon', 'art.png')) || fs.statSync(path.join(HAND, 'make.mjs')).mtimeMs > fs.statSync(made).mtimeMs;
+  if (stale) execFileSync(process.execPath, [path.join(HAND, 'make.mjs')], { stdio: 'pipe' });
+}
 
 /**
- * Draws the icons from the fox sprite (app/macos/icon.swift): Foxie.icns in
- * every size macOS wants, the menu bar glyph (menubar.png, a template image),
- * and a 256 px PNG for the chat page's tab and header.
+ * Draws the icons from the hand's icon art (app/macos/icon.swift): App.icns in
+ * every size macOS wants, the menu bar glyph (menubar.png, a template image,
+ * drawn by make.mjs), and a 256 px PNG for the chat page's tab and header.
  */
 export function buildIcon(resources) {
+  drawHand();
   const work = path.join(ROOT, 'dist', 'icon');
   fs.rmSync(work, { recursive: true, force: true });
   const iconset = path.join(work, 'App.iconset');
@@ -42,7 +52,8 @@ export function buildIcon(resources) {
   const drawer = path.join(work, 'draw-icon');
   const master = path.join(work, 'App-1024.png');
   execFileSync('swiftc', ['-O', '-o', drawer, path.join(ROOT, 'app', 'macos', 'icon.swift'), '-framework', 'AppKit'], { stdio: 'pipe' });
-  execFileSync(drawer, [path.join(SPRITES, 'idle', '0001.png'), master, path.join(resources, 'menubar.png')], { stdio: 'pipe' });
+  execFileSync(drawer, [path.join(HAND, 'icon', 'art.png'), master], { stdio: 'pipe' });
+  fs.copyFileSync(path.join(HAND, 'icon', 'menubar.png'), path.join(resources, 'menubar.png'));
   for (const size of ICON_SIZES) {
     for (const scale of [1, 2]) {
       const name = `icon_${size}x${size}${scale === 2 ? '@2x' : ''}.png`;
@@ -59,7 +70,7 @@ export function buildApp() {
   fs.mkdirSync(path.join(APP_PATH, 'Contents', 'MacOS'), { recursive: true });
   fs.mkdirSync(path.join(APP_PATH, 'Contents', 'Resources'), { recursive: true });
   buildIcon(path.join(APP_PATH, 'Contents', 'Resources'));
-  fs.cpSync(SPRITES, path.join(APP_PATH, 'Contents', 'Resources', 'sprites'), { recursive: true });
+  for (const [id, dir] of Object.entries(PETS)) fs.cpSync(dir, path.join(APP_PATH, 'Contents', 'Resources', 'pets', id), { recursive: true });
   fs.writeFileSync(path.join(APP_PATH, 'Contents', 'Info.plist'), plist({
     CFBundleIdentifier: BUNDLE_ID,
     CFBundleName: APP.name,

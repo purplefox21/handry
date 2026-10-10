@@ -326,7 +326,8 @@ final class Listener {
         let req = SFSpeechAudioBufferRecognitionRequest()
         req.shouldReportPartialResults = true
         if recognizer.supportsOnDeviceRecognition { req.requiresOnDeviceRecognition = true }
-        req.contextualStrings = ["Hey Foxie", "Foxie", "Hey Fox", APP_NAME, "VS Code", "Claude", "Spotify", "Chrome", "Safari", "Xcode", "App Store"]
+        // The wake word as written and as said ("Hendri"), so the recognizer expects them.
+        req.contextualStrings = [WAKE_LABEL, APP_NAME, "Hey Hendri", "Hendri", "Hey Foxie", "Foxie", "Hey Fox", "VS Code", "Claude", "Spotify", "Chrome", "Safari", "Xcode", "App Store"]
         req.taskHint = .dictation
         req.addsPunctuation = true
         request = req

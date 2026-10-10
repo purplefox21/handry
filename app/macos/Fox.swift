@@ -1,7 +1,10 @@
-// The fox that lives on the screen: a pixel-art red fox (app/foxie/sprites,
-// the user's Blender → pixel art pipeline; see app/foxie/TARIF.md) on a
-// borderless, see-through panel. Only the fox's own pixels take the mouse;
-// everywhere else clicks go to the apps below.
+// The pet that lives on the screen, on a borderless, see-through panel: the
+// hand that walks on its fingers (app/hand/sprites, drawn by app/hand/make.mjs)
+// or Foxie, a pixel-art red fox (app/foxie/sprites, the user's Blender → pixel
+// art pipeline; see app/foxie/TARIF.md). Both are the same kind of sprite set,
+// so this code plays either; "the fox" below means whichever it is. Only the
+// pet's own pixels take the mouse; everywhere else clicks go to the apps below.
+// A loop can have a way in and out ("bored_in", "bored_out"): played around it.
 //
 // Its own life: sits, walks along the top of the Dock, gets bored, sleeps;
 // jumps onto windows and walks along their top edge (and goes with them when
@@ -243,6 +246,15 @@ final class FoxPet {
         panel.orderOut(nil)
     }
 
+    /// Off the screen for good (another pet takes its place); the "hidden" setting stays as it was.
+    func retire() {
+        visible = false
+        timer?.invalidate()
+        timer = nil
+        panel.orderOut(nil)
+        panel.close()
+    }
+
     func screenFloor() -> Platform {
         let screen = NSScreen.screens.first!
         return Platform(x1: screen.visibleFrame.minX, x2: screen.visibleFrame.maxX, y: screen.visibleFrame.minY, window: nil)
@@ -251,7 +263,11 @@ final class FoxPet {
     // MARK: Animation
 
     private func play(_ name: String, mode: Mode, then: (() -> Void)? = nil) {
-        guard sprites.anims[name] != nil else { return }
+        guard let a = sprites.anims[name] else { return }
+        // A loop with its own way in plays that first (its `next` is the loop).
+        if a.loop, anim != name, anim != "\(name)_in", sprites.anims["\(name)_in"] != nil {
+            return play("\(name)_in", mode: mode)   // (a loop never ends, so no `then` to keep)
+        }
         if anim != name { frame = 0; frameTime = 0 }
         anim = name
         self.mode = mode
@@ -264,7 +280,8 @@ final class FoxPet {
         if a.mirrorAfter { facingRight.toggle() }
         if let done = onEnd { onEnd = nil; done(); return }
         if let next = a.next, sprites.anims[next] != nil {
-            play(next, mode: next == "sleep" ? .sleep : next == "listen" ? .listen : next == "fall" ? .air : .idle)
+            // The way into a loop keeps the loop's mode.
+            play(next, mode: anim.hasSuffix("_in") ? mode : next == "sleep" ? .sleep : next == "listen" ? .listen : next == "fall" ? .air : .idle)
         } else {
             play("idle", mode: .idle)
         }
@@ -417,7 +434,8 @@ final class FoxPet {
             foot.x = facingRight ? w.frame.maxX - 40 * scale : w.frame.minX + 40 * scale
             platformOffset = foot.x - w.frame.minX
         }
-        play("idle", mode: .idle)
+        // A loop with its own way out ("listen_out") plays it, then idles.
+        if sprites.anims["\(anim)_out"] != nil { play("\(anim)_out", mode: .special) } else { play("idle", mode: .idle) }
         decideAt = Date().addingTimeInterval(.random(in: 3...8))
     }
 
