@@ -1,10 +1,11 @@
 // CAPTCHA detection and auto-solving.
 // Supported: reCAPTCHA v2, hCaptcha, Cloudflare Turnstile, FunCaptcha/Arkose, image text.
 // Primary solver: 2captcha.com (CAPTCHA_KEY env var, or "2captcha-key" in Keychain, or jevis.config.json captcha.key).
-// Fallback for image text only: Claude Vision (ANTHROPIC_API_KEY env var).
+// Fallback for image text only: Claude Vision via subscription (claude -p --image, same as Sonnet/Opus in Handry).
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { ROOT, config } from '../core/config.js';
 
@@ -185,37 +186,44 @@ async function fetchImageBase64(src) {
 }
 
 // ---------------------------------------------------------------------------
-// Claude Vision fallback (image text only, needs ANTHROPIC_API_KEY)
+// Claude Vision fallback via subscription (image text only)
+// Uses `claude -p --image <file>` — same abonelik as Sonnet/Opus in Handry.
 // ---------------------------------------------------------------------------
 
-async function solveVision(imgBase64, mimeType = 'image/png') {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
+function findClaudeBin() {
+  const dirs = [...(process.env.PATH || '').split(':'), path.join(os.homedir(), '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin', path.join(os.homedir(), '.npm-global', 'bin')];
+  for (const dir of dirs) {
+    const file = path.join(dir, 'claude');
+    try { fs.accessSync(file, fs.constants.X_OK); return file; } catch {}
+  }
+  return null;
+}
 
-  const body = {
-    model: 'claude-haiku-5-5',
-    max_tokens: 64,
-    messages: [{
-      role: 'user',
-      content: [{
-        type: 'image',
-        source: { type: 'base64', media_type: mimeType, data: imgBase64 }
-      }, {
-        type: 'text',
-        text: 'This is a CAPTCHA image. Read the text shown and reply with ONLY that text, nothing else.'
-      }]
-    }]
-  };
+async function solveVision(imgBase64, ext = 'png') {
+  const bin = findClaudeBin();
+  if (!bin) return null;
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(15000)
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data?.content?.[0]?.text?.trim() || null;
+  const tmpFile = path.join(os.tmpdir(), `handry-captcha-${Date.now()}.${ext}`);
+  fs.writeFileSync(tmpFile, Buffer.from(imgBase64, 'base64'));
+
+  try {
+    return await new Promise((resolve) => {
+      const child = spawn(bin, [
+        '-p', 'Bu CAPTCHA görselindeki metni oku. SADECE metni yaz, başka hiçbir şey.',
+        '--image', tmpFile,
+        '--model', 'claude-haiku-5-5',
+        '--tools', ''
+      ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+      let out = '';
+      child.stdout.on('data', d => { out += d; });
+      child.on('close', () => resolve(out.trim() || null));
+      child.on('error', () => resolve(null));
+      setTimeout(() => { child.kill(); resolve(null); }, 20000);
+    });
+  } finally {
+    try { fs.unlinkSync(tmpFile); } catch {}
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -311,7 +319,7 @@ export async function solve(page) {
     }
   }
 
-  // Fallback: Claude Vision for image text CAPTCHAs
+  // Fallback: Claude Vision (subscription, `claude -p --image`) for image text CAPTCHAs
   if (!token && type === 'image') {
     try {
       const imgB64 = await fetchImageBase64(info.imgSrc);
