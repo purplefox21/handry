@@ -21,6 +21,9 @@ const REPLAYABLE = new Set([
   'desktop_focus_window', 'desktop_wait', 'desktop_click_at', 'browser_fill', 'browser_download', 'human_mode'
 ]);
 
+// Doing these twice in a row with the same values ends where doing them once does.
+const REFILL = new Set(['browser_fill', 'browser_open', 'browser_select']);
+
 // Roles the desktop tools press by name (a click at a point on one of these
 // replays as a click on its name, which survives window moves and resizes).
 const PRESSABLE = new Set(['Button', 'Link', 'MenuItem', 'Cell', 'Row', 'Tab', 'CheckBox', 'RadioButton', 'PopUpButton', 'MenuButton', 'DisclosureTriangle', 'Switch', 'Toggle']);
@@ -79,6 +82,9 @@ export function stepsFromRun(runId, { since = 0 } = {}) {
       const named = e.summary.match(/Öğe: "([^"]+)"/);
       if (named) args.target = named[1];
     }
+    // the same form filled again (e.g. after waiting for an approval, the page had changed): once is enough
+    const last = steps.at(-1);
+    if (REFILL.has(e.tool) && last?.tool === e.tool && JSON.stringify(last.args) === JSON.stringify(args)) continue;
     steps.push({ tool: e.tool, args });
   }
   return steps;
@@ -102,6 +108,7 @@ function fill(value, vars) {
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, fill(v, vars)]));
   return value;
 }
+export const fillVars = fill;
 
 /**
  * Replays a recipe. askBrain(prompt) handles "ask_brain" steps. Returns

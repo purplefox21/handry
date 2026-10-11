@@ -540,7 +540,19 @@ const YERLER = {
   orta: e => [e.x + Math.floor(e.w * 0.15), e.y + Math.floor(e.h * 0.1), Math.floor(e.w * 0.7), Math.floor(e.h * 0.8)]
 };
 
+/** Düzenlemeden önce pencerenin yeri ve boyutu saklanır: "geri" onu eski yerine koyar */
+async function yeriKaydet(pid, pencere) {
+  const r = await ax('windows', '--pid', pid).catch(() => null);
+  const w = r?.windows?.find(x => !pencere || String(x.title || '').toLocaleLowerCase('tr').includes(String(pencere).toLocaleLowerCase('tr')));
+  if (!w || w.minimized) return;
+  const state = loadState();
+  const yerler = state.pencereYerleri || {};
+  yerler[`${r.app}|${w.title || ''}`] = { x: w.x, y: w.y, w: w.w, h: w.h, zaman: Date.now() };
+  saveState({ pencereYerleri: yerler });
+}
+
 async function pencereYerlestir(pid, pencere, [x, y, w, h]) {
+  await yeriKaydet(pid, pencere);
   const r = await ax('setframe', x, y, w, h, '--pid', pid, ...(pencere ? ['--title', pencere] : []));
   const fark = Math.abs(r.w - w) > 8 || Math.abs(r.h - h) > 8;
   return `${r.title || '(adsız pencere)'} (${r.w}×${r.h}${fark ? `; istenen ${w}×${h}, uygulama daha küçük/büyük olamıyor` : ''})`;
@@ -550,12 +562,18 @@ async function pencereYerlestir(pid, pencere, [x, y, w, h]) {
  * Pencereyi ekranda yerleştirir: tam, sol, sag, ust, alt, orta. ikinci verilirse iki uygulama yan yana
  * (ilki sol, ikincisi sağ). ekran: 1 = ana ekran.
  */
-export async function arrange(app, yer = 'tam', { pencere, ikinci, ekran = 1 } = {}) {
+export async function arrange(app, yer = 'tam', { pencere, ikinci, ekran = 1, uygulamalar } = {}) {
   notDuringDialog();
   await ensureTrusted();
   const liste = await ekranlar();
   const e = liste[Math.min(Math.max(1, Number(ekran) || 1), liste.length) - 1];
-  if (!YERLER[yer]) throw new JevisError('BAD_ARGS', `yer şunlardan biri olmalı: ${Object.keys(YERLER).join(', ')}`);
+  if (yer === 'kucult') return kucult(app, pencere);
+  if (yer === 'geri') return geriGetir(app, pencere);
+  // ikiden fazla uygulama: ızgara (3 sütun, 2×2, 3×2...)
+  const hepsi = [app, ...(uygulamalar || [])].filter(Boolean);
+  if (hepsi.length > 2) return izgara(hepsi, e, liste);
+  if (!YERLER[yer]) throw new JevisError('BAD_ARGS', `yer şunlardan biri olmalı: ${Object.keys(YERLER).join(', ')}, kucult, geri`);
+  if (hepsi.length === 2 && !ikinci) ikinci = hepsi[1];
   const [, pid] = await appArgs(app);
   const yapilan = [`${app}: ${await pencereYerlestir(pid, pencere, YERLER[ikinci ? 'sol' : yer](e))} → ${ikinci ? 'sol' : yer}`];
   if (ikinci) {
@@ -563,4 +581,46 @@ export async function arrange(app, yer = 'tam', { pencere, ikinci, ekran = 1 } =
     yapilan.push(`${ikinci}: ${await pencereYerlestir(pid2, '', YERLER.sag(e))} → sağ`);
   }
   return { note: `Yerleştirildi (ekran ${liste.indexOf(e) + 1}/${liste.length}):\n${yapilan.join('\n')}` };
+}
+
+/** Izgara: n pencere için sütun × satır (3 → 3×1, 4 → 2×2, 5-6 → 3×2, 7-9 → 3×3) */
+export function izgaraBoyutu(n) {
+  if (n <= 3) return [n, 1];
+  if (n === 4) return [2, 2];
+  if (n <= 6) return [3, 2];
+  return [3, Math.ceil(n / 3)];
+}
+
+async function izgara(uygulamalar, e, liste) {
+  const [sutun, satir] = izgaraBoyutu(uygulamalar.length);
+  const gw = Math.floor(e.w / sutun), gh = Math.floor(e.h / satir);
+  const yapilan = [];
+  for (const [i, app] of uygulamalar.entries()) {
+    const [, pid] = await appArgs(app);
+    const x = e.x + (i % sutun) * gw, y = e.y + Math.floor(i / sutun) * gh;
+    yapilan.push(`${app}: ${await pencereYerlestir(pid, '', [x, y, gw, gh])} → ${(i % sutun) + 1}. sütun, ${Math.floor(i / sutun) + 1}. satır`);
+  }
+  return { note: `${uygulamalar.length} pencere ${sutun}×${satir} dizildi (ekran ${liste.indexOf(e) + 1}/${liste.length}):\n${yapilan.join('\n')}` };
+}
+
+async function kucult(app, pencere) {
+  const [, pid] = await appArgs(app);
+  await yeriKaydet(pid, pencere);
+  const r = await ax('minimize', '--pid', pid, ...(pencere ? ['--title', pencere] : []));
+  return { note: `${app}: ${r.title || 'pencere'} Dock'a küçültüldü.` };
+}
+
+/** Pencereyi küçültmeden ya da yerleştirmeden önceki yerine ve boyutuna koyar (kayıt yoksa sadece açar) */
+async function geriGetir(app, pencere) {
+  const [, pid] = await appArgs(app);
+  const r = await ax('windows', '--pid', pid);
+  const w = r.windows.find(x => !pencere || String(x.title || '').toLocaleLowerCase('tr').includes(String(pencere).toLocaleLowerCase('tr')));
+  if (!w) throw new JevisError('NOT_FOUND', `${app} içinde böyle bir pencere yok.`);
+  const kayit = (loadState().pencereYerleri || {})[`${r.app}|${w.title || ''}`];
+  if (kayit) {
+    const s = await ax('setframe', kayit.x, kayit.y, kayit.w, kayit.h, '--pid', pid, ...(w.title ? ['--title', w.title] : []));
+    return { note: `${app}: ${s.title || 'pencere'} eski yerine kondu (${s.w}×${s.h}).` };
+  }
+  await ax('raise', w.index, '--pid', pid);
+  return { note: `${app}: ${w.title || 'pencere'} açıldı (eski yeri kayıtlı değildi).` };
 }

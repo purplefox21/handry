@@ -1207,14 +1207,31 @@ export async function back() {
   return { url: page.url(), title: await page.title().catch(() => '') };
 }
 
+// Is `q` (lower case) on the page: in its text, or in a field's label, placeholder, title or value?
+function textOnPage(q) {
+  const has = s => String(s || '').toLocaleLowerCase('tr').includes(q);
+  if (has(document.body?.innerText)) return true;
+  for (const el of document.querySelectorAll('input, textarea, select, [aria-label], [placeholder], [title], img[alt]')) {
+    if (has(el.getAttribute('aria-label')) || has(el.getAttribute('placeholder')) || has(el.getAttribute('title')) || has(el.getAttribute('alt')) || has(el.value)) return true;
+  }
+  return false;
+}
+
+/** Waits until `text` shows (looked for every 0.4 s, returns as soon as it is there; at most ms), or just ms. */
 export async function wait({ text, ms } = {}) {
   const page = await activePage();
+  const started = Date.now();
   if (text) {
-    await page.getByText(text, { exact: false }).first().waitFor({ timeout: ms || 15000 });
-    return { found: text, url: page.url() };
+    const limit = Math.min(ms || 15000, 60000);
+    const q = String(text).toLocaleLowerCase('tr');
+    while (Date.now() - started < limit) {
+      if (await withTimeout(page.evaluate(textOnPage, q).catch(() => false), 2000, false)) return { found: text, waited: Date.now() - started, url: page.url() };
+      await sleep(400);
+    }
+    throw new JevisError('NOT_FOUND', `"${text}" ${Math.round(limit / 1000)} sn içinde sayfada görünmedi.`);
   }
   await sleep(Math.min(ms || 1000, 30000));
-  return { waited: ms || 1000, url: page.url() };
+  return { waited: Date.now() - started, url: page.url() };
 }
 
 export async function tabs() {

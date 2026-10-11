@@ -19,13 +19,17 @@ export function spans(command, maxWords = 8) {
   const ws = words(command);
   const out = [];
   const seen = new Set();
-  const add = (start, end) => {
+  const add = (start, end, quoted = false) => {
+    // "Tükenmez kalem (50'li)": a bracket opened inside the detail closes inside it too
+    while ((command.slice(start, end).match(/\(/g) || []).length > (command.slice(start, end).match(/\)/g) || []).length && command[end] === ')') end += 1;
     const text = command.slice(start, end);
-    // A detail doesn't run across punctuation or quotes ("$1.99" keeps its dot).
-    if (text.length < 2 || seen.has(text) || /[,;:!?"“”]|\.(\s|$)/.test(text)) return;
+    // A detail doesn't run across punctuation or quotes ("$1.99" keeps its dot); a quoted one is taken whole.
+    if ((text.length < 2 && !/^\d$/.test(text)) || seen.has(text) || (!quoted && /[,;:!?"“”]|\.(\s|$)/.test(text))) return;
     seen.add(text);
     out.push({ text, start, end });
   };
+  // Whatever is in double quotes is one detail as it is ("Merhaba, yarın görüşürüz").
+  for (const m of command.matchAll(/["“]([^"“”\n]{2,200})["”]/g)) add(m.index + 1, m.index + 1 + m[1].length, true);
   for (let i = 0; i < ws.length; i++) {
     for (let j = i; j < Math.min(ws.length, i + maxWords); j++) {
       add(ws[i].start, ws[j].end);

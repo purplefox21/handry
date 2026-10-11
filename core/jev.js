@@ -159,9 +159,9 @@ const KIND_QUESTION = {
   criteria: {
     para: 'Spends or moves money: pay, buy, place an order, subscribe, transfer, change a price or a bill.',
     silme: 'Permanently destroys something that already exists and cannot be restored: deleting an account, a project, a published post, stored data, files, or messages. NOT removing an item from a form, a draft or an upload area that is still being edited, NOT clearing a field, NOT closing a dialog.',
-    disari: 'Sends or publishes something that other people will see: an email, a message, a comment, a post, a submitted form or application, a review, publishing or launching a product, saving a change to a public profile.',
-    yetki: 'Changes access or security: passwords, users, permissions, roles, API keys, 2FA, connecting apps, installing software.',
-    diger: 'None of these: saving or editing a private draft, removing or replacing an item inside a draft or form, uploading into a draft, creating something private, searching, navigating, downloading, filling a form without submitting it.'
+    disari: 'Sends or publishes something that other people will see: an email, a message, a comment, a post, a submitted form or application, a review, publishing or launching a product, saving a change to a public profile. NOT signing in: a login form or a sign-in verification code (Doğrula, Verify, Giriş yap) only lets the user into their own account.',
+    yetki: 'Changes access or security settings: passwords, users, permissions, roles, API keys, turning two-step verification on or off, connecting apps, installing software. NOT entering a password or a sign-in code to log in.',
+    diger: 'None of these: signing in to an account or entering a sign-in / two-step verification code, saving or editing a private draft, removing or replacing an item inside a draft or form, uploading into a draft, creating something private, searching, navigating, downloading, filling a form without submitting it.'
   }
 };
 

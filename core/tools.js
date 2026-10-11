@@ -454,11 +454,11 @@ export const TOOLS = [
   },
   {
     name: 'browser_wait',
-    description: 'Wait until some text appears on the page, or for a number of milliseconds.',
+    description: 'Wait until some text appears on the page (also field labels and placeholders); returns as soon as it shows. ms: how long at most (default 15 s). Without text it only waits ms (at most 30 s): prefer waiting for a text, a fixed wait is for animations.',
     inputSchema: obj({ text: { type: 'string' }, ms: { type: 'number' } }),
     run: async ({ text: t, ms }) => {
       const r = await browser.wait({ text: t, ms });
-      return text(r.found ? `Göründü: "${r.found}"` : `${r.waited} ms beklendi`, r);
+      return text(r.found ? `Göründü: "${r.found}" (${(r.waited / 1000).toFixed(1)} sn)` : `${r.waited} ms beklendi`, r);
     }
   },
   {
@@ -564,16 +564,17 @@ export const TOOLS = [
   },
   {
     name: 'window_arrange',
-    description: 'Bir uygulamanın penceresini ekranda yerleştirir. yer: tam, sol, sag, ust, alt, orta. ikinci_uygulama verilirse ikisi yan yana durur (ilki sol, ikincisi sağ). pencere: birden fazla penceresi varsa başlığından kelimeler. ekran: birden fazla ekran varsa numarası (1 = ana ekran).',
+    description: 'Bir uygulamanın penceresini ekranda yerleştirir. yer: tam, sol, sag, ust, alt, orta; kucult (Dock\'a); geri (küçültmeden ya da yerleştirmeden önceki yerine). ikinci_uygulama verilirse ikisi yan yana durur (ilki sol, ikincisi sağ). uygulamalar ile ikiden fazla pencere ızgaraya dizilir (3 sütun, 2×2, 3×2…). pencere: birden fazla penceresi varsa başlığından kelimeler. ekran: birden fazla ekran varsa numarası (1 = ana ekran).',
     inputSchema: obj({
       app: { type: 'string' },
-      yer: { type: 'string', enum: ['tam', 'sol', 'sag', 'ust', 'alt', 'orta'] },
+      yer: { type: 'string', enum: ['tam', 'sol', 'sag', 'ust', 'alt', 'orta', 'kucult', 'geri'] },
       pencere: { type: 'string' },
       ikinci_uygulama: { type: 'string' },
+      uygulamalar: { type: 'array', items: { type: 'string' }, description: 'app ile birlikte dizilecek diğer uygulamalar (ızgara)' },
       ekran: { type: 'number' }
     }, ['app']),
-    run: async ({ app, yer = 'tam', pencere, ikinci_uygulama, ekran }) => {
-      const r = await desktop.arrange(app, yer, { pencere, ikinci: ikinci_uygulama, ekran });
+    run: async ({ app, yer = 'tam', pencere, ikinci_uygulama, uygulamalar, ekran }) => {
+      const r = await desktop.arrange(app, yer, { pencere, ikinci: ikinci_uygulama, ekran, uygulamalar });
       return text(desktop.formatOutcome(r), r);
     }
   },
@@ -944,6 +945,21 @@ for (const old of ['jevis', 'inaro']) {
 }
 
 /** Runs a tool and always returns an MCP-style result (errors become isError results). */
+// A reading or navigating tool that hangs (a crashed tab, a Chrome that doesn't answer) gives up instead of
+// holding the session for many minutes. Clicks and typing aren't cut off: finishing later in the background
+// could do them twice.
+const TIME_LIMIT = {
+  browser_read: 60e3, browser_screenshot: 60e3, browser_verify: 60e3, browser_table: 60e3, browser_tabs: 30e3, browser_scroll: 30e3,
+  browser_open: 90e3, browser_wait: 90e3, desktop_read: 60e3, desktop_screenshot: 60e3, desktop_windows: 30e3, desktop_apps: 30e3
+};
+function withLimit(promise, ms, name) {
+  let timer;
+  const late = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(Object.assign(new Error(`${name} ${Math.round(ms / 1000)} sn'de bitmedi: sayfa ya da tarayıcı cevap vermiyor. browser_tabs ile sekmelere bak, gerekirse sayfayı browser_open ile yeniden aç.`), { code: 'TAKILDI' })), ms);
+  });
+  return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+}
+
 export async function callTool(name, args = {}) {
   const tool = byName.get(name);
   if (!tool) return { content: [{ type: 'text', text: `Bilinmeyen araç: ${name}` }], isError: true };
@@ -954,7 +970,8 @@ export async function callTool(name, args = {}) {
   const started = Date.now();
   setActivity('tool', { tool: name, app: appOfTool(name, args) });
   try {
-    const { meta, ...result } = await tool.run(args);
+    const limit = TIME_LIMIT[name];
+    const { meta, ...result } = await (limit ? withLimit(tool.run(args), limit, name) : tool.run(args));
     const summary = meta?.logSummary ?? result.content.filter(c => c.type === 'text').map(c => c.text).join(' | ');
     logAction({ tool: name, args, ok: true, summary, ms: Date.now() - started, elementRole: meta?.element?.role, screenshot: meta?.approval?.screenshot });
     return result;

@@ -30,6 +30,11 @@ function wholeWordAt(hay, needle) {
   return out;
 }
 
+// In a step's value a detail stands between separators, not inside a longer token ("1" in "127.0.0.1", "10" in "2026-10-11").
+const SEP_BEFORE = /[\s"“'‘(\[\/=&?#+,:$€₺]/;
+const SEP_AFTER = /[\s"”'’)\]\/&?#+,.;:!]/;
+const separate = (hay, i, n) => (i === 0 || SEP_BEFORE.test(hay[i - 1])) && (i + n === hay.length || SEP_AFTER.test(hay[i + n]));
+
 const readLearned = file => JSON.parse(fs.readFileSync(path.join(LEARNED_DIR, file), 'utf-8'));
 
 /** Learned tasks, most recently used first. */
@@ -80,7 +85,7 @@ export async function learnFromRun({ command, runId, answer = '', explicit = fal
         for (const [encoding, encode] of ENCODINGS) {
           if (encoding && field.join('.') !== 'url') continue;
           const needle = lower(encode(span.text));
-          const at = wholeWordAt(hay, needle).filter(i => !(taken.get(key) || []).some(([a, b]) => i < b && i + needle.length > a));
+          const at = wholeWordAt(hay, needle).filter(i => separate(hay, i, needle.length) && !(taken.get(key) || []).some(([a, b]) => i < b && i + needle.length > a));
           if (!at.length) continue;
           taken.set(key, [...(taken.get(key) || []), ...at.map(i => [i, i + needle.length])]);
           uses.set(span.text, [...(uses.get(span.text) || []), { step: si, field, encoding }]);
@@ -88,18 +93,27 @@ export async function learnFromRun({ command, runId, answer = '', explicit = fal
       }
     }
   });
-  // Longest first, and not a word inside a longer detail already chosen.
-  const candidates = [...uses.keys()].sort((a, b) => b.length - a.length)
-    .filter((t, i, list) => !list.slice(0, i).some(longer => lower(longer).includes(lower(t)))).slice(0, MAX_CANDIDATES);
+  // Longest first; a shorter one only where it stands in the command outside every longer one
+  // ("kalem" inside "Tükenmez kalem" is no detail of its own; "1" in "1 adet" is, though the address has a 1 too).
+  const candidates = [];
+  // where it stands on its own ("1 adet"), not inside a longer token ("127.0.0.1:1200")
+  const alone = (i, n) => (i === 0 || /[\s"“'‘(\[]/.test(command[i - 1])) && (i + n === command.length || /[\s,.;:!?"”'’)\]]/.test(command[i + n]));
+  for (const text of [...uses.keys()].sort((a, b) => b.length - a.length)) {
+    const free = wholeWordAt(lower(command), lower(text)).filter(i => !candidates.some(c => i < c.at + c.text.length && i + text.length > c.at));
+    const at = free.find(i => alone(i, text.length)) ?? free[0];
+    if (at === undefined) continue;
+    candidates.push({ text, at });
+    if (candidates.length >= MAX_CANDIDATES) break;
+  }
 
   const questions = {
     doing: { type: 'noul', instructions: 'Is `command` only a request to do something on the computer (the done actions are the whole result), rather than a question or a request for information, a summary, a list or a text the assistant has to come up with?' },
-    succeeded: { type: 'noul', instructions: 'Does the assistant\'s `answer` say that the task was done, without problems, open questions or missing parts?' },
+    succeeded: { type: 'noul', instructions: 'Does the assistant\'s `answer` say that what `command` asked for was done, without problems, open questions or missing parts? Something `command` said not to do (e.g. not to send it yet) is not a missing part.' },
     standalone: { type: 'noul', instructions: 'Is `command` complete on its own, without leaning on earlier messages (like "try again", "do it again", "the same for that one", "that file")?' },
     by_position: { type: 'noul', instructions: 'Does `command` choose something by its position, order or time (the first, the second, the 15th, the last, the newest item) rather than by its name?' }
   };
   candidates.forEach((c, i) => {
-    questions[`c${i}`] = { type: 'noul', instructions: `In \`command\`, is "${c}" a detail that could be different the next time the same task is asked (a name, search words, a text to write, a number, a file or folder), rather than words saying what the task is (the app, the site, the action)?` };
+    questions[`c${i}`] = { type: 'noul', instructions: `In \`command\`, is "${c.text}" a detail that could be different the next time the same task is asked (a name, search words, a text to write, a number, a file or folder), rather than words saying what the task is (the app, the site, the action)?` };
   });
   const { answers } = await jev.ask({ command, answer: String(answer).slice(0, 1500) }, questions);
   if ((answers.doing?.noul ?? 0) < 0.5) return { skipped: 'bu bir soru ya da bilgi isteği' };
@@ -109,10 +123,7 @@ export async function learnFromRun({ command, runId, answer = '', explicit = fal
   if ((answers.by_position?.noul ?? 0) >= 0.5) return { skipped: 'komut bir şeyi sırasıyla seçiyor' };
 
   const chosen = candidates.filter((_, i) => (answers[`c${i}`]?.noul ?? 0) >= 0.5)
-    .map(text => ({ text, at: lower(command).indexOf(lower(text)) }))
-    .filter(v => v.at >= 0)
     .sort((a, b) => a.at - b.at)
-    .filter((v, i, list) => !list.slice(0, i).some(u => v.at < u.at + u.text.length))
     .map((v, i) => ({ ...v, name: `x${i + 1}` }));
   if (chosen.reduce((n, v) => n + v.text.length, 0) > 0.7 * command.replace(/\s+/g, '').length) return { skipped: 'komutun neredeyse tamamı değişken' };
 
@@ -124,11 +135,21 @@ export async function learnFromRun({ command, runId, answer = '', explicit = fal
       if (lower(value).length !== value.length) continue;
       const encode = ENCODINGS.find(([e]) => e === use.encoding)[1];
       const needle = lower(encode(v.text));
-      const at = wholeWordAt(lower(value), needle);
+      const at = wholeWordAt(lower(value), needle).filter(i => separate(lower(value), i, needle.length));
       let out = value;
       for (const i of at.reverse()) out = `${out.slice(0, i)}{{${v.name}${use.encoding ? `:${use.encoding}` : ''}}}${out.slice(i + needle.length)}`;
       setAt(templated[use.step].args, use.field, out);
     }
+  }
+  // A check's wording follows the new details too ("2 adet … kaydedildi" → "4 adet …"); it never makes a detail itself.
+  for (const step of templated) {
+    if (typeof step.args.expectation !== 'string') continue;
+    let out = step.args.expectation;
+    for (const v of chosen) {
+      const at = wholeWordAt(lower(out), lower(v.text)).filter(i => separate(lower(out), i, v.text.length));
+      for (const i of at.reverse()) out = `${out.slice(0, i)}{{${v.name}}}${out.slice(i + v.text.length)}`;
+    }
+    step.args.expectation = out;
   }
   // Typing a text the brain came up with would repeat that old text next time.
   // (Short form answers like "None" or "Free" are choices, not texts, and are replayed as they are.)
@@ -136,6 +157,11 @@ export async function learnFromRun({ command, runId, answer = '', explicit = fal
     : s.tool === 'browser_fill' ? Object.values(s.args.fields || {}).filter(v => typeof v === 'string' && v.length > 40) : []));
   const invented = typedTexts.find(t => !/\{\{x\d+/.test(t) && t.trim().length > 2 && !lower(command).includes(lower(t.trim())));
   if (invented) return { skipped: 'yazılan metni Claude kendisi yazmış' };
+  // A date or time the command doesn't say ("bugün" → 2026-10-11) would be the old one next time.
+  const DATE_TIME = /\b\d{1,4}[./-]\d{1,2}(?:[./-]\d{1,4})?\b|\b\d{1,2}:\d{2}\b/;
+  const filled = templated.flatMap(s => [s.args.text, s.args.value, s.args.option, ...Object.values(s.args.fields || {})].filter(v => typeof v === 'string'));
+  const dated = filled.find(v => !/\{\{x\d+/.test(v) && DATE_TIME.test(v) && !lower(command).includes(lower(v.match(DATE_TIME)[0])));
+  if (dated) return { skipped: 'komutta olmayan bir tarih ya da saat yazılmış' };
 
   let pattern = command;
   for (const v of [...chosen].reverse()) pattern = `${pattern.slice(0, v.at)}[${v.name}]${pattern.slice(v.at + v.text.length)}`;
@@ -143,7 +169,8 @@ export async function learnFromRun({ command, runId, answer = '', explicit = fal
 
   fs.mkdirSync(LEARNED_DIR, { recursive: true });
   const existing = listLearned();
-  const same = existing.find(r => JSON.stringify(r.steps) === JSON.stringify(templated));
+  // the same steps, or the same command template learned again (then the newer way wins)
+  const same = existing.find(r => JSON.stringify(r.steps) === JSON.stringify(templated)) || existing.find(r => r.pattern === pattern);
   let name = same?.name || slug(pattern.replace(/\[x\d+\]/g, ' ')).slice(0, 60).replace(/-$/, '') || 'ogrenilen';
   if (!same) for (let n = 2; existing.some(r => r.name === name); n++) name = `${name.replace(/-\d+$/, '')}-${n}`;
   const recipe = {
@@ -178,6 +205,31 @@ export function learnedQuestion(list) {
 }
 
 /**
+ * The new command written like the learned one, with only the [bracketed] details different: the details are
+ * read straight off it (no judging needed). A detail that swallowed a whole extra sentence doesn't count.
+ */
+export function alignedVars(command, recipe) {
+  const parts = String(recipe.pattern || '').split(/\[(x\d+)\]/);
+  if (parts.length < 3) return null;
+  const literal = p => escapeRe(p.trim()).replace(/\s+/g, '\\s+');
+  const re = new RegExp(`^\\s*${parts.map((p, i) => (i % 2 ? '(.+?)' : `\\s*${literal(p)}\\s*`)).join('')}\\s*$`, 'iu');
+  const m = command.match(re);
+  if (!m) return null;
+  const vars = {};
+  parts.filter((_, i) => i % 2).forEach((name, i) => { vars[name] = m[i + 1].trim(); });
+  const sentence = /[.;!?](\s|$)|,\s/;
+  if (Object.entries(vars).some(([name, v]) => !v || (sentence.test(v) && !sentence.test(recipe.hints?.[name] || '')))) return null;
+  return vars;
+}
+
+/** The learned task the command is written exactly like (see alignedVars), or null. */
+export function alignLearned(command, list = listLearned()) {
+  const hits = list.map(recipe => ({ recipe, vars: alignedVars(command, recipe) })).filter(h => h.vars);
+  // several with the same template: the most recently used one (the list comes in that order)
+  return hits.length && hits.every(h => h.recipe.pattern === hits[0].recipe.pattern) ? hits[0] : null;
+}
+
+/**
  * The learned task the router's answer points at, with the new details taken
  * from the command. Returns { recipe, vars } or null.
  */
@@ -185,6 +237,8 @@ export async function matchLearned(command, answer, list) {
   const pick = jev.asPick(answer);
   if (pick.index === null || !jev.isConfident(pick)) return null;
   const recipe = list[pick.index];
+  const aligned = alignedVars(command, recipe);
+  if (aligned) return { recipe, vars: aligned };
   const names = Object.keys(recipe.hints || {});
   const options = spans(command).map(s => s.text).slice(0, 250);
   // A second, narrower look: replaying the wrong task does real things.

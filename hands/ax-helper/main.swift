@@ -613,13 +613,25 @@ case "setframe":
     var boyut = CGSize(width: fw, height: fh)
     // boyut, konum, boyut: bazı uygulamalar boyutu eski konumdaki ekrana göre kısıyor
     AXUIElementSetAttributeValue(win, kAXSizeAttribute as CFString, AXValueCreate(.cgSize, &boyut)!)
-    AXUIElementSetAttributeValue(win, kAXPositionAttribute as CFString, AXValueCreate(.cgPoint, &konum)!)
-    let sonuc = AXUIElementSetAttributeValue(win, kAXSizeAttribute as CFString, AXValueCreate(.cgSize, &boyut)!)
-    if sonuc != .success { fail("Pencere yerleştirilemedi (kod \(sonuc.rawValue)). Pencere tam ekranda ya da yerleştirmeye kapalı olabilir.", code: "NOT_SETTABLE") }
+    let yer = AXUIElementSetAttributeValue(win, kAXPositionAttribute as CFString, AXValueCreate(.cgPoint, &konum)!)
+    // sabit boyutlu pencereler (Hesap Makinesi gibi) sadece taşınır; boyut hatası yok sayılır
+    AXUIElementSetAttributeValue(win, kAXSizeAttribute as CFString, AXValueCreate(.cgSize, &boyut)!)
+    if yer != .success { fail("Pencere yerleştirilemedi (kod \(yer.rawValue)). Pencere tam ekranda ya da yerleştirmeye kapalı olabilir.", code: "NOT_SETTABLE") }
     let son = fetch(win)
     let p2 = son["AXPosition"] as? CGPoint ?? .zero
     let s2 = son["AXSize"] as? CGSize ?? .zero
     emit(["ok": true, "title": text(son["AXTitle"]) ?? "", "x": Int(p2.x), "y": Int(p2.y), "w": Int(s2.width), "h": Int(s2.height)])
+
+case "minimize":
+    // minimize [--title T]: sends one window of the app (the first, or the first whose title contains T) to the Dock.
+    let baslik = option("--title")
+    let app = targetApp(pid: pidOpt, name: appOpt)
+    let appEl = AXUIElementCreateApplication(app.processIdentifier)
+    let windows = (attribute(appEl, "AXWindows") as? [AXUIElement]) ?? []
+    guard let win = windows.first(where: { baslik == nil || (text(attribute($0, "AXTitle")) ?? "").localizedCaseInsensitiveContains(baslik!) }) else { fail("Böyle bir pencere yok.", code: "NOT_FOUND") }
+    let sonuc = AXUIElementSetAttributeValue(win, "AXMinimized" as CFString, kCFBooleanTrue)
+    if sonuc != .success { fail("Pencere küçültülemedi (kod \(sonuc.rawValue)).", code: "NOT_SETTABLE") }
+    emit(["ok": true, "title": text(attribute(win, "AXTitle")) ?? ""])
 
 case "raise":
     // raise <index>: brings one window of the app to the front.
