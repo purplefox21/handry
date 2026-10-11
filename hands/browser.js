@@ -8,7 +8,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { chromium } from 'playwright-core';
 import { config, expandHome, homeDir, loadState, saveState } from '../core/config.js';
 import * as jev from '../core/jev.js';
-import { needsConfirm, confirmAction, harmlessByKind } from '../guard/confirm.js';
+import { needsConfirm, confirmAction, harmlessByKind, allowedOnSite, rememberable } from '../guard/confirm.js';
 import { JevisError } from '../core/errors.js';
 import { APP_NAME } from '../core/brand.js';
 import * as human from './human.js';
@@ -666,7 +666,12 @@ async function guardRisk(page, item, riskP, actionText) {
   if (await harmlessByKind(verdict, `${actionText} (sayfa: ${title}, ${page.url()})`)) return null;
   const changes = pendingChanges.get(page) || [];
   const changed = changes.length ? `\n\nBu sayfada JEVIS'in girdikleri:\n${changes.slice(-12).map(c => `• ${c.field}: ${c.value}`).join('\n')}` : '';
-  const ok = await confirmAction(`JEVIS şunu yapmak istiyor:\n\n${actionText}${changed}\n\nSayfa: ${title}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`);
+  // kullanıcı bu sitede bu düğmeye "hep" dediyse sorulmaz (para, sipariş ve silme hariç)
+  if (allowedOnSite(host, item.name)) {
+    pendingChanges.delete(page);
+    return { reason: `${verdict.reason} · bu sitede hep izinli` };
+  }
+  const ok = await confirmAction(`JEVIS şunu yapmak istiyor:\n\n${actionText}${changed}\n\nSayfa: ${title}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`, { remember: rememberable(item.name) ? { host, name: item.name } : null });
   if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
   pendingChanges.delete(page); // approved: these are being saved now
   const shot = path.join(homeDir('logs', 'approved'), `${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`);
@@ -713,7 +718,28 @@ function toUrl(input) {
   return `https://www.google.com/search?q=${encodeURIComponent(s)}`;
 }
 
-export async function open(input, { newTab = false } = {}) {
+/** A new Chrome window (not a tab) with this address; it becomes the page JEVIS works on. */
+async function newWindowPage(url) {
+  await connect();
+  const cdp = await browser.newBrowserCDPSession();
+  const waiting = context().waitForEvent('page', { timeout: 10000 }).catch(() => null);
+  const { targetId } = await cdp.send('Target.createTarget', { url, newWindow: true });
+  await cdp.detach().catch(() => {});
+  let page = await waiting;
+  if (!page || (await targetIdOf(page).catch(() => null)) !== targetId) {
+    for (const p of openPages()) if ((await targetIdOf(p).catch(() => null)) === targetId) page = p;
+  }
+  if (!page) throw new JevisError('NO_WINDOW', 'Yeni pencere açılamadı.');
+  await page.waitForLoadState('domcontentloaded', { timeout: 45000 }).catch(() => {});
+  return remember(page);
+}
+
+export async function open(input, { newTab = false, newWindow = false } = {}) {
+  if (newWindow) {
+    const page = await newWindowPage(toUrl(input));
+    await page.bringToFront().catch(() => {});
+    return { url: page.url(), title: await page.title().catch(() => '') };
+  }
   let page = await activePage();
   if (newTab && page.url() !== 'about:blank') page = await context().newPage();
   await page.goto(toUrl(input), { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -1277,6 +1303,18 @@ export async function switchTab(ref) {
   await page.bringToFront();
   await remember(page);
   return { title: await page.title().catch(() => ''), url: page.url() };
+}
+
+/**
+ * A tab into its own window. Chrome has no way to move a live tab from outside, so the page opens again in a new
+ * window and the tab closes: what was typed into a form and the scroll position don't come along.
+ */
+export async function tabToWindow(ref) {
+  const old = ref === undefined ? await activePage() : await findTab(ref);
+  const url = old.url();
+  const page = await newWindowPage(url);
+  if (!old.isClosed()) await old.close().catch(() => {});
+  return { url: page.url(), title: await page.title().catch(() => '') };
 }
 
 export async function closeTab(ref) {

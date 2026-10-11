@@ -77,14 +77,20 @@ export async function harmlessByKind(verdict, action) {
  * No answer within the timeout counts as "Hayır".
  * JEVIS_TEST_CONFIRM=deny|allow skips the dialog in automated tests.
  */
-export function confirmAction(message, { timeoutSec = config().confirm.timeoutSec } = {}) {
+export function confirmAction(message, { timeoutSec = config().confirm.timeoutSec, remember = null } = {}) {
   // Tests can read what the dialog would have said.
   if (process.env.JEVIS_TEST_CONFIRM && process.env.JEVIS_TEST_CONFIRM_LOG) fs.appendFileSync(process.env.JEVIS_TEST_CONFIRM_LOG, `${JSON.stringify(message)}\n`);
   if (process.env.JEVIS_TEST_CONFIRM === 'deny') return Promise.resolve(false);
   if (process.env.JEVIS_TEST_CONFIRM === 'allow') return Promise.resolve(true);
+  if (process.env.JEVIS_TEST_CONFIRM === 'always') {
+    if (remember) allowOnSite(remember.host, remember.name);
+    return Promise.resolve(true);
+  }
+  // remember: { host, name } — a third button, "Bu sitede hep": the same button on this site is not asked again
+  const buttons = remember ? '{"Hayır", "Bu sitede hep", "Evet"}' : '{"Hayır", "Evet"}';
   const script = [
     'on run argv',
-    'set r to display dialog (item 1 of argv) with title (item 3 of argv) buttons {"Hayır", "Evet"} default button "Hayır" cancel button "Hayır" with icon caution giving up after ((item 2 of argv) as integer)',
+    `set r to display dialog (item 1 of argv) with title (item 3 of argv) buttons ${buttons} default button "Hayır" cancel button "Hayır" with icon caution giving up after ((item 2 of argv) as integer)`,
     'if gave up of r then return "timeout"',
     'return button returned of r',
     'end run'
@@ -93,9 +99,39 @@ export function confirmAction(message, { timeoutSec = config().confirm.timeoutSe
   return new Promise(resolve => {
     execFile('osascript', ['-e', script, message, String(timeoutSec), APP_NAME], (err, stdout) => {
       unmarkDialog();
-      resolve(!err && stdout.trim() === 'Evet');
+      const answer = err ? '' : stdout.trim();
+      if (answer === 'Bu sitede hep' && remember) allowOnSite(remember.host, remember.name);
+      resolve(answer === 'Evet' || answer === 'Bu sitede hep');
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Site permissions: "Bu sitede hep". One button on one site (its words), never money or deleting.
+// ---------------------------------------------------------------------------
+
+const PERMISSIONS = () => path.join(HOME, 'site-permissions.json');
+const readPermissions = () => { try { return JSON.parse(fs.readFileSync(PERMISSIONS(), 'utf-8')); } catch { return []; } };
+const sameName = (a, b) => String(a || '').trim().toLocaleLowerCase('tr') === String(b || '').trim().toLocaleLowerCase('tr');
+
+/** Never remembered: money, orders and deleting are asked every time. */
+export const rememberable = name => !/(öde|ödeme|satın|sipariş|pay|purchase|buy|checkout|order|sil|delete|remove|kaldır|çöp|trash|transfer)/i.test(String(name || ''));
+
+export function allowOnSite(host, name) {
+  if (!host || !name || !rememberable(name)) return;
+  const list = readPermissions().filter(p => !(p.host === host && sameName(p.name, name)));
+  list.push({ host, name: String(name).trim(), at: new Date().toISOString() });
+  fs.mkdirSync(HOME, { recursive: true });
+  fs.writeFileSync(PERMISSIONS(), JSON.stringify(list, null, 2));
+}
+
+export const allowedOnSite = (host, name) => rememberable(name) && readPermissions().some(p => p.host === host && sameName(p.name, name));
+export const sitePermissions = () => readPermissions();
+export function removeSitePermission(index) {
+  const list = readPermissions();
+  const [gone] = list.splice(index - 1, 1);
+  fs.writeFileSync(PERMISSIONS(), JSON.stringify(list, null, 2));
+  return gone;
 }
 
 /**
