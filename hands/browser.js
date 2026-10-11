@@ -12,6 +12,7 @@ import { needsConfirm, confirmAction, harmlessByKind, allowedOnSite, rememberabl
 import { JevisError } from '../core/errors.js';
 import { APP_NAME } from '../core/brand.js';
 import * as human from './human.js';
+import * as captcha from './captcha.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const withTimeout = (promise, ms, fallback) => Promise.race([promise, sleep(ms).then(() => fallback)]);
@@ -1439,4 +1440,16 @@ export function formatError(err) {
     for (const a of err.alternatives) lines.push(`  #${a.id} ${a.label} (%${a.p})`);
   }
   return lines.join('\n');
+}
+
+/** Detect and auto-solve any CAPTCHA on the active page. */
+export async function solveCaptcha() {
+  const page = await activePage();
+  return captcha.solve(page);
+}
+
+/** Return a description of the CAPTCHA type on the active page, or null. */
+export async function describeCaptcha() {
+  const page = await activePage();
+  return captcha.describe(page);
 }

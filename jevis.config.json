@@ -1,4 +1,8 @@
 {
+  "captcha": {
+    "key": "",
+    "maxWaitSec": 120
+  },
   "jev": {
     "model": "jev-latest",
     "autoThreshold": 0.85,
