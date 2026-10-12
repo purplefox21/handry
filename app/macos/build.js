@@ -65,6 +65,18 @@ export function buildIcon(resources) {
   return path.join(resources, 'App.icns');
 }
 
+/**
+ * The node the app starts its server with. process.execPath is the versioned Homebrew folder
+ * (…/Cellar/node/26.4.0/bin/node), which is deleted by the next `brew upgrade` and the server
+ * then never starts. /opt/homebrew/bin/node (or /usr/local/bin/node) is a link that survives
+ * upgrades; it is used when it leads to the node that is running this build.
+ */
+export function stableNodePath() {
+  const real = p => { try { return fs.realpathSync(p); } catch { return null; } };
+  const mine = real(process.execPath);
+  return ['/opt/homebrew/bin/node', '/usr/local/bin/node'].find(p => mine && real(p) === mine) || process.execPath;
+}
+
 export function buildApp() {
   fs.rmSync(APP_PATH, { recursive: true, force: true });
   fs.mkdirSync(path.join(APP_PATH, 'Contents', 'MacOS'), { recursive: true });
@@ -93,7 +105,7 @@ export function buildApp() {
     WakeLabel: WAKE_LABEL,
     WakePattern: WAKE_SOURCE,
     JEVISRoot: ROOT,
-    JEVISNode: process.execPath,
+    JEVISNode: stableNodePath(),
     JEVISPort: String(config().server.port || 4263)
   }));
   execFileSync('swiftc', ['-O', '-o', path.join(APP_PATH, 'Contents', 'MacOS', APP.name),

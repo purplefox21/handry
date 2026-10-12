@@ -24,6 +24,11 @@ let ROOT = env["JEVIS_ROOT"] ?? info["JEVISRoot"] as? String ?? ""
 let NODE = env["JEVIS_NODE"] ?? info["JEVISNode"] as? String ?? "/opt/homebrew/bin/node"
 let PORT = env["JEVIS_PORT"] ?? info["JEVISPort"] as? String ?? "4263"
 let HOME = FileManager.default.homeDirectoryForCurrentUser.path
+/// Links that lead to the current node and survive a Homebrew upgrade (the versioned folder NODE was built with does not).
+let NODE_FALLBACKS = ["/opt/homebrew/bin/node", "/usr/local/bin/node", "\(HOME)/.local/bin/node"]
+func findNode() -> String? {
+    ([NODE] + NODE_FALLBACKS).first { FileManager.default.isExecutableFile(atPath: $0) }
+}
 let URL_BASE = "http://127.0.0.1:\(PORT)/"
 // The app's name and its Turkish endings, the fox's name and the wake word (core/brand.js, via Info.plist).
 let APP_NAME = info["CFBundleDisplayName"] as? String ?? "Handry"
@@ -772,18 +777,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             DispatchQueue.main.async {
                 guard let self else { return }
                 if up { return completion(true) }
+                let logDir = "\(HOME)/.jevis/logs"
+                try? FileManager.default.createDirectory(atPath: logDir, withIntermediateDirectories: true)
+                FileManager.default.createFile(atPath: "\(logDir)/app-server.log", contents: nil)
+                let log = FileHandle(forWritingAtPath: "\(logDir)/app-server.log")
+                // The node the app was built with can be gone (Homebrew deletes the old versioned folder on an upgrade):
+                // look for another one, and say in the log what happened instead of leaving it empty.
+                guard let node = findNode() else {
+                    log?.write(Data("node bulunamadı. Aranan yerler: \(NODE), \(NODE_FALLBACKS.joined(separator: ", ")). Node kurulu mu? (brew install node), sonra uygulamayı yeniden kur: node cli.js app install\n".utf8))
+                    return completion(false)
+                }
                 let p = Process()
-                p.executableURL = URL(fileURLWithPath: NODE)
+                p.executableURL = URL(fileURLWithPath: node)
                 p.arguments = ["\(ROOT)/app/server.js"]
                 p.currentDirectoryURL = URL(fileURLWithPath: ROOT)
                 var e = ProcessInfo.processInfo.environment
                 e["PORT"] = PORT
                 e["PATH"] = "/opt/homebrew/bin:/usr/local/bin:\(HOME)/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
                 p.environment = e
-                let logDir = "\(HOME)/.jevis/logs"
-                try? FileManager.default.createDirectory(atPath: logDir, withIntermediateDirectories: true)
-                FileManager.default.createFile(atPath: "\(logDir)/app-server.log", contents: nil)
-                let log = FileHandle(forWritingAtPath: "\(logDir)/app-server.log")
                 p.standardOutput = log
                 p.standardError = log
                 // If the server dies on its own, start it again (at most 3 times a minute).
@@ -795,7 +806,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
                         if self.restarts.count <= 3 { self.loadWhenReady() }
                     }
                 }
-                do { try p.run() } catch { return completion(false) }
+                do { try p.run() } catch {
+                    log?.write(Data("Sunucu başlatılamadı (\(node), klasör \(ROOT)): \(error.localizedDescription)\n".utf8))
+                    return completion(false)
+                }
                 self.server = p
                 self.waitForServer(tries: 240, completion)
             }
