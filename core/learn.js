@@ -199,7 +199,7 @@ export function learnedQuestion(list) {
   criteria.none = 'None of them: a different task, or more or less than one of these tasks';
   return {
     type: 'choice',
-    instructions: 'Handry learned these tasks from earlier commands. Words in [brackets] are details that may differ next time (a name, search words, a text, a number). Is `command` exactly one of these tasks with only the bracketed details changed? Everything outside the brackets (the app or site, what to do, how many things) must mean the same.',
+    instructions: 'The assistant learned these tasks from earlier commands. Words in [brackets] are details that may differ next time (a name, search words, a text, a number). Is `command` exactly one of these tasks with only the bracketed details changed? Everything outside the brackets (the app or site, what to do, how many things) must mean the same.',
     criteria
   };
 }
@@ -247,7 +247,7 @@ export async function matchLearned(command, answer, list) {
   };
   Object.assign(questions, Object.fromEntries(names.map(v => [v, {
     type: 'choice',
-    instructions: `Handry learned the task \`pattern\` from the earlier command \`example\`, where [${v}] was "${recipe.hints[v]}". Which words of the new \`command\` fill [${v}] now? Pick exactly those words, nothing around them.`,
+    instructions: `The assistant learned the task \`pattern\` from the earlier command \`example\`, where [${v}] was "${recipe.hints[v]}". Which words of the new \`command\` fill [${v}] now? Pick exactly those words, nothing around them.`,
     criteria: { ...Object.fromEntries(options.map((t, i) => [`s${i}`, t])), none: `The new command does not say what [${v}] is` }
   }])));
   const { answers } = await jev.ask({ command, pattern: recipe.pattern, example: recipe.example }, questions);
