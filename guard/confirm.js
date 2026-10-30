@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process';
 import { config, HOME } from '../core/config.js';
 import { APP_NAME } from '../core/brand.js';
 import { actionKind } from '../core/jev.js';
+import { remoteReady, startRemote } from './remote-approve.js';
 
 // While one of these dialogs is up, the hands must not touch the screen: a
 // click could otherwise answer "Evet" itself. The mark is a file, so it holds
@@ -74,18 +75,26 @@ export async function harmlessByKind(verdict, action) {
 
 /**
  * Shows "<app name> … İzin veriyor musun?" and resolves true only on "Evet".
- * No answer within the timeout counts as "Hayır".
- * JEVIS_TEST_CONFIRM=deny|allow skips the dialog in automated tests.
+ * No answer within the timeout counts as "Hayır". When the phone can be asked
+ * (notify.imessageTo set, Messages readable), an unanswered dialog also goes to
+ * the phone as an iMessage with a code (guard/remote-approve.js), the wait grows
+ * to confirm.remoteTimeoutSec, and the first answer, Mac or phone, wins.
+ * JEVIS_TEST_CONFIRM=deny|allow|always skips the dialog in automated tests;
+ * remote skips only the dialog, so the phone path can be tested.
  */
-export function confirmAction(message, { timeoutSec = config().confirm.timeoutSec, remember = null } = {}) {
+export async function confirmAction(message, { timeoutSec = config().confirm.timeoutSec, remember = null } = {}) {
   // Tests can read what the dialog would have said.
   if (process.env.JEVIS_TEST_CONFIRM && process.env.JEVIS_TEST_CONFIRM_LOG) fs.appendFileSync(process.env.JEVIS_TEST_CONFIRM_LOG, `${JSON.stringify(message)}\n`);
-  if (process.env.JEVIS_TEST_CONFIRM === 'deny') return Promise.resolve(false);
-  if (process.env.JEVIS_TEST_CONFIRM === 'allow') return Promise.resolve(true);
+  if (process.env.JEVIS_TEST_CONFIRM === 'deny') return false;
+  if (process.env.JEVIS_TEST_CONFIRM === 'allow') return true;
   if (process.env.JEVIS_TEST_CONFIRM === 'always') {
     if (remember) allowOnSite(remember.host, remember.name);
-    return Promise.resolve(true);
+    return true;
   }
+  const dialogShown = process.env.JEVIS_TEST_CONFIRM !== 'remote';
+  const phone = (await remoteReady()).ok;
+  if (!dialogShown && !phone) return false;
+  const waitSec = phone ? Math.max(1, Number(config().confirm.remoteTimeoutSec) || 600) : timeoutSec;
   // remember: { host, name } — a third button, "Bu sitede hep": the same button on this site is not asked again
   const buttons = remember ? '{"Hayır", "Bu sitede hep", "Evet"}' : '{"Hayır", "Evet"}';
   const script = [
@@ -95,14 +104,28 @@ export function confirmAction(message, { timeoutSec = config().confirm.timeoutSe
     'return button returned of r',
     'end run'
   ].join('\n');
-  markDialog(timeoutSec);
+  markDialog(waitSec);
   return new Promise(resolve => {
-    execFile('osascript', ['-e', script, message, String(timeoutSec), APP_NAME], (err, stdout) => {
+    let done = false, dialog = null, remote = null, timer = null;
+    const finish = (ok, how) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      dialog?.kill();
+      remote?.stop(how);
       unmarkDialog();
-      const answer = err ? '' : stdout.trim();
-      if (answer === 'Bu sitede hep' && remember) allowOnSite(remember.host, remember.name);
-      resolve(answer === 'Evet' || answer === 'Bu sitede hep');
-    });
+      resolve(ok);
+    };
+    if (dialogShown) {
+      dialog = execFile('osascript', ['-e', script, message, String(waitSec), APP_NAME], (err, stdout) => {
+        if (done) return;
+        const answer = err ? '' : stdout.trim();
+        if (answer === 'Bu sitede hep' && remember) allowOnSite(remember.host, remember.name);
+        finish(answer === 'Evet' || answer === 'Bu sitede hep', answer === 'timeout' ? 'timeout' : 'mac');
+      });
+    }
+    if (phone) remote = startRemote({ message, onAnswer: ok => finish(ok, 'phone') });
+    timer = setTimeout(() => finish(false, 'timeout'), (waitSec + 2) * 1000);
   });
 }
 

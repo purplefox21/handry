@@ -14,6 +14,7 @@ import { listSecrets } from '../guard/vault.js';
 import { isStopped } from '../guard/stop.js';
 import { APP_PATH, INSTALLED } from '../app/macos/build.js';
 import { autostartEnabled } from '../app/macos/autostart.js';
+import { remoteReady } from '../guard/remote-approve.js';
 
 const ok = (label, detail = '') => `✅ ${label}${detail ? ` — ${detail}` : ''}`;
 const warn = (label, fix) => `⚠️  ${label} — ${fix}`;
@@ -89,6 +90,11 @@ export async function doctor() {
     : `➖ Sohbet sunucusu — kapalı (npm start ya da ${APP_NAME}.app)`);
   lines.push(fs.existsSync(INSTALLED) ? ok(`${APP_NAME}.app`, INSTALLED) : fs.existsSync(APP_PATH) ? `➖ ${APP_NAME}.app — derlendi, kurulmadı (node cli.js app install)` : `➖ ${APP_NAME}.app — yok (node cli.js app install)`);
   lines.push(autostartEnabled() ? ok('Açılışta başlama', 'açık') : '➖ Açılışta başlama — kapalı (node cli.js autostart on)');
+  // Approving from the phone: this check runs in the terminal; the app's server needs the same access (Full Disk Access for Handry.app).
+  const phone = await remoteReady({ fresh: true });
+  lines.push(phone.ok
+    ? ok('Telefondan onay (iMessage)', `Mac'te ${c.confirm.remoteAfterSec ?? 20} sn cevap yoksa kodlu iMessage gider`)
+    : `➖ Telefondan onay (iMessage) — kapalı: ${phone.reason}`);
   if (ROOT.startsWith(expandHome('~/Desktop')) || ROOT.startsWith(expandHome('~/Documents'))) {
     lines.push(`ℹ️  Proje ${ROOT} içinde: ${APP_NAME}.app ilk açılışta bu klasöre erişim izni ister, "İzin Ver" demen gerekir.`);
   }

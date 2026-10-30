@@ -1,6 +1,6 @@
 # JEVIS — Proje Planı ve Hafızası
 
-> **Durum (2026-10-10):** Faz 0-11 ✅. Uygulamanın adı Handry (MCP `handry`); ekranda parmaklarının üstünde yürüyen el (tilki Foxie seçilebilir), uyandırma "Hey Handry". Sunucu portu 4263. Sohbetler, zamanlayıcı/nöbet/güç, dosya değiştirme, kayıt ✅. Bağlantısız giriş penceresi ve SMS/Gmail kodu okuma ✅ (gerçek Google/Gmail/Mesajlar'da denenmedi). Varsayılan beyin Sonnet 5.5. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde.
+> **Durum (2026-10-30):** Faz 0-11 ✅. Uygulamanın adı Handry (MCP `handry`), görünen her yerde; ekranda parmaklarının üstünde yürüyen el (tilki Foxie seçilebilir), uyandırma "Hey Handry". Sunucu portu 4263. Sohbetler, zamanlayıcı/nöbet/güç, dosya değiştirme, kayıt ✅. Bağlantısız giriş penceresi, SMS/Gmail kodu okuma, telefondan onay (iMessage) ✅ (üçü de gerçek hesaplarla denenmedi). Jev yoğunken hızlı yol Claude'a devrediyor. Repo herkese açılmaya hazırlanıyor (İngilizce README; lisans seçilmedi). Varsayılan beyin Sonnet 5.5. Kullanıcıdan beklenenler en altta, "14. Senden gerekenler" bölümünde.
 > **Öncelik:** Faz 0 → 1 → 2. App Store işi Faz 2'de biter.
 >
 > Bu dosya projenin hafızası. Her oturumda buradan devam edilir. Bir faz bitince kutular işaretlenir, "Durum" satırı güncellenir ve commit alınır.
@@ -444,9 +444,23 @@ Kullanıcı: Google girişi "bu tarayıcı güvenli olmayabilir" diyor, bot taki
 - **Denenmedi:** Gerçek Gmail'in sınıf adları (`tr.zA`, `.yW`, `.bog`, `.y2`, `.xW`) ve gerçek Mesajlar veritabanı. Gerçek Google girişinin bağlantısız pencerede geçip geçmediği de bilinmiyor; kullanıcı ilk kullanımda görecek.
 - Yapılmayanlar: CAPTCHA çözme, CAPTCHA'da yeni "hızlı devir" (mevcut davranış duruyor: bekçi fark eder, haber verir, `wait_for_user` bekler).
 
+### Paylaşıma hazırlık (2026-10-30, kullanıcı)
+Kullanıcı: GitHub reposunu LinkedIn'de herkese açık paylaşacak (ileride ücretli abonelik de olabilir, şimdilik repo). Önce "son hal": ad her yerde Handry, İngilizce, telefondan onay iMessage ile ("kendime cevap vereyim, o anlasın"; Telegram istemedi).
+- [x] Ad: görünen her yerde JEVIS → Handry (onay penceresi, CLI, bildirim, indirme klasörü ~/Downloads/Handry, package adı `handry`). `jevis.config.json` → `handry.config.json` (eskisi de okunur), `JEVIS.swift` → `Handry.swift`. Bilerek kalanlar: `~/.jevis`, Anahtar Zinciri servisi `jevis` (kayıtlı şifreler), `JEVIS_*` değişkenleri, `X-Jevis-Token`, `JevisError`, `jevis-ax`, uygulama kimliği (izinler). Beyin prompt'unda kişisel yol yerine projenin klasörü. `.mcp.json` git'ten çıktı (kişisel yollar).
+- [x] Jev 529 (system_overloaded) dönünce: `core/jev.js` 600 ms + 1,5 sn bekleyip tekrar dener (Retry-After en fazla 3 sn), sonra `JEV_DOWN`; `core/router.js` hızlı yol komutu düşürmeden Claude'a bırakır. Önceden Jev yoğunken her komut hata veriyordu.
+- [x] Onay açığı: TextEdit'te "Sil" (kaydedilmemiş belgeyi atmak) soru sorulmadan geçiyordu. Jev riski %86-88 görüyordu ama işlem türü kontrolü bağlamsız ("\"Sil\" öğesine basmak") yapılıyor, Jev "zararsız" diyordu. Artık pencerenin metinleri de gidiyor (tarayıcıda düğmenin yanındaki metin). desktop-e2e 23/23.
+- [x] "Bu sitede hep": gönder/yayınla/paylaş/davet/incelemeye gönder/release artık hiç hatırlanmıyor (para, sipariş, silme gibi).
+- [x] Telefondan onay: Mac'teki onaya `confirm.remoteAfterSec` (20 sn) cevap yoksa `notify.imessageTo` adresine kodlu iMessage; kullanıcı kendine kodu yazar, Handry Mesajlar veritabanından okur; ilk gelen cevap (Mac ya da telefon) geçerli, toplam bekleme `confirm.remoteTimeoutSec` (600 sn). Sadece kendi konuşmasından gelen çıplak kod onaylar; beklerken eller ekrana dokunmaz; onay mesajı SMS kodu sanılmaz. Mesajlar okuma kodu `guard/messages.js`'e taşındı (codes.js da kullanıyor). Tam Disk Erişimi yoksa her şey eskisi gibi (sadece Mac'te sorar); `doctor` söylüyor.
+- [x] README İngilizce, baştan (eski README "Gemma 4, JEVIS" diyordu). CAPTCHA'dan bahsetmiyor.
+- [ ] Lisans (MIT mi, ticari kapıyı açık tutan bir lisans mı): kullanıcı karar verecek.
+- [ ] Jev'siz mod (Jev anahtarı olmadan da çalışsın; risk kontrolünün yerine ne konacağı bir güvenlik kararı).
+- [ ] Masaüstleri (Spaces) arası geçiş, pano aracı, Mail.app, arka planda Claude oturumu başlatma.
+- [ ] İngilizce arayüz.
+- Testler (2026-10-30): mcp-smoke 11/11 (Jev'den önce), recipe 7/7, chats 9/9, guard 12/12, timers 15/15, files-change 11/11, human 19/19, codes 18/18, site-permissions 15/15, desktop 23/23, jev-resilience 7/7, remote-approve 8/8, learn 9/10. learn'deki tek hata Jev'in kararı: "Test formunda ad alanını doldur" komutunu "önceki mesaja bağlı" saydı; sonuç yine doğru (uydurulan metin öğrenilmedi), test sadece sebebi farklı buldu. router-e2e Jev'in 529'ları yüzünden bitirilemedi. faz10 ve browser-e2e gerçek Handry Chrome'unu kullandığı ve orada başka bir iş (TradeLab) açık olduğu için koşulmadı.
+
 ## 7. Sınırlar ve riskler
 
-- CAPTCHA'yı JEVIS çözmez (ne kendisi ne çözücü servis). Durur, sen çözersin (2026-10-10, kullanıcı da "CAPTCHA'yı yapmıyoruz" dedi). İki adımlı kodu ise her seferinde sorarak okuyabilir: Authenticator için `totp_code`, SMS ve Gmail için `verification_code` (aşağıda).
+- CAPTCHA: 2026-10-12'de başka bir Claude oturumu 2captcha.com + Claude ile otomatik çözücü ekledi (`hands/captcha.js`, `browser_solve_captcha`; 2captcha anahtarı tanımlı değilse çalışmaz, `wait_for_user`'a düşer). Kullanıcı 2026-10-30'da kodda kalmasını istedi. Bu projede Claude o parçayı yazmıyor, geliştirmiyor ve README'de anlatmıyor. İki adımlı kodlar her seferinde sorularak okunur: Authenticator için `totp_code`, SMS ve Gmail için `verification_code`.
 - Jev yanlış öğe seçebilir. Buna karşı güven eşiği, eylem sonrası doğrulama ve riskli işlerde onay var.
 - Çizim alanı kullanan ya da çok dinamik sayfalarda öğe listesi yetersiz kalır. O zaman ekran görüntüsü ve beyin devreye girer, iş yavaşlar.
 - Beyin olan LLM bazı istekleri yine reddedebilir. Bu yüzden beyin değiştirilebilir; şifreler zaten ona gitmiyor.
@@ -544,6 +558,7 @@ Kullanıcı: Google girişi "bu tarayıcı güvenli olmayabilir" diyor, bot taki
 
 ## 13. Geçmiş
 
+- **2026-10-30:** Paylaşıma hazırlık (yukarıdaki bölüm): ad Handry, Jev yoğunken Claude'a devir, TextEdit "Sil" onay açığı, "Bu sitede hep" daraltıldı, telefondan onay (iMessage), İngilizce README. O gün TypeSafe Jev saatlerce ara ara 529 (system_overloaded) döndü; Jev'e bağlı testler birkaç kez tekrarlandı.
 - **2026-10-12:** Handry.app "sunucusu başlamadı" diyordu. Sebep: derleme `process.execPath`'i, yani Homebrew'un sürüme özel yolunu (`/opt/homebrew/Cellar/node/26.4.0/bin/node`) uygulamaya gömüyordu; node 26.10.0'a güncellenince o klasör silindi, `Process.run()` sessizce düştü, `~/.jevis/logs/app-server.log` boş kaldı. Düzeltme: `app/macos/build.js › stableNodePath()` kalıcı bağlantıyı (`/opt/homebrew/bin/node`, `/usr/local/bin/node`) gömüyor; `JEVIS.swift › findNode()` gömülü yol yoksa bu bağlantılara bakıyor, bulamazsa ya da başlatamazsa nedenini log'a yazıyor. Not: `node cli.js app install` sadece `dist/`teki kopyayı kurar, derlemez; değişiklikten sonra önce `app build`. Aynı sertifikayla (Apple Development) kuruldu, izinler korunur. Uygulama çıkışında (Cmd+Q, menü › Çıkış) sunucu da kapanır; pencereyi kapatmak uygulamayı kapatmaz; uygulama zorla kapatılırsa sunucu açık kalır ve sonraki açılışta yeniden kullanılır.
 
 - **2026-10-11:** Başka bir oturumun yarım bıraktığı üç iş test edilip alındı. (1) Onay penceresinde "Bu sitede hep": bir sitede bir düğmeye "hep" denirse orada bir daha sorulmaz (`~/.jevis/site-permissions.json`, `site_permissions` aracı listeler/kaldırır); para, sipariş, ödeme, silme kelimeleri geçen düğmeler hiç hatırlanmaz (`rememberable`). Dikkat: "Send / Submit / Publish / Gönder / Yayınla" hatırlanabiliyor; kullanıcı isterse bunlar da hatırlanamaz listesine alınır. (2) `browser_new_password`: 20 karakterlik şifre üretir, iki alana yazar, Anahtar Zinciri'ne sadece bu site için kaydeder; aynı ad varsa üstüne yazmaz (`replace` eskisini `-old` yapar); değer ne kayıtta ne cevapta. Çok satırlı değerler (kurtarma kodları) tek satır saklanır. (3) `browser_open new_window` ve `browser_tabs to_window` (sayfa yeni pencerede yeniden açılır; formdaki yazılar ve kaydırma gelmez). Test: `tests/site-permissions-e2e.mjs` 14/14. guard 12/12, mcp-smoke 11/11, human 19/19, codes 18/18, files-change 11/11, router 51/51. Bilinen: `desktop-e2e`'de iki "Sil" hatası (TextEdit'te "Sil" onaysız geçiyor) 4b634a4'te de var, bu işlerden gelmiyor.
@@ -633,3 +648,7 @@ Kullanıcı: Google girişi "bu tarayıcı güvenli olmayabilir" diyor, bot taki
    - Google engellerse: `node cli.js login-window` (ya da Claude'a "login_window ile gireyim" de). Açılan sıradan Chrome'da girişi yap, "Tamam"a bas; oturum profilde kalır.
    - SMS kodu için (isteğe bağlı): iPhone › Ayarlar › Mesajlar › Mesaj Yönlendirme'de bu Mac açık olmalı. Sonra Sistem Ayarları › Gizlilik ve Güvenlik › **Tam Disk Erişimi**'nde Handry'yi (ve kodu Claude Code'dan okutacaksan Terminal / VS Code'u) aç. Bu izni sadece sen verirsin.
    - Gmail kodu için Handry Chrome'unda Gmail'e bir kere giriş yap. Gerçek Gmail ve gerçek Mesajlar ile ilk deneme sende: çalışmazsa bana söyle.
+7. **Paylaşmadan önce (2026-10-30):**
+   - Lisans seç (MIT ya da ticari kapıyı açık tutan bir lisans).
+   - Telefondan onay için: Sistem Ayarları › Gizlilik ve Güvenlik › Tam Disk Erişimi'nde Handry.app'i aç (Handry'nin kendi sohbeti ve çubuğu için). Claude Code oturumlarında da istersen VS Code / Terminal'i aç; bu izin geniştir, karar senin. Sonra `node cli.js doctor` "Telefondan onay" satırına bak, ilk gerçek denemeyi birlikte yapalım.
+   - Demo videosu: sesle komut, form doldurma, telefondan kontrol.

@@ -4,14 +4,14 @@
 // SMS: the Messages database on this Mac (iPhone text forwarding must be on;
 // the app that runs this needs Full Disk Access, which only the user grants).
 // E-mail: the Gmail inbox in the Handry Chrome (the user is logged in there).
-import fs from 'node:fs';
-import { execFile } from 'node:child_process';
-import { config, expandHome } from '../core/config.js';
+import { config } from '../core/config.js';
 import { JevisError } from '../core/errors.js';
+import { APPLE_EPOCH, APPROVAL_MARK, decodeAttributedBody, messagesDb, query, toAppleNs } from '../guard/messages.js';
 import * as browser from './browser.js';
 
+export { decodeAttributedBody };
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const APPLE_EPOCH = 978307200; // Messages counts seconds from 2001-01-01
 
 // A message only counts as a code message when it talks about a code.
 const KEYWORD = /(kod|code|otp|doğrulama|dogrulama|verification|verify|şifre|sifre|password|passcode|\bpin\b|güvenlik|guvenlik|security|onay|confirm)/i;
@@ -29,49 +29,19 @@ export function extractCode(text) {
   return t.match(/\b(\d{6})\b/)?.[1] || null;
 }
 
-/** Newer macOS keeps a message's text in a binary "attributedBody" blob (given as hex) instead of the text column. */
-export function decodeAttributedBody(hex) {
-  if (!hex) return '';
-  const buf = Buffer.from(hex, 'hex');
-  const marker = buf.indexOf('NSString');
-  if (marker < 0) return '';
-  let i = buf.indexOf(Buffer.from([0x01, 0x2b]), marker);
-  if (i < 0) return '';
-  i += 2;
-  let len = buf[i++];
-  if (len === 0x81) { len = buf.readUInt16LE(i); i += 2; }
-  else if (len === 0x82) { len = buf.readUInt32LE(i); i += 4; }
-  return buf.subarray(i, i + len).toString('utf-8');
-}
-
 const clean = s => String(s || '').replace(/[^\p{L}\p{N} .,+@_-]/gu, '').trim().slice(0, 40);
 // Turkish lower-casing turns "I" into "ı": fold both sides so "GARANTI" matches "garanti".
 const fold = s => String(s).toLocaleLowerCase('tr').replace(/ı/g, 'i').replace(/̇/g, '');
 const matchesFrom = (hint, ...parts) => !hint || fold(parts.join(' ')).includes(fold(hint));
 
-const NO_ACCESS = 'Mesajlar veritabanı açılamadı. Tam Disk Erişimi gerekiyor: Sistem Ayarları › Gizlilik ve Güvenlik › Tam Disk Erişimi altında Handry\'yi (ya da Claude Code\'u çalıştıran Terminal / VS Code uygulamasını) aç, sonra o uygulamayı yeniden başlat. Bu izni sadece kullanıcı verir.';
-
-function sqlite(db, sql) {
-  return new Promise((resolve, reject) => {
-    execFile('/usr/bin/sqlite3', ['-readonly', '-json', db, sql], { maxBuffer: 8 * 1024 * 1024, timeout: 10000 }, (err, stdout, stderr) => {
-      if (err) {
-        const why = `${stderr || err.message}`;
-        if (/unable to open|authorization|not permitted|permission/i.test(why)) return reject(new JevisError('NO_ACCESS', NO_ACCESS));
-        return reject(new JevisError('SMS_READ', `Mesajlar okunamadı: ${why.split('\n')[0]}`));
-      }
-      try { resolve(stdout.trim() ? JSON.parse(stdout) : []); } catch { reject(new JevisError('SMS_READ', 'Mesajlar veritabanı beklenmedik bir cevap verdi.')); }
-    });
-  });
-}
-
 /** The newest fresh code among the last messages: { code, from, ageSec } or null. */
-export async function findSmsCode({ withinMin = 5, from, db = config().codes?.smsDb || '~/Library/Messages/chat.db' } = {}) {
-  const file = expandHome(db);
-  if (!fs.existsSync(file)) throw new JevisError('NO_ACCESS', `${NO_ACCESS} (Dosya ${file} görünmüyor.)`);
-  const cutoff = Math.floor((Date.now() / 1000 - withinMin * 60 - APPLE_EPOCH) * 1e9);
-  const rows = await sqlite(file, `SELECT m.date AS date, COALESCE(m.text,'') AS text, hex(m.attributedBody) AS body, COALESCE(h.id,'') AS sender FROM message m LEFT JOIN handle h ON h.ROWID = m.handle_id WHERE m.is_from_me = 0 AND m.date > ${cutoff} ORDER BY m.date DESC LIMIT 40;`);
+export async function findSmsCode({ withinMin = 5, from, db = messagesDb() } = {}) {
+  const cutoff = toAppleNs(Date.now() - withinMin * 60 * 1000);
+  const rows = await query(`SELECT m.date AS date, COALESCE(m.text,'') AS text, hex(m.attributedBody) AS body, COALESCE(h.id,'') AS sender FROM message m LEFT JOIN handle h ON h.ROWID = m.handle_id WHERE m.is_from_me = 0 AND m.date > ${cutoff} ORDER BY m.date DESC LIMIT 40;`, db);
   for (const r of rows) {
     const body = r.text || decodeAttributedBody(r.body);
+    // Handry's own approval request carries a code too (texting yourself can show it as received)
+    if (body.startsWith(APPROVAL_MARK)) continue;
     if (!matchesFrom(from, r.sender, body)) continue;
     const code = extractCode(body);
     if (code) return { code, from: clean(r.sender), ageSec: Math.max(0, Math.round(Date.now() / 1000 - (r.date / 1e9 + APPLE_EPOCH))) };

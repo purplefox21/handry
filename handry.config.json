@@ -28,6 +28,9 @@
     "riskThreshold": 0.5,
     "kindCheck": true,
     "timeoutSec": 120,
+    "remote": true,
+    "remoteAfterSec": 20,
+    "remoteTimeoutSec": 600,
     "keywords": [
       "submit",
       "send",

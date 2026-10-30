@@ -79,6 +79,8 @@ Haber verme (giriş ya da onay beklerken)
   notify set <telefon|Apple ID>       1 dk cevap yoksa bu adrese iMessage gider (~/.jevis/config.json)
   notify test                         Deneme iMessage'ı gönder
   notify off                          iMessage'ı kapat
+                                      Telefondan onay: Mac'teki onaya 20 sn cevap yoksa kodlu iMessage gelir,
+                                      kodu kendine yazınca onaylanır, "hayır" reddeder (Tam Disk Erişimi gerekir)
 
 Koruma
   stop                                Acil durdurma (10 dk ya da resume'a kadar)

@@ -66,7 +66,7 @@ You (voice or text)
 
 ## Safety
 
-- **Risky actions ask you first.** Sending, publishing, deleting, paying, buying, changing prices: a native macOS dialog opens. Nothing on a web page or in an LLM reply can answer it. If you say no, Handry stops and doesn't look for another way.
+- **Risky actions ask you first.** Sending, publishing, deleting, paying, buying, changing prices: a native macOS dialog opens. Nothing on a web page or in an LLM reply can answer it. If you say no, Handry stops and doesn't look for another way. Away from the Mac? If the dialog gets no answer for 20 seconds, the question comes to your phone as an iMessage with a 4-digit code: text back the code to approve, "hayır" to refuse. Only the bare code from your own number counts, and while the question is open the hands can't touch the screen, so nothing can type the code for you.
 - **"Always on this site"** can be chosen for a button that keeps getting flagged, but never for money, orders, deleting, or anything that goes out to other people (send, publish, post, share, invite, submit for review).
 - **Secrets stay in the Keychain.** Code types them into the field; the LLM never sees them and the logs never contain them. Each secret only works on the sites you allowed.
 - **Page content is data, not instructions.** Text that tries to direct the assistant is hidden from the brain.
@@ -131,13 +131,14 @@ Measured on my Mac:
 
 ## Tests
 
-`tests/` has 27 end-to-end scripts that run against real Chrome, real Mac apps and the real Jev. Most use a throwaway Handry folder and their own Chrome profile, so your setup isn't touched; the comment at the top of each file says what it opens or changes. Most spend a few Jev calls, and `app-e2e` uses a little of your Claude subscription.
+`tests/` has 28 end-to-end scripts that run against real Chrome, real Mac apps and the real Jev. Most use a throwaway Handry folder and their own Chrome profile, so your setup isn't touched; the comment at the top of each file says what it opens or changes. Most spend a few Jev calls, and `app-e2e` uses a little of your Claude subscription.
 
 ```bash
 node tests/mcp-smoke.mjs              # the MCP server and a form, end to end (uses the Handry Chrome window)
 node tests/desktop-e2e.mjs            # Calculator and TextEdit, incl. the "delete?" confirmation
 node tests/site-permissions-e2e.mjs   # confirmations, "always on this site", new passwords, windows
 node tests/jev-resilience-e2e.mjs     # Jev busy or offline: retries, then Claude takes over
+node tests/remote-approve-e2e.mjs     # approving from the phone (stand-in Messages database, nothing is sent)
 ```
 
 ## Status and limits
@@ -145,8 +146,8 @@ node tests/jev-resilience-e2e.mjs     # Jev busy or offline: retries, then Claud
 - Built as a personal tool and used every day. macOS only.
 - The interface, the voice and the assistant's replies are in Turkish for now; an English interface is planned.
 - Needs a TypeSafe Jev key. When Jev is busy, simple commands go to Claude instead of failing, but a fully Jev-free mode isn't there yet.
-- Handry's own confirmation dialog appears on the Mac's screen; approving from the phone (iMessage) is in progress.
-- Not yet tried for real: the login window with an actual Google sign-in, and reading codes from the real Gmail inbox and Messages database (both are covered by tests with stand-ins).
+- Approving from the phone needs Full Disk Access for the app that runs Handry (to read your reply from Messages); `node cli.js doctor` says whether it is on.
+- Not yet tried for real: the login window with an actual Google sign-in, reading codes from the real Gmail inbox and Messages database, and approving from the phone with real iMessages (all covered by tests with stand-ins).
 
 ## Project layout
 
