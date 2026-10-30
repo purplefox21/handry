@@ -14,7 +14,8 @@ import http from 'node:http';
 import path from 'node:path';
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'jevis-perm-'));
-fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({ browser: { cdpPort: 9489, profileDir: path.join(home, 'chrome-profile') } }));
+// "Archive" is asked on every site (alwaysAsk) and may be remembered: the "Bu sitede hep" flow uses it.
+fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({ browser: { cdpPort: 9489, profileDir: path.join(home, 'chrome-profile') }, confirm: { alwaysAsk: ['Archive'] } }));
 process.env.JEVIS_HOME = home;
 process.env.JEVIS_TEST_CONFIRM = 'allow';
 delete process.env.JEVIS_HUMAN;
@@ -44,10 +45,10 @@ async function check(name, fn) {
 }
 
 const PAGE = `<!doctype html><meta charset="utf-8"><title>İzin testi</title><h1>İzin testi</h1>
-<button onclick="clicks.send++">Send</button> <button onclick="clicks.buy++">Buy now</button>
+<button onclick="clicks.archive++">Archive</button> <button onclick="clicks.send++">Send</button> <button onclick="clicks.buy++">Buy now</button>
 <p><label>Password <input type="password" aria-label="Password"></label></p>
 <p><label>Confirm password <input type="password" aria-label="Confirm password"></label></p>
-<script>window.clicks = { send: 0, buy: 0 }</script>`;
+<script>window.clicks = { archive: 0, send: 0, buy: 0 }</script>`;
 const server = http.createServer((_, res) => { res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(PAGE); });
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 const port = server.address().port;
@@ -65,8 +66,10 @@ const TEST_SECRETS = ['jevis-test-newpw', 'jevis-test-newpw-old', 'jevis-test-mu
 try {
   // --- what may be remembered -------------------------------------------------
   await check('Hatırlanabilir ve hatırlanamaz düğmeler', () => {
-    const yes = ['Save', 'Kaydet', 'Send', 'Gönder', 'Publish', 'Continue'];
-    const no = ['Ödeme yap', 'Delete account', 'Sil', 'Place order', 'Satın al', 'Buy now', 'Pay now', 'Çöp sepetine at', 'Transfer'];
+    const yes = ['Save', 'Kaydet', 'Continue', 'Archive', 'Arşivle', 'Update'];
+    const no = ['Ödeme yap', 'Delete account', 'Sil', 'Place order', 'Satın al', 'Buy now', 'Pay now', 'Çöp sepetine at', 'Transfer',
+      // going out to other people
+      'Send', 'Gönder', 'Publish', 'Yayınla', 'Yayımla', 'Submit for Review', 'Add for Review', 'Post', 'Share', 'Paylaş', 'Invite', 'Davet et', 'Release this version'];
     const wrong = [...yes.filter(n => !confirm.rememberable(n)), ...no.filter(n => confirm.rememberable(n))];
     return { ok: !wrong.length, note: wrong.join(', ') };
   });
@@ -84,21 +87,30 @@ try {
   await b.open(A);
   await check('İlk tıklamada sorulur; "Bu sitede hep" dersen kaydedilir', async () => {
     mode('always', true);
-    const r = await call('browser_click', { target: 'Send' });
-    return { ok: !r.isError && (await clicks()).send === 1 && asked() === 1 && confirm.allowedOnSite(hostA, 'Send'), note: `${asked()} soru, izin: ${confirm.allowedOnSite(hostA, 'Send')}` };
+    const r = await call('browser_click', { target: 'Archive' });
+    return { ok: !r.isError && (await clicks()).archive === 1 && asked() === 1 && confirm.allowedOnSite(hostA, 'Archive'), note: `${asked()} soru, izin: ${confirm.allowedOnSite(hostA, 'Archive')}` };
   });
   await check('Bu sitede aynı düğme bir daha sorulmaz (cevap "Hayır" olsa bile)', async () => {
     mode('deny', true);
     const before = asked();
-    const r = await call('browser_click', { target: 'Send' });
-    return { ok: !r.isError && (await clicks()).send === 2 && asked() === before, note: r.text.split('\n')[0] };
+    const r = await call('browser_click', { target: 'Archive' });
+    return { ok: !r.isError && (await clicks()).archive === 2 && asked() === before, note: r.text.split('\n')[0] };
   });
   await check('Başka sitede (aynı düğme) yine sorulur ve "Hayır" engeller', async () => {
     await b.open(B);
     mode('deny', true);
     const before = asked();
-    const r = await call('browser_click', { target: 'Send' });
-    return { ok: r.isError && /izin vermedi/.test(r.text) && (await clicks()).send === 0 && asked() === before + 1, note: r.text.split('\n')[0] };
+    const r = await call('browser_click', { target: 'Archive' });
+    return { ok: r.isError && /izin vermedi/.test(r.text) && (await clicks()).archive === 0 && asked() === before + 1, note: r.text.split('\n')[0] };
+  });
+  await check('Dışarıya giden düğme ("Send") "hep" denince bile kaydedilmez, her seferinde sorulur', async () => {
+    await b.open(A);
+    mode('always', true);
+    const first = await call('browser_click', { target: 'Send' });
+    mode('deny', true);
+    const before = asked();
+    const second = await call('browser_click', { target: 'Send' });
+    return { ok: !first.isError && second.isError && asked() === before + 1 && (await clicks()).send === 1 && !confirm.allowedOnSite(hostA, 'Send'), note: second.text.split('\n')[0] };
   });
   await check('Para düğmesi ("Buy now") "hep" denince bile kaydedilmez, her seferinde sorulur', async () => {
     await b.open(A);
@@ -109,15 +121,14 @@ try {
     const second = await call('browser_click', { target: 'Buy now' });
     return { ok: !first.isError && second.isError && asked() === before + 1 && (await clicks()).buy === 1 && !confirm.allowedOnSite(hostA, 'Buy now'), note: second.text.split('\n')[0] };
   });
-  await check('site_permissions: listeler, kaldırınca "Send" yine sorulur', async () => {
-    // an older "always" is still there (the "Buy now" check opened the page again, the counters started over)
-    confirm.allowOnSite(hostA, 'Send');
-    const sent = (await clicks()).send;
+  await check('site_permissions: listeler, kaldırınca "Archive" yine sorulur', async () => {
+    // the "always" from the first check is still there (later checks opened the page again, the counters started over)
+    const archived = (await clicks()).archive;
     const list = await call('site_permissions', {});
     const removed = await call('site_permissions', { remove: 1 });
     mode('deny', true);
-    const r = await call('browser_click', { target: 'Send' });
-    return { ok: list.text.includes(hostA) && /yine sorulacak/.test(removed.text) && r.isError && (await clicks()).send === sent, note: list.text.split('\n')[0] };
+    const r = await call('browser_click', { target: 'Archive' });
+    return { ok: list.text.includes(hostA) && /yine sorulacak/.test(removed.text) && r.isError && (await clicks()).archive === archived, note: list.text.split('\n')[0] };
   });
   mode('allow');
 

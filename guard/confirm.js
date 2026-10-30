@@ -107,15 +107,19 @@ export function confirmAction(message, { timeoutSec = config().confirm.timeoutSe
 }
 
 // ---------------------------------------------------------------------------
-// Site permissions: "Bu sitede hep". One button on one site (its words), never money or deleting.
+// Site permissions: "Bu sitede hep". One button on one site (its words); never money, deleting, or
+// anything that goes out to other people.
 // ---------------------------------------------------------------------------
 
 const PERMISSIONS = () => path.join(HOME, 'site-permissions.json');
 const readPermissions = () => { try { return JSON.parse(fs.readFileSync(PERMISSIONS(), 'utf-8')); } catch { return []; } };
 const sameName = (a, b) => String(a || '').trim().toLocaleLowerCase('tr') === String(b || '').trim().toLocaleLowerCase('tr');
 
-/** Never remembered: money, orders and deleting are asked every time. */
-export const rememberable = name => !/(öde|ödeme|satın|sipariş|pay|purchase|buy|checkout|order|sil|delete|remove|kaldır|çöp|trash|transfer)/i.test(String(name || ''));
+/**
+ * Never remembered, asked every time: money and orders, deleting, and what goes out to other people
+ * (sending, publishing, posting, sharing, inviting, submitting for review, releasing).
+ */
+export const rememberable = name => !/(öde|ödeme|satın|sipariş|pay|purchase|buy|checkout|order|sil|delete|remove|kaldır|çöp|trash|transfer|send|gönder|submit|publish|yayınla|yayımla|post|share|paylaş|invite|davet|review|release)/i.test(String(name || ''));
 
 export function allowOnSite(host, name) {
   if (!host || !name || !rememberable(name)) return;
