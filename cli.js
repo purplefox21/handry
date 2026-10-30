@@ -63,6 +63,7 @@ Mac uygulamaları
   desk write "<metin>"                Odaktaki alana yaz
   desk key <kısayol>                  Örn: cmd+s, escape, return
   desk shot [--full]                  Ön pencerenin ekran görüntüsü
+  desk space [left|right|N] [--display=N]   Masaüstleri (Spaces): listele, sağa/sola, N. masaüstüne git
   mac <eylem> [değer]                 volume 40, mute, next_track, dark_mode, notify "…", spotify_search "…"
 
 Uygulama ve kurulum
@@ -125,9 +126,10 @@ const TOOL_COMMANDS = {
       type: ['desktop_type', { target: params[0], text: params.slice(1).join(' '), app, press_enter: flags.has('--enter') }],
       write: ['desktop_type', { text: params.join(' '), press_enter: flags.has('--enter') }],
       key: ['desktop_key', { keys: params[0], app }],
-      shot: ['desktop_screenshot', { app, full_screen: flags.has('--full') }]
+      shot: ['desktop_screenshot', { app, full_screen: flags.has('--full') }],
+      space: ['desktop_space', /^\d+$/.test(params[0] || '') ? { to: Number(params[0]), display: Number(flagValue('--display')) || undefined } : params[0] ? { direction: params[0], display: Number(flagValue('--display')) || undefined } : {}]
     };
-    if (!map[sub]) throw new Error('desk alt komutları: read, click, type, write, key, shot');
+    if (!map[sub]) throw new Error('desk alt komutları: read, click, type, write, key, shot, space');
     return map[sub];
   }
 };

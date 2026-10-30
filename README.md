@@ -18,7 +18,7 @@ Handry started as a way to stop filling in App Store Connect by hand (pricing, t
 
 **In any Mac app** (through the accessibility tree, not screenshots)
 - Reads the front window's buttons, menus and texts and uses them by name, also in Electron apps like Spotify, Slack and VS Code. Menu items work without opening menus.
-- Arranges windows (halves, grids, minimize and back), switches between an app's windows.
+- Arranges windows (halves, grids, minimize and back), switches between an app's windows, and moves between desktops (Spaces): "go to the window of project X" finds it even on another desktop or display.
 - Falls back to a screenshot only when an app draws everything itself (canvas, games).
 
 **Fast and learning**

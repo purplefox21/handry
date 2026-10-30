@@ -396,20 +396,191 @@ export async function clickAt(x, y, { description = '', double = false, right = 
 export async function windows(app) {
   await ensureTrusted();
   const r = await ax('windows', ...(await appArgs(app)));
-  return { app: r.app, pid: r.pid, windows: r.windows.filter(w => w.w >= 120 && w.h >= 80) };
+  const shown = r.windows.filter(w => w.w >= 120 && w.h >= 80);
+  // the accessibility tree only has the desktops on screen; the app's windows on the others come from allwindows
+  const all = await ax('allwindows', '--pid', r.pid).then(x => x.windows, () => []);
+  const elsewhere = [...new Set(all.filter(w => !w.onScreen && w.title && !shown.some(s => s.title === w.title)).map(w => w.title))];
+  return { app: r.app, pid: r.pid, windows: shown, elsewhere };
 }
 
-/** Brings one window of an app to the front: its number from windows(), or words from its title. */
+// ---------------------------------------------------------------------------
+// Desktops (Spaces: what a three-finger swipe moves between). macOS has no public
+// way to jump to a desktop, so Handry does what a hand would: puts the pointer on
+// the display and presses Mission Control's ^← / ^→ (on by default; they move the
+// desktops of the display under the pointer). com.apple.spaces lists each
+// display's desktops; which one is shown comes from the desktop picture the Dock
+// shows ("Wallpaper-<uuid of that desktop>"), which also tells two empty desktops
+// apart. The accessibility tree only shows the shown desktop; allwindows shows all.
+// ---------------------------------------------------------------------------
+
+const spaceLog = (...a) => { if (process.env.JEVIS_DEBUG_SPACES) console.error('[spaces]', ...a); };
+
+function readSpacesConfig() {
+  const xml = execFileSync('defaults', ['export', 'com.apple.spaces', '-']);
+  return JSON.parse(execFileSync('plutil', ['-convert', 'json', '-o', '-', '-'], { input: xml }).toString());
+}
+
+/**
+ * Each active display (main first) with its desktops and the one shown:
+ * [{ display, main, bounds, spaces: [{ uuid, fullscreen }], current }] (current counts from 1; null while a
+ * full-screen app is shown and it can't be told which).
+ */
+export async function spaces() {
+  const [{ displays }, { wallpapers }] = await Promise.all([ax('displays'), ax('wallpapers')]);
+  const monitors = readSpacesConfig().SpacesDisplayConfiguration?.['Management Data']?.Monitors || [];
+  const inside = (p, d) => p.x >= d.x && p.x < d.x + d.w && p.y >= d.y && p.y < d.y + d.h;
+  return displays.map((d, i) => {
+    // one shared set of desktops for all displays shows up as "Main"
+    const m = monitors.find(x => x['Display Identifier'] === d.uuid) || (d.main ? monitors.find(x => x['Display Identifier'] === 'Main') : null);
+    const list = (m?.Spaces || []).map(sp => ({ uuid: sp.uuid, fullscreen: sp.type === 4 }));
+    const shown = wallpapers.find(w => inside(w, d) && list.some(sp => sp.uuid === w.uuid));
+    let current = shown ? list.findIndex(sp => sp.uuid === shown.uuid) + 1 : null;
+    // no desktop picture: a full-screen app is shown; with only one of those, it is that one
+    const full = list.map((sp, n) => (sp.fullscreen ? n + 1 : null)).filter(Boolean);
+    if (!current && full.length === 1) current = full[0];
+    return { display: i + 1, main: d.main, bounds: { x: d.x, y: d.y, w: d.w, h: d.h }, spaces: list, current };
+  }).filter(d => d.spaces.length);
+}
+
+/** Which desktop a display shows now (uuid, or '' while a full-screen app is shown). */
+async function shownOn(display) {
+  const { wallpapers } = await ax('wallpapers');
+  const b = display.bounds;
+  return wallpapers.find(w => w.x >= b.x && w.x < b.x + b.w && w.y >= b.y && w.y < b.y + b.h)?.uuid || '';
+}
+
+/**
+ * One ^← / ^→ on the display under the pointer. Waits for the desktop picture to change, then for the slide to
+ * end: a key pressed while it still slides is ignored by macOS. A press that didn't take is tried once more.
+ */
+async function stepSpace(direction, display) {
+  const t0 = Date.now();
+  const before = await shownOn(display);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await ax('key', direction === 'left' ? 'ctrl+left' : 'ctrl+right');
+    const pressed = Date.now();
+    while (Date.now() - pressed < 2000) {
+      await sleep(150);
+      if ((await shownOn(display)) !== before) {
+        await sleep(650);
+        spaceLog(direction, 'moved', Date.now() - t0, 'ms', attempt ? '(second press)' : '');
+        return true;
+      }
+    }
+  }
+  spaceLog(direction, 'no move', Date.now() - t0, 'ms');
+  return false;
+}
+
+const center = d => [Math.round(d.bounds.x + d.bounds.w / 2), Math.round(d.bounds.y + d.bounds.h / 2)];
+
+/**
+ * Moves a display's desktops (default: the main display): direction 'left' | 'right' (steps), or to: a desktop
+ * number. The pointer goes to that display for the keys and comes back after.
+ */
+export async function switchSpace({ direction = 'right', steps = 1, to, display } = {}) {
+  notDuringDialog();
+  await ensureTrusted();
+  const layout = await spaces();
+  const d = (display && layout.find(x => x.display === Number(display))) || layout.find(x => x.main) || layout[0];
+  if (!d) throw new JevisError('NO_SPACES', 'Masaüstü bilgisi okunamadı.');
+  const from = d.current;
+  let plan;
+  if (to) {
+    const target = Math.min(Math.max(1, Math.round(Number(to))), d.spaces.length);
+    if (!from) throw new JevisError('NO_SPACES', 'Şu an hangi masaüstünün gösterildiği anlaşılamadı (tam ekran uygulama açık olabilir); sağ/sol ile geç.');
+    plan = { dir: target > from ? 'right' : 'left', n: Math.abs(target - from) };
+  } else plan = { dir: direction, n: Math.min(Math.max(1, Number(steps) || 1), 16) };
+  const was = await ax('cursor');
+  let moved = 0;
+  try {
+    await ax('glide', ...center(d));
+    await sleep(250); // the display under the pointer becomes the one the keys move
+    for (let i = 0; i < plan.n; i++) {
+      if (!(await stepSpace(plan.dir, d))) break;
+      moved++;
+    }
+  } finally {
+    if (was?.x !== undefined) await ax('glide', Math.round(was.x), Math.round(was.y)).catch(() => {});
+  }
+  await sleep(250); // focus follows the slide a little later
+  const now = (await spaces()).find(x => x.display === d.display);
+  return { display: d.display, main: d.main, count: d.spaces.length, from, to: now?.current ?? null, moved, fullscreen: Boolean(now?.current && now.spaces[now.current - 1]?.fullscreen), front: await frontmost().catch(() => null) };
+}
+
+/** Windows of the app (pid) on other desktops whose title has `wanted`. */
+async function windowsElsewhere(pid, wanted) {
+  const { windows: all } = await ax('allwindows', '--pid', pid);
+  return all.filter(w => !w.onScreen && w.title.toLocaleLowerCase('tr').includes(wanted));
+}
+
+/**
+ * Visits each display's other desktops until the window shows up there. If it isn't found anywhere, each
+ * display goes back to the desktop it showed. The pointer goes back too.
+ */
+async function walkToWindow(pid, wanted, away = []) {
+  // the accessibility tree catches up with the shown desktop a moment after the picture: look for a while
+  const here = async () => {
+    for (let i = 0; i < 6; i++) {
+      const win = (await ax('windows', '--pid', pid)).windows.find(w => w.title.toLocaleLowerCase('tr').includes(wanted));
+      if (win) return win;
+      await sleep(250);
+    }
+    return null;
+  };
+  const was = await ax('cursor');
+  try {
+    // the display a hidden window sits on is known from where it is: that one first, the others after
+    const layout = (await spaces()).filter(x => x.spaces.length > 1);
+    const holds = d => away.some(w => w.x + w.w / 2 >= d.bounds.x && w.x + w.w / 2 < d.bounds.x + d.bounds.w && w.y + 20 >= d.bounds.y && w.y + 20 < d.bounds.y + d.bounds.h);
+    for (const d of [...layout.filter(holds), ...layout.filter(x => !holds(x))]) {
+      const home = d.current;
+      await ax('glide', ...center(d));
+      await sleep(250);
+      // from where it is: everything to the left, then everything to the right
+      let at = home || 1;
+      const order = [...Array(d.spaces.length).keys()].map(i => i + 1).filter(n => n !== home);
+      for (const n of [...order.filter(n => n < at).reverse(), ...order.filter(n => n > at)]) {
+        while (at !== n) {
+          const dir = n > at ? 'right' : 'left';
+          if (!(await stepSpace(dir, d))) break;
+          at += dir === 'right' ? 1 : -1;
+        }
+        if (at !== n) continue;
+        const win = await here();
+        spaceLog('display', d.display, 'desktop', n, 'window here:', Boolean(win));
+        if (win) return win;
+      }
+      // not on this display: back to the desktop it showed
+      while (home && at !== home) {
+        const dir = home > at ? 'right' : 'left';
+        if (!(await stepSpace(dir, d))) break;
+        at += dir === 'right' ? 1 : -1;
+      }
+    }
+    return null;
+  } finally {
+    if (was?.x !== undefined) await ax('glide', Math.round(was.x), Math.round(was.y)).catch(() => {});
+  }
+}
+
+/** Brings one window of an app to the front: its number from windows(), or words from its title. A window on another desktop is gone to. */
 export async function focusWindow(app, which) {
   notDuringDialog();
   const { app: name, pid, windows: list } = await windows(app);
-  if (!list.length) throw new JevisError('NOT_FOUND', `${name} uygulamasının açık penceresi yok.`);
   const wanted = clean(which).toLocaleLowerCase('tr');
   let win = /^\d+$/.test(wanted) ? list.find(w => w.index === Number(wanted)) : null;
   if (!win) {
     const matches = list.filter(w => w.title.toLocaleLowerCase('tr').includes(wanted));
     if (matches.length === 1) win = matches[0];
   }
+  // Not on this desktop, but open on another one (what a three-finger swipe would find): go there.
+  const away = !win && wanted && !/^\d+$/.test(wanted) ? await windowsElsewhere(pid, wanted) : [];
+  if (away.length) {
+    win = await walkToWindow(pid, wanted, away);
+    if (!win) throw new JevisError('NOT_FOUND', `"${which}" penceresi başka bir masaüstünde açık ama ona gidilemedi (masaüstleri arasında gezildi, geri dönüldü).`);
+  }
+  if (!list.length && !win) throw new JevisError('NOT_FOUND', `${name} uygulamasının açık penceresi yok.`);
   if (!win) {
     const pick = await jev.pickOption(`window of ${name}`, which, list.map(w => w.title || '(başlıksız)'));
     if (pick.index === null || !jev.isConfident(pick)) {

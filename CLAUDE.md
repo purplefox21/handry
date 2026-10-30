@@ -61,6 +61,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/recipe-e2e.mjs` → tarifler: kaydet, beyinsiz oynat, değişkenler, beyne devretme
 - `node tests/router-e2e.mjs` → hızlı yol kararları ve niyet (51 Türkçe cümle, hiçbir şey yapmaz)
 - `node tests/fast-e2e.mjs` → hızlı yol uçtan uca: ses (eski seviyeye döner), Hesap Makinesi, YouTube, Google, sayfada tıklama
+- `node tests/spaces-e2e.mjs` → masaüstleri (Spaces): her ekranın masaüstleri ve gösterileni, sağa/sola ve numaralı geçiş, imlecin yerine dönmesi, başka masaüstündeki pencereyi listeleme ve oraya gitme (ekranı gerçekten değiştirir, sonunda her şeyi geri koyar; iki masaüstü yoksa ilgili kontrolleri atlar)
 - `node tests/apps-e2e.mjs` → Spotify'ı okur (dokunmaz), koordinatla tıklama, bekleme, TextEdit pencereleri arasında geçiş
 - `node tests/learn-e2e.mjs` → öğrenen tarifler (geçici bir JEVIS klasöründe; gerçek öğrenilenlere dokunmaz)
 - `node tests/files-e2e.mjs` → dosya ve proje araçları (~/Library/Caches altında geçici klasör; TextEdit'i açıp kapatır)

@@ -293,12 +293,35 @@ func sendKey(_ combo: String) {
         }
     }
     guard let key else { fail("Tuş verilmedi: \(combo)", code: "BAD_KEY") }
+    // A real arrow key comes with the numeric-pad and fn flags (home/end/page keys with fn); system shortcuts
+    // such as Mission Control's ^← / ^→ (move between desktops) only answer to events that carry them.
+    if [123, 124, 125, 126].contains(key) { flags.insert(.maskNumericPad); flags.insert(.maskSecondaryFn) }
+    if [115, 116, 117, 119, 121].contains(key) { flags.insert(.maskSecondaryFn) }
     let src = CGEventSource(stateID: .hidSystemState)
-    for down in [true, false] {
-        let e = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: down)!
+    // The modifiers are pressed as keys too, like a hand does: some system shortcuts (moving between desktops)
+    // look at which modifier keys are down, not only at the flags on the key itself.
+    let modifiers: [(CGEventFlags, CGKeyCode)] = [(.maskControl, 59), (.maskAlternate, 58), (.maskShift, 56), (.maskCommand, 55)]
+    let held = modifiers.filter { flags.contains($0.0) }
+    var down: CGEventFlags = []
+    for (flag, code) in held {
+        down.insert(flag)
+        let e = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: true)!
+        e.flags = down
+        e.post(tap: .cghidEventTap)
+        usleep(8000)
+    }
+    for isDown in [true, false] {
+        let e = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: isDown)!
         e.flags = flags
         e.post(tap: .cghidEventTap)
         usleep(12000)
+    }
+    for (flag, code) in held.reversed() {
+        down.remove(flag)
+        let e = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: false)!
+        e.flags = down
+        e.post(tap: .cghidEventTap)
+        usleep(8000)
     }
 }
 
@@ -585,6 +608,51 @@ case "record":
     recorder.stop()
     emit(["ok": true, "file": out, "seconds": seconds])
 
+case "displays":
+    // displays: the active displays (the main one first) with their UUIDs, to find them in com.apple.spaces.
+    var count: UInt32 = 0
+    CGGetActiveDisplayList(0, nil, &count)
+    var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
+    CGGetActiveDisplayList(count, &ids, &count)
+    let mainId = CGMainDisplayID()
+    let shown = ids.sorted { a, _ in a == mainId }.map { id -> [String: Any] in
+        let uuid = CGDisplayCreateUUIDFromDisplayID(id)?.takeRetainedValue()
+        let b = CGDisplayBounds(id) // global points, top-left origin: the same as the pointer's
+        return ["id": Int(id), "uuid": uuid.map { CFUUIDCreateString(nil, $0) as String } ?? "", "main": id == mainId,
+                "x": Int(b.origin.x), "y": Int(b.origin.y), "w": Int(b.width), "h": Int(b.height)]
+    }
+    emit(["ok": true, "displays": shown])
+
+case "wallpapers":
+    // wallpapers: the desktop picture each display shows now. The Dock names it "Wallpaper-<uuid>", the uuid of
+    // the shown desktop (Space) in com.apple.spaces, so even two empty desktops tell apart. Names need Screen Recording.
+    let info = (CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]) ?? []
+    let shown = info.compactMap { w -> [String: Any]? in
+        guard let name = w[kCGWindowName as String] as? String, name.hasPrefix("Wallpaper-") else { return nil }
+        let b = w[kCGWindowBounds as String] as? [String: Any] ?? [:]
+        return ["uuid": String(name.dropFirst("Wallpaper-".count)), "x": (b["X"] as? NSNumber)?.intValue ?? 0, "y": (b["Y"] as? NSNumber)?.intValue ?? 0]
+    }
+    emit(["ok": true, "wallpapers": shown])
+
+case "allwindows":
+    // allwindows [--pid P]: normal windows on every desktop (Space), not only the current one
+    // (the accessibility tree only shows the current desktop). Titles need Screen Recording.
+    let info = (CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]) ?? []
+    let wantedPid = pidOpt.flatMap { Int($0) }
+    let found = info.compactMap { w -> [String: Any]? in
+        guard (w[kCGWindowLayer as String] as? Int) == 0 else { return nil }
+        let owner = w[kCGWindowOwnerPID as String] as? Int ?? 0
+        if let wantedPid, owner != wantedPid { return nil }
+        let b = w[kCGWindowBounds as String] as? [String: Any] ?? [:]
+        let width = (b["Width"] as? NSNumber)?.intValue ?? 0
+        let height = (b["Height"] as? NSNumber)?.intValue ?? 0
+        guard width >= 120, height >= 80 else { return nil }
+        return ["id": w[kCGWindowNumber as String] as? Int ?? 0, "pid": owner, "app": w[kCGWindowOwnerName as String] as? String ?? "", "title": w[kCGWindowName as String] as? String ?? "",
+                "onScreen": (w[kCGWindowIsOnscreen as String] as? Bool) ?? false, "w": width, "h": height,
+                "x": (b["X"] as? NSNumber)?.intValue ?? 0, "y": (b["Y"] as? NSNumber)?.intValue ?? 0]
+    }
+    emit(["ok": true, "windows": found])
+
 case "windows":
     let app = targetApp(pid: pidOpt, name: appOpt)
     let appEl = AXUIElementCreateApplication(app.processIdentifier)
@@ -643,8 +711,12 @@ case "raise":
     AXUIElementSetAttributeValue(w, "AXMinimized" as CFString, kCFBooleanFalse)
     AXUIElementPerformAction(w, kAXRaiseAction as CFString)
     AXUIElementSetAttributeValue(w, "AXMain" as CFString, kCFBooleanTrue)
+    // on another display "main" isn't enough for the keyboard: the window takes focus too
+    AXUIElementSetAttributeValue(w, "AXFocused" as CFString, kCFBooleanTrue)
     AXUIElementSetAttributeValue(appEl, "AXFrontmost" as CFString, kCFBooleanTrue)
-    app.activate(options: [.activateAllWindows])
+    // not .activateAllWindows: that brings every window of the app up and the last one takes focus back
+    app.activate(options: [])
+    AXUIElementPerformAction(w, kAXRaiseAction as CFString)
     emit(["ok": true, "title": text(attribute(w, "AXTitle")) ?? ""])
 
 case "hit":
