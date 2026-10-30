@@ -71,7 +71,7 @@ export async function runRecipeWithHandoff({ name, vars, brain, sessionId, onEve
   return { text: out.text, sessionId: out.sessionId, handedOff: true };
 }
 
-const SOURCES = { bar: 'çubuk', window: 'pencere', voice: 'ses', cli: 'terminal', timer: 'zamanlayıcı' };
+const SOURCES = { bar: 'çubuk', window: 'pencere', voice: 'ses', cli: 'terminal', timer: 'zamanlayıcı', phone: 'telefon (iMessage)' };
 
 /**
  * chat: false keeps the command out of the chats (tests, jevis_do from other

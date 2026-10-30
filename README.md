@@ -42,6 +42,9 @@ Handry started as a way to stop filling in App Store Connect by hand (pricing, t
 - A Spotlight-like bar (⌥Space) and a chat window.
 - A small pixel-art hand that walks on its fingers across your screen and shows what Handry is doing.
 
+**From your phone**
+- Text yourself "Handry, turn the volume down" by iMessage: Handry does it and texts back the answer. "Handry, ekranı göster" sends a screenshot. Only your own conversation counts, only messages that start with the name, only new ones; risky steps still ask you (on the phone, with a code).
+
 **Works with Claude Code**
 - Every tool is served over MCP, so any Claude Code session (and the Claude desktop app) can use Handry.
 - With Claude Code's Remote Control you can drive your Mac from your phone: start a session on the Mac, talk to it from the Claude app, and it uses Handry's tools.
@@ -131,7 +134,7 @@ Measured on my Mac:
 
 ## Tests
 
-`tests/` has 28 end-to-end scripts that run against real Chrome, real Mac apps and the real Jev. Most use a throwaway Handry folder and their own Chrome profile, so your setup isn't touched; the comment at the top of each file says what it opens or changes. Most spend a few Jev calls, and `app-e2e` uses a little of your Claude subscription.
+`tests/` has 30 end-to-end scripts that run against real Chrome, real Mac apps and the real Jev. Most use a throwaway Handry folder and their own Chrome profile, so your setup isn't touched; the comment at the top of each file says what it opens or changes. Most spend a few Jev calls, and `app-e2e` uses a little of your Claude subscription.
 
 ```bash
 node tests/mcp-smoke.mjs              # the MCP server and a form, end to end (uses the Handry Chrome window)
@@ -139,6 +142,8 @@ node tests/desktop-e2e.mjs            # Calculator and TextEdit, incl. the "dele
 node tests/site-permissions-e2e.mjs   # confirmations, "always on this site", new passwords, windows
 node tests/jev-resilience-e2e.mjs     # Jev busy or offline: retries, then Claude takes over
 node tests/remote-approve-e2e.mjs     # approving from the phone (stand-in Messages database, nothing is sent)
+node tests/phone-e2e.mjs              # commands from the phone by iMessage, screenshots to the phone (nothing is sent)
+node tests/spaces-e2e.mjs             # desktops (Spaces) on the real screen; puts everything back
 ```
 
 ## Status and limits
@@ -146,8 +151,8 @@ node tests/remote-approve-e2e.mjs     # approving from the phone (stand-in Messa
 - Built as a personal tool and used every day. macOS only.
 - The interface, the voice and the assistant's replies are in Turkish for now; an English interface is planned.
 - Needs a TypeSafe Jev key. When Jev is busy, simple commands go to Claude instead of failing, but a fully Jev-free mode isn't there yet.
-- Approving from the phone needs Full Disk Access for the app that runs Handry (to read your reply from Messages); `node cli.js doctor` says whether it is on.
-- Not yet tried for real: the login window with an actual Google sign-in, reading codes from the real Gmail inbox and Messages database, and approving from the phone with real iMessages (all covered by tests with stand-ins).
+- Approving and commanding from the phone need Full Disk Access for Handry.app (to read your messages to yourself from Messages); `node cli.js doctor` says whether they are on.
+- Not yet tried for real: the login window with an actual Google sign-in, reading codes from the real Gmail inbox and Messages database, and approving, commanding and getting screenshots on the phone with real iMessages (all covered by tests with stand-ins).
 
 ## Project layout
 

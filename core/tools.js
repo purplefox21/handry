@@ -12,6 +12,7 @@ import * as mac from '../hands/mac.js';
 import * as files from '../hands/files.js';
 import * as apps from '../hands/apps.js';
 import * as codes from '../hands/codes.js';
+import { sendIMessage, sendIMessageFile } from '../guard/notify.js';
 import * as jev from './jev.js';
 import { config } from './config.js';
 import { isStopped } from '../guard/stop.js';
@@ -104,6 +105,7 @@ Mac apps (desktop_* tools) work the same way: desktop_read lists the front windo
 Teaching ${APP_NAME}: after finishing a task the user may want again, call ${MCP_NAME}_teach with the command in the user's words; next time ${APP_NAME} does it without an LLM. When a site hid something or needed a trick, leave a site_note; notes come back whenever the site is opened or read.
 Logins: before work on sites that need one, call browser_sessions with those sites so the user can log in to all of them first. When a page asks for a login, the user is alerted (sound, notification, ${APP_NAME} bar, an iMessage after a minute); call wait_for_user with leave_url or until_text so the work goes on by itself once they are done.
 Speed vs. human input: the mouse and keyboard are fast and plain by default. When a site blocks automation (Google "This browser or app may not be secure", "Couldn't sign you in", a bot or CAPTCHA wall, "unusual traffic"; tool results warn you when a page looks like that), call human_mode on: true (gliding mouse, key-by-key typing; slower) and retry; before a Google or Apple sign-in you may switch it on up front. Turn it off again when done. If it is on and the site still blocks (Google sign-in above all), call login_window: it opens the profile as a plain Chrome with nothing attached, the user signs in by hand once, the login stays in the profile.
+Phone: the user may be away and texting from the phone (commands that start with the name come in by iMessage and your answer goes back there); phone_send sends text or a screenshot to their own phone when they ask to see something there.
 Codes by SMS or e-mail: when a site says it sent a code, call verification_code (source sms = Messages on this Mac, gmail = the Gmail inbox in the Chrome); give target to have it typed into the field. Do not open the user's Messages or mail to look for codes yourself. CAPTCHAs: call browser_solve_captcha first — it tries 2captcha.com (if CAPTCHA_KEY is set) then Claude Vision; only call wait_for_user if it reports failure.
 Forms: fill many fields with one browser_fill call instead of one browser_type/browser_select per field.
 For simple one-step commands (volume, music, open or quit an app, open a site, a web search, play on Spotify, a note, today's calendar) try ${MCP_NAME}_do first: ${APP_NAME}'s fast path does them in 1-3 s. If it answers that it needs thinking, do the task with the other tools.
@@ -614,6 +616,28 @@ export const TOOLS = [
     run: async ({ app, full_screen }) => {
       const s = await desktop.screenshot({ app, fullScreen: Boolean(full_screen) });
       return { content: [{ type: 'image', data: s.base64, mimeType: s.mimeType }, { type: 'text', text: `${s.app} — ${s.window || ''} (görüntü ${s.width}×${s.height} piksel; desktop_click_at bu piksellerle tıklar)` }], meta: { path: s.path } };
+    }
+  },
+  {
+    name: 'phone_send',
+    description: `Send something to the user's phone by iMessage, to their own address (notify.imessageTo; never anyone else): text, and/or a screenshot (screenshot "screen" = the main display, "window" = the front window; app: that app's window). Use it when the user asks to see the screen or a result on the phone ("ekranı telefonuma at"), or is writing from the phone.`,
+    inputSchema: obj({
+      text: { type: 'string' },
+      screenshot: { type: 'string', enum: ['screen', 'window'] },
+      app: { type: 'string', description: 'Screenshot of this app\'s window.' }
+    }),
+    run: async ({ text: words, screenshot, app }) => {
+      if (!config().notify?.imessageTo) throw Object.assign(new Error('iMessage adresi ayarlı değil: node cli.js notify set <telefon ya da Apple ID>'), { code: 'NO_ADDRESS' });
+      if (!words && !screenshot && !app) throw Object.assign(new Error('Gönderilecek bir şey yok: text ya da screenshot ver.'), { code: 'BAD_ARGS' });
+      const sent = [];
+      if (screenshot || app) {
+        const shot = await desktop.screenshot({ app, fullScreen: !app && screenshot !== 'window' });
+        await sendIMessageFile(shot.path);
+        sent.push(`ekran görüntüsü (${app || shot.app || 'ekran'})`);
+      }
+      // always with the name in front: a bare text could look like an approval code
+      if (words) { await sendIMessage(`${APP_NAME}: ${String(words).slice(0, 1500)}`); sent.push('mesaj'); }
+      return text(`Telefona gönderildi: ${sent.join(' ve ')}.`, { sent });
     }
   },
   {

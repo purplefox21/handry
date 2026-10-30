@@ -74,6 +74,9 @@
     "imessageAfterSec": 60,
     "speak": true
   },
+  "phone": {
+    "commands": true
+  },
   "learn": {
     "enabled": true,
     "max": 60

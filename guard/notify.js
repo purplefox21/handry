@@ -5,6 +5,7 @@
 // iMessage to the user's own iPhone (config: notify.imessageTo, kept in
 // ~/.jevis/config.json because it is a phone number or Apple ID).
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { HOME, config } from '../core/config.js';
@@ -82,6 +83,40 @@ export function sendIMessage(text, to = settings().imessageTo) {
     execFile('osascript', ['-e', script, text, to], { timeout: 30000 }, (err, stdout, stderr) => {
       if (err) reject(new Error(`iMessage gönderilemedi: ${(stderr || err.message).replace(/^.*execution error: /s, '').trim()}`));
       else resolve();
+    });
+  });
+}
+
+/**
+ * A file (a screenshot) by iMessage to the user's own address. Messages may not read files in hidden folders,
+ * so it goes from ~/Pictures/<app name> (the last ten are kept there).
+ */
+export function sendIMessageFile(file, to = settings().imessageTo) {
+  if (!to) return Promise.reject(new Error('iMessage adresi ayarlı değil: node cli.js notify set <telefon ya da Apple ID>'));
+  if (process.env.JEVIS_TEST_NOTIFY === 'record') {
+    fs.appendFileSync(path.join(HOME, 'notify-test.log'), `${JSON.stringify({ imessageFile: file, to })}\n`);
+    return Promise.resolve();
+  }
+  const dir = path.join(os.homedir(), 'Pictures', APP_NAME);
+  fs.mkdirSync(dir, { recursive: true });
+  const copy = path.join(dir, path.basename(file));
+  fs.copyFileSync(file, copy);
+  const old = fs.readdirSync(dir).filter(f => /\.(jpe?g|png)$/i.test(f)).map(f => path.join(dir, f))
+    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs).slice(10);
+  for (const f of old) fs.rmSync(f, { force: true });
+  const script = [
+    'on run argv',
+    'set f to POSIX file (item 1 of argv)',
+    'tell application "Messages"',
+    '  set svc to 1st account whose service type = iMessage',
+    '  send f to participant (item 2 of argv) of svc',
+    'end tell',
+    'end run'
+  ].join('\n');
+  return new Promise((resolve, reject) => {
+    execFile('osascript', ['-e', script, copy, to], { timeout: 30000 }, (err, stdout, stderr) => {
+      if (err) reject(new Error(`iMessage gönderilemedi: ${(stderr || err.message).replace(/^.*execution error: /s, '').trim()}`));
+      else resolve(copy);
     });
   });
 }

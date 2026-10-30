@@ -95,6 +95,9 @@ export async function doctor() {
   lines.push(phone.ok
     ? ok('Telefondan onay (iMessage)', `Mac'te ${c.confirm.remoteAfterSec ?? 20} sn cevap yoksa kodlu iMessage gider`)
     : `➖ Telefondan onay (iMessage) — kapalı: ${phone.reason}`);
+  lines.push(phone.ok && c.phone?.commands !== false
+    ? ok('Telefondan komut (iMessage)', `kendine "${APP_NAME}, …" yaz; ${APP_NAME}.app açıkken çalışır`)
+    : `➖ Telefondan komut (iMessage) — kapalı${c.phone?.commands === false ? ' (phone.commands false)' : `: ${phone.reason}`}`);
   if (ROOT.startsWith(expandHome('~/Desktop')) || ROOT.startsWith(expandHome('~/Documents'))) {
     lines.push(`ℹ️  Proje ${ROOT} içinde: ${APP_NAME}.app ilk açılışta bu klasöre erişim izni ister, "İzin Ver" demen gerekir.`);
   }

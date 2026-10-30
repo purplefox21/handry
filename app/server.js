@@ -19,6 +19,8 @@ import { sttStatus, transcribe, stripWake } from '../voice/stt.js';
 import { ttsStatus, speak, stopSpeaking } from '../voice/tts.js';
 import { listRecipes, loadRecipe, saveFromRun, deleteRecipe } from '../core/recipes.js';
 import { APP_NAME } from '../core/brand.js';
+import { startPhoneCommands } from '../core/phone.js';
+import { screenshot } from '../hands/desktop.js';
 
 const PORT = Number(process.env.PORT) || config().server.port || 4263;
 process.env.JEVIS_UI_PORT = String(PORT); // browser hands skip this app's own tab
@@ -303,6 +305,23 @@ async function runScheduled(text, job = {}) {
   }
 }
 
+// Commands texted from the phone ("Handry, …") run the same way, one at a time; the answer goes back by iMessage.
+async function runPhone(text) {
+  for (let i = 0; i < 300 && activeRun; i++) await new Promise(r => setTimeout(r, 2000));
+  if (activeRun) throw new Error(`${APP_NAME} 10 dakikadır başka bir işle meşgul`);
+  const controller = new AbortController();
+  activeRun = { controller };
+  const entry = { at: Date.now(), source: 'phone', text, tools: 0 };
+  try {
+    const done = await runCommand({ text, source: 'phone', signal: controller.signal, onEvent: ev => { if (ev.type === 'tool') entry.tools++; } });
+    Object.assign(entry, { id: done.runId, answer: done.text, ms: done.ms, fast: done.fast, brain: done.brain });
+    return done;
+  } finally {
+    activeRun = null;
+    remember(entry);
+  }
+}
+
 server.on('error', err => {
   if (err.code === 'EADDRINUSE') console.error(`${APP_NAME} başlamadı: ${PORT} portunu başka bir program kullanıyor (handry.config.json › server.port ile değiştirilebilir).`);
   else console.error(err);
@@ -312,6 +331,7 @@ server.on('error', err => {
 server.listen(PORT, HOST, () => {
   console.log(`🤖 ${APP_NAME} hazır: http://localhost:${PORT}`);
   startScheduler({ run: runScheduled });
+  if (config().phone?.commands !== false) startPhoneCommands({ run: runPhone, shoot: () => screenshot({ fullScreen: true }), log: m => console.log(m) });
 });
 
 export { server, PORT, SESSION_TOKEN };
