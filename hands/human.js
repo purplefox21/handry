@@ -106,7 +106,7 @@ const BLOCKED = new RegExp([
 /** The words that gave a block away, or null. */
 export const blockedBy = blob => String(blob || '').match(BLOCKED)?.[0] ?? null;
 
-const pointer = new WeakMap(); // page → where JEVIS left the pointer
+const pointer = new WeakMap(); // page → where Handry left the pointer
 
 async function viewport(page) {
   return page.evaluate(() => ({ w: innerWidth, h: innerHeight })).catch(() => ({ w: 1200, h: 800 }));

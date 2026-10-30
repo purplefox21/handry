@@ -1,13 +1,13 @@
-// Chats. Everything said to JEVIS goes into the current chat, whether it
+// Chats. Everything said to Handry goes into the current chat, whether it
 // comes from the bar, the big window, voice or the terminal. Each chat has
 // its own Claude session, so follow-ups ("bunu", "bi daha dene") are
-// understood, and JEVIS keeps that session healthy:
-//   - what JEVIS did without Claude (fast path, learned tasks, recipes) is
+// understood, and Handry keeps that session healthy:
+//   - what Handry did without Claude (fast path, learned tasks, recipes) is
 //     told to Claude with the next message it gets ("Sen yokken…");
 //   - every message carries what is on screen right now, so Claude never
 //     works from an old picture;
 //   - every ROTATE_TURNS turns, or when the model changes, Claude starts a
-//     fresh session with JEVIS's own summary of the chat (no extra LLM call),
+//     fresh session with Handry's own summary of the chat (no extra LLM call),
 //     so a long chat doesn't get slower or pricier;
 //   - "yeni sohbet" / "yeni konu", or 2 hours of silence, starts a new chat;
 //     old chats stay in the list and can be picked up again.
@@ -99,7 +99,7 @@ export function addUser(chat, text, source) {
   save(chat);
 }
 
-/** JEVIS's answer: how it was done (fast / learned / recipe / brain) and the steps taken. */
+/** Handry's answer: how it was done (fast / learned / recipe / brain) and the steps taken. */
 export function addAnswer(chat, answer) {
   chat.entries.push({ at: Date.now(), role: 'jevis', ...answer, steps: (answer.steps || []).slice(0, 30) });
   save(chat);
@@ -121,7 +121,7 @@ const line = ({ asked, answer }) => `- ${hhmm(answer.at)} "${clip(asked?.text, 1
 
 /**
  * The message for the brain and the session to continue. A fresh session
- * (carrying JEVIS's summary of the chat) when there is none for this
+ * (carrying Handry's summary of the chat) when there is none for this
  * brain/model yet or after ROTATE_TURNS turns; otherwise the same session,
  * told what happened without it since its last answer. `screen` is what is
  * on screen now.

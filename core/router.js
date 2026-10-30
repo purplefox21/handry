@@ -1,10 +1,10 @@
 // Fast path: Jev decides in one request what kind of command this is and the
 // details it needs (volume level, music action…), and whether it is a task
-// JEVIS learned before (core/learn.js). Simple commands then run straight
-// through the JEVIS tools and learned tasks replay, without asking an LLM.
+// Handry learned before (core/learn.js). Simple commands then run straight
+// through the Handry tools and learned tasks replay, without asking an LLM.
 // Anything longer or unclear goes to the brain, and so does anything that is
 // not a plain "do this now": chatting, a complaint or a correction, an answer
-// to what JEVIS asked, or something for later (timers are set by rules here,
+// to what Handry asked, or something for later (timers are set by rules here,
 // or by the brain with schedule_task).
 import * as jev from './jev.js';
 import { parseSchedule, listJobs, cancelJobs, describe } from './timers.js';
@@ -15,7 +15,7 @@ import { pickSpan } from './spans.js';
 
 const ROUTE = {
   type: 'choice',
-  instructions: 'The user gave JEVIS (a Mac assistant) the spoken or typed `command`. Which kind of command is it? Judge `command` by its own words only (not `previous`). Choose the single best option; pick needs_brain whenever it asks for more than one thing or does not say what to do.',
+  instructions: 'The user gave Handry (a Mac assistant) the spoken or typed `command`. Which kind of command is it? Judge `command` by its own words only (not `previous`). Choose the single best option; pick needs_brain whenever it asks for more than one thing or does not say what to do.',
   criteria: {
     volume: 'Change the sound volume: set a level or percentage, or make it louder or quieter. In Turkish "sesi aç" means louder, not opening an app (e.g. "sesi yüzde 30 yap", "sesi kıs", "sesi biraz aç", "sesi sonuna kadar aç")',
     mute: 'Mute the sound or unmute it (e.g. "sessize al", "sesi geri aç")',
@@ -26,7 +26,7 @@ const ROUTE = {
     app_quit: 'Quit or close one Mac application',
     web_open: 'Open one website in the browser (e.g. "YouTube\'u aç", "github.com\'a git")',
     web_search: 'Search the web or YouTube for something (e.g. "Google\'da hava durumu ara")',
-    page_click: 'Click one visible thing (a link, tab or button) on the web page that is already open in the JEVIS browser; only a click',
+    page_click: 'Click one visible thing (a link, tab or button) on the web page that is already open in the Handry browser; only a click',
     dark_mode: 'Switch between dark and light mode',
     lock_screen: 'Lock the screen now (not shutting down or sleeping the Mac)',
     screenshot: 'Take a screenshot of the whole screen',
@@ -40,12 +40,12 @@ const ROUTE = {
 // Asked in the same request: only a plain "do it now" goes down the fast path.
 const INTENT = {
   type: 'choice',
-  instructions: 'What is the user doing with `command`? `previous` is what JEVIS said to the user just before (empty if nothing recent).',
+  instructions: 'What is the user doing with `command`? `previous` is what Handry said to the user just before (empty if nothing recent).',
   criteria: {
-    do_now: 'Telling JEVIS to do something on the Mac right now, or asking it to show something now (e.g. "sesi kıs", "Spotify\'ı aç", "ekranı kilitle", "şu an hangi şarkı çalıyor", "yarın takvimde ne var"); writing a note or a reminder text now counts even if the text mentions another day (e.g. "not al: yarın kargo gelecek")',
-    do_later: 'Telling JEVIS to do something at a later time or when something happens (e.g. "saat 3\'te ekranı kilitle", "10 dakika sonra hatırlat", "işler bitince bilgisayarı kapat")',
-    reply: 'Answering, correcting or clarifying what JEVIS said or asked in `previous` (e.g. "hayır öyle değil", "ikisi de", "kapatma, sadece kilitle"), or pointing back to something earlier without naming it (e.g. "bunu bir daha yap", "aynısını yap", "onu da", "tekrar dene")',
-    chat: 'Greeting, chatting, a complaint (e.g. "anlamadın", "cümleyi okumadın"), a question about JEVIS itself or about the conversation (e.g. "ne dedim sana", "neler yapabilirsin", "böyle bir becerin var mı"), or saying what not to do'
+    do_now: 'Telling Handry to do something on the Mac right now, or asking it to show something now (e.g. "sesi kıs", "Spotify\'ı aç", "ekranı kilitle", "şu an hangi şarkı çalıyor", "yarın takvimde ne var"); writing a note or a reminder text now counts even if the text mentions another day (e.g. "not al: yarın kargo gelecek")',
+    do_later: 'Telling Handry to do something at a later time or when something happens (e.g. "saat 3\'te ekranı kilitle", "10 dakika sonra hatırlat", "işler bitince bilgisayarı kapat")',
+    reply: 'Answering, correcting or clarifying what Handry said or asked in `previous` (e.g. "hayır öyle değil", "ikisi de", "kapatma, sadece kilitle"), or pointing back to something earlier without naming it (e.g. "bunu bir daha yap", "aynısını yap", "onu da", "tekrar dene")',
+    chat: 'Greeting, chatting, a complaint (e.g. "anlamadın", "cümleyi okumadın"), a question about Handry itself or about the conversation (e.g. "ne dedim sana", "neler yapabilirsin", "böyle bir becerin var mı"), or saying what not to do'
   }
 };
 

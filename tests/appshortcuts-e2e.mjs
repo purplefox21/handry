@@ -2,7 +2,7 @@
 // search result and the Liked Songs, then pauses again if nothing was
 // playing before), AppleScript syntax of the Music / Notes / Reminders /
 // Calendar scripts, and their Automation permission state. Those four only
-// run for real when macOS already allows it: JEVIS never answers macOS
+// run for real when macOS already allows it: Handry never answers macOS
 // permission questions, so the first real use is left to the user.
 // Usage: node tests/appshortcuts-e2e.mjs
 import fs from 'node:fs';
@@ -68,7 +68,7 @@ for (const [id, name] of [['com.apple.Notes', 'Notlar'], ['com.apple.reminders',
   const { state } = await desktop.automationState(id);
   if (state !== 'granted') {
     const why = { ask: 'macOS izni henüz sorulmadı', denied: 'macOS izni kapalı', not_running: 'uygulama kapalı, izin durumu okunamadı' }[state] || state;
-    console.log(`⏭️          ${name}: ${why}; gerçek deneme atlandı (izin sorusunu JEVIS cevaplamaz).`);
+    console.log(`⏭️          ${name}: ${why}; gerçek deneme atlandı (izin sorusunu Handry cevaplamaz).`);
     continue;
   }
   if (id === 'com.apple.reminders') await check('Anımsatıcılar okunuyor', async () => ({ ok: true, note: apps.formatReminders(await apps.remindersList()).split('\n')[0] }));

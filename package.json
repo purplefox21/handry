@@ -1,8 +1,8 @@
 {
-  "name": "jev-typesafe-playground",
+  "name": "handry",
   "version": "1.0.0",
   "type": "module",
-  "description": "JEVIS: Jev (TypeSafe) ile hızlanan, Mac ve Chrome kontrol eden asistan + Jev deney alanı",
+  "description": "Handry: a Mac assistant that uses your apps and Chrome for you, with Claude as the brain and TypeSafe Jev for fast decisions.",
   "scripts": {
     "start": "node app/server.js"
   },

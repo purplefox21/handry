@@ -5,7 +5,7 @@
 //   only; the value never reaches the log or the tool answer; an existing name isn't overwritten.
 // - A multi-line value (recovery codes) is stored as one line.
 // - browser_open new_window and browser_tabs to_window really use another Chrome window.
-// Real Chrome in its own profile and port (the JEVIS Chrome you use is not touched), a local web server for the
+// Real Chrome in its own profile and port (the Handry Chrome you use is not touched), a local web server for the
 // page (permissions are per host, file:// has none). Adds and removes test Keychain items.
 // Usage: node tests/site-permissions-e2e.mjs
 import fs from 'node:fs';

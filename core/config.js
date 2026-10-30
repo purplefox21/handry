@@ -37,10 +37,13 @@ function merge(base, extra) {
 
 let cached;
 
-/** Project defaults (jevis.config.json) overridden by ~/.jevis/config.json */
+// The project defaults file; checkouts from before the rename have jevis.config.json.
+export const PROJECT_CONFIG = ['handry.config.json', 'jevis.config.json'].map(f => path.join(ROOT, f)).find(f => fs.existsSync(f)) || path.join(ROOT, 'handry.config.json');
+
+/** Project defaults (handry.config.json) overridden by ~/.jevis/config.json */
 export function config() {
   if (!cached) {
-    cached = merge(readJson(path.join(ROOT, 'jevis.config.json')), readJson(path.join(HOME, 'config.json')));
+    cached = merge(readJson(PROJECT_CONFIG), readJson(path.join(HOME, 'config.json')));
   }
   return cached;
 }

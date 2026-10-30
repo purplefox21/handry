@@ -3,7 +3,7 @@
 // "no" meaning nothing happens); no screen touches while a confirmation
 // dialog is open; and the action log saying who did what. Works in a
 // throwaway folder (~/Library/Caches/jevis-files-change-*) and a throwaway
-// JEVIS home; the dialogs are answered by the test (JEVIS_TEST_CONFIRM), so
+// Handry home; the dialogs are answered by the test (JEVIS_TEST_CONFIRM), so
 // nothing shows on screen. Things sent to the Trash are taken back out.
 // Usage: node tests/files-change-e2e.mjs
 import fs from 'node:fs';

@@ -1,6 +1,6 @@
 // Notes about websites, left by Claude for next time ("the TTL menu on
 // GoDaddy only opens after the record row is clicked"). They live in
-// ~/.jevis/sites/<domain>.json and come back whenever JEVIS reads a page of
+// ~/.jevis/sites/<domain>.json and come back whenever Handry reads a page of
 // that site, so the second visit doesn't repeat the first one's trial and error.
 import fs from 'node:fs';
 import path from 'node:path';

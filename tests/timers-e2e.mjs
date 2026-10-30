@@ -1,5 +1,5 @@
 // Timers, watches and power commands, and the fast path not acting on chat.
-// Works in a throwaway JEVIS home with made-up Claude Code sessions; locking,
+// Works in a throwaway Handry home with made-up Claude Code sessions; locking,
 // shutting down and iMessages are only written down (JEVIS_TEST_POWER /
 // JEVIS_TEST_NOTIFY = record), nothing really happens to the Mac. Uses Jev for
 // the fast-path decisions; the brain is a stand-in that records what it gets.

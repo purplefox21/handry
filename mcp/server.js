@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// JEVIS MCP server (stdio). Any MCP client — Claude Code, Codex, Gemini CLI —
+// Handry MCP server (stdio). Any MCP client — Claude Code, Codex, Gemini CLI —
 // gets the same hands. stdout belongs to the protocol: never print to it.
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -8,7 +8,7 @@ import { TOOLS, INSTRUCTIONS, callTool } from '../core/tools.js';
 import { MCP_NAME } from '../core/brand.js';
 
 // One Claude session = one run in the action log (the teach tool learns from it),
-// unless JEVIS started this server for one of its own runs.
+// unless Handry started this server for one of its own runs.
 process.env.JEVIS_RUN_ID ||= `mcp-${Date.now().toString(36)}`;
 
 const server = new Server(

@@ -7,8 +7,8 @@ import { config, HOME } from '../core/config.js';
 
 let speaking = null;
 
-// While JEVIS talks this file exists, so the "Hey Jev" listener in JEVIS.app
-// doesn't wake up to JEVIS's own voice.
+// While Handry talks this file exists, so the "Hey Handry" listener in Handry.app
+// doesn't wake up to Handry's own voice.
 export const SPEAKING_FLAG = path.join(HOME, 'speaking');
 const flag = on => {
   try {

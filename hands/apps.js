@@ -2,7 +2,7 @@
 // button through the accessibility tree (no Apple Events permission needed).
 // Music, Notes, Reminders and Calendar: AppleScript, with user text passed as
 // arguments (never spliced into the script). macOS asks the user once per
-// app whether JEVIS may control it; JEVIS checks that state without asking
+// app whether Handry may control it; Handry checks that state without asking
 // and explains a refusal instead of failing with an error code.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -31,7 +31,7 @@ async function script(appKey, lines, args = []) {
   await execFileAsync('open', ['-gjb', app.id], { timeout: 15000 }).catch(() => {});
   const { state } = await desktop.automationState(app.id).catch(() => ({ state: 'unknown' }));
   if (state === 'denied') {
-    throw new JevisError('NO_PERMISSION', `${APP.genitive} ${app.name} uygulamasını kullanma izni kapalı. Sistem Ayarları › Gizlilik ve Güvenlik › Otomasyon bölümünde JEVIS'i çalıştıran uygulamanın altında ${app.name}'ı aç.`);
+    throw new JevisError('NO_PERMISSION', `${APP.genitive} ${app.name} uygulamasını kullanma izni kapalı. Sistem Ayarları › Gizlilik ve Güvenlik › Otomasyon bölümünde Handry'yi çalıştıran uygulamanın altında ${app.name}'ı aç.`);
   }
   try {
     const { stdout } = await execFileAsync('osascript', ['-e', lines.join('\n'), ...args.map(String)], { timeout: 90000, maxBuffer: 20 * 1024 * 1024 });

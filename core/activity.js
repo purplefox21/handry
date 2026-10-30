@@ -1,7 +1,7 @@
 // What the assistant is doing, for the pet on the screen (the hand or the fox): the app reads
 // ~/.jevis/activity.json a few times a second. thinking (Claude is planning),
 // tool (with the app it works in, so the pet can run under its window), done,
-// error, attention (it needs the user). Written by the runner, by every JEVIS
+// error, attention (it needs the user). Written by the runner, by every Handry
 // tool call (also from other Claude sessions through MCP) and by alerts.
 import fs from 'node:fs';
 import path from 'node:path';

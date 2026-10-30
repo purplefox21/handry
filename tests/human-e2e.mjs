@@ -1,5 +1,5 @@
-// Does JEVIS move and type like a person when asked to, and stay fast when
-// not? Real Chrome in its own profile and port (the JEVIS Chrome you use is
+// Does Handry move and type like a person when asked to, and stay fast when
+// not? Real Chrome in its own profile and port (the Handry Chrome you use is
 // not touched); a page records every mouse and key event, and the test checks
 // what a site would see: a curved, gradual pointer path, a held click, wheel
 // ticks for scrolling, one key event per character instead of a value that

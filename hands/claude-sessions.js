@@ -46,7 +46,7 @@ function commandCounter() {
 /**
  * [{ pid, sessionId, name, project, where, state: 'working'|'waiting'|'idle',
  *    waitingFor, commands, since, jevis }] — newest change first. `jevis` marks
- * JEVIS's own brain runs.
+ * Handry's own brain runs.
  */
 export function claudeSessions() {
   let files = [];

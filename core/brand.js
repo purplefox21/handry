@@ -5,7 +5,8 @@
 // "Handry'den çık").
 // Pages get it from the server, Swift from Info.plist (app/macos/build.js
 // writes it there), the voice code from WAKE_VARIANTS. Inside, the project
-// keeps its own name (JEVIS: ~/.jevis, the Keychain service "jevis").
+// keeps the old name JEVIS where changing it would break things: ~/.jevis,
+// the Keychain service "jevis" (saved passwords), the JEVIS_* variables.
 export const APP_NAME = 'Handry';
 /** How the name is said, for its Turkish endings: "Hendri" → Handry'ye, Handry'nin. */
 export const APP_SOUND = 'hendri';

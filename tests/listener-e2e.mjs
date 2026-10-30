@@ -1,6 +1,6 @@
 // "Hey Handry" (and the older "Hey Foxie" / "Hey Fox") and live speech in the app (Handry.app), without a microphone: phrases are
 // spoken by macOS (Yelda) into files and run through the app's own listener
-// (JEVIS --test-listener), the same steps the microphone goes through. Then
+// (Handry --test-listener), the same steps the microphone goes through. Then
 // the phrase audio it keeps goes through whisper, as in the bar.
 // Needs the app (Handry.app) installed and its Speech Recognition permission.
 // Usage: node tests/listener-e2e.mjs
@@ -46,7 +46,7 @@ const describe = events => events.filter(e => e.type !== 'partial').map(e => e.t
 try {
   const perm = listen(speak('perm', '[[slnc 300]] deneme'), { active: true }).find(e => e.type === 'permissions');
   if (!perm?.speech) {
-    console.log('⏭️  JEVIS\'in Konuşma Tanıma izni yok: JEVIS menüsü › İzinleri Kontrol Et. Test atlandı.');
+    console.log('⏭️  Handry\'in Konuşma Tanıma izni yok: Handry menüsü › İzinleri Kontrol Et. Test atlandı.');
     process.exit(0);
   }
 

@@ -3,7 +3,7 @@
 // browser_fill, Claude teaching Handry (handry_teach → handry_do without a
 // brain), site notes, downloads, saving a value from the page, the approval
 // dialog listing what was typed, tables, and numbered screenshots.
-// Works in a throwaway JEVIS home; the Keychain check adds and removes a test entry.
+// Works in a throwaway Handry home; the Keychain check adds and removes a test entry.
 // Usage: node tests/faz10-e2e.mjs
 import fs from 'node:fs';
 import os from 'node:os';
@@ -46,7 +46,7 @@ async function check(name, fn) {
 }
 
 // A small site with a login: /account sends you to /login until /enter sets the cookie.
-// The cookie name is new each run: the JEVIS Chrome keeps cookies between runs.
+// The cookie name is new each run: the Handry Chrome keeps cookies between runs.
 const COOKIE = `session_${Date.now().toString(36)}`;
 const site = http.createServer((req, res) => {
   const inside = new RegExp(`${COOKIE}=1`).test(req.headers.cookie || '');

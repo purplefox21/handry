@@ -1,6 +1,6 @@
-// Getting the user's attention when JEVIS needs them (a login, a 2FA code, a
-// CAPTCHA, an answer): a macOS notification, JEVIS saying it out loud, the
-// JEVIS bar dropping down with the message (JEVIS.app watches
+// Getting the user's attention when Handry needs them (a login, a 2FA code, a
+// CAPTCHA, an answer): a macOS notification, Handry saying it out loud, the
+// Handry bar dropping down with the message (Handry.app watches
 // ~/.jevis/attention.json), and, if the wait is still on after a minute, an
 // iMessage to the user's own iPhone (config: notify.imessageTo, kept in
 // ~/.jevis/config.json because it is a phone number or Apple ID).

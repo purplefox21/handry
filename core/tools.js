@@ -1,4 +1,4 @@
-// Every JEVIS tool, defined once: JSON Schema input + handler. The MCP server,
+// Every Handry tool, defined once: JSON Schema input + handler. The MCP server,
 // the CLI and the API-based brains all go through callTool(), so the stop
 // switch, the action log and the page guard apply everywhere.
 import fs from 'node:fs';

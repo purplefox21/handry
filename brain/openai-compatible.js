@@ -1,6 +1,6 @@
 // Brain: any OpenAI-compatible chat API with function calling — OpenAI,
 // Ollama (http://127.0.0.1:11434/v1), LM Studio, OpenRouter… Configure base
-// URL, key variable and model in jevis.config.json › brain.providers.
+// URL, key variable and model in handry.config.json › brain.providers.
 import { TOOLS, callTool } from '../core/tools.js';
 import { config } from '../core/config.js';
 import { BRAIN_PROMPT, resultText } from './common.js';
@@ -18,7 +18,7 @@ export function makeBrain(providerId, label) {
     label,
     async available() {
       const s = settings(providerId);
-      if (!s.model) return { ok: false, reason: `jevis.config.json › brain.providers.${providerId}.model boş` };
+      if (!s.model) return { ok: false, reason: `handry.config.json › brain.providers.${providerId}.model boş` };
       if (s.apiKeyEnv && !s.apiKey) return { ok: false, reason: `${s.apiKeyEnv} tanımlı değil` };
       try {
         const res = await fetch(`${s.baseURL}/models`, { headers: s.apiKey ? { Authorization: `Bearer ${s.apiKey}` } : {}, signal: AbortSignal.timeout(1500) });

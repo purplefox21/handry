@@ -10,7 +10,7 @@ import { homeDir } from '../core/config.js';
 const WHERE = { 'claude-vscode': 'VS Code', cli: 'Terminal', 'claude-desktop': 'Claude uygulaması' };
 let claudeCaller;
 
-/** A JEVIS MCP server runs under a Claude session: Claude Code's own session file names it. */
+/** A Handry MCP server runs under a Claude session: Claude Code's own session file names it. */
 function callerFromClaude() {
   if (claudeCaller !== undefined) return claudeCaller;
   try {

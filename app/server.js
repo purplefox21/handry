@@ -1,4 +1,4 @@
-// JEVIS app server: the chat UI, the Jev playground proxy and the run API.
+// Handry app server: the chat UI, the Jev playground proxy and the run API.
 // Listens on 127.0.0.1 only and every /api call needs the per-start token.
 import http from 'node:http';
 import fs from 'node:fs';
@@ -131,7 +131,7 @@ async function handleVoice(req, res) {
   }
 }
 
-// JEVIS.app records the voice itself and leaves a WAV in ~/.jevis/tmp.
+// Handry.app records the voice itself and leaves a WAV in ~/.jevis/tmp.
 async function handleVoiceFile(req, res) {
   const { file, wake } = JSON.parse((await readBody(req)).toString() || '{}');
   const dir = homeDir('tmp');
@@ -202,7 +202,7 @@ const ROUTES = {
       sendJson(res, 200, { ok: false, text: err.message });
     }
   },
-  // Timers and watches: the list (with what JEVIS saw last) and cancelling one or all.
+  // Timers and watches: the list (with what Handry saw last) and cancelling one or all.
   'GET /api/timers': (req, res) => sendJson(res, 200, { now: Date.now(), jobs: sortedJobs().map(jobView) }),
   'POST /api/timers/cancel': async (req, res) => {
     const { id, all } = JSON.parse((await readBody(req)).toString() || '{}');
@@ -304,7 +304,7 @@ async function runScheduled(text, job = {}) {
 }
 
 server.on('error', err => {
-  if (err.code === 'EADDRINUSE') console.error(`${APP_NAME} başlamadı: ${PORT} portunu başka bir program kullanıyor (jevis.config.json › server.port ile değiştirilebilir).`);
+  if (err.code === 'EADDRINUSE') console.error(`${APP_NAME} başlamadı: ${PORT} portunu başka bir program kullanıyor (handry.config.json › server.port ile değiştirilebilir).`);
   else console.error(err);
   process.exit(1);
 });

@@ -1,4 +1,4 @@
-// Brain: Claude Code in print mode on the user's subscription. JEVIS tools
+// Brain: Claude Code in print mode on the user's subscription. Handry tools
 // come in through MCP; only those tools are allowed.
 import { spawn } from 'node:child_process';
 import { homeDir, config } from '../core/config.js';
@@ -13,8 +13,8 @@ export async function available() {
 }
 
 /**
- * Lean mode: a short JEVIS system prompt instead of Claude Code's long coding
- * one, and none of its built-in coding tools (shell, file edits…). The JEVIS
+ * Lean mode: a short Handry system prompt instead of Claude Code's long coding
+ * one, and none of its built-in coding tools (shell, file edits…). The Handry
  * tools come in through MCP either way. Measured on a form task: same result,
  * about 2–6× cheaper and faster, and no shell access for the brain.
  */

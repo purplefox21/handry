@@ -1,5 +1,5 @@
 // The timer list in the chat window and the bar, in a headless Chrome against
-// its own server (throwaway JEVIS home, made-up Claude Code sessions). Nothing
+// its own server (throwaway Handry home, made-up Claude Code sessions). Nothing
 // shows on screen and nothing makes a sound: reminders, shutdowns and iMessages
 // are only written down (JEVIS_TEST_NOTIFY / JEVIS_TEST_POWER = record).
 // The user's case: 2 timers and 1 watch, the middle one cancelled from the

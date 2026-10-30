@@ -1,4 +1,4 @@
-// Builds the app (JEVIS's menu bar app: the bar, the window and the pet on
+// Builds the app (Handry's menu bar app: the bar, the window and the pet on
 // screen) into dist/<name>.app with its icons and both pets' sprites (the hand,
 // drawn by app/hand/make.mjs, and the fox), signs it, and installs it into
 // ~/Applications. The name comes from core/brand.js; the
@@ -14,7 +14,7 @@ import { APP, FOX, WAKE_LABEL, WAKE_SOURCE } from '../../core/brand.js';
 export const APP_PATH = path.join(ROOT, 'dist', `${APP.name}.app`);
 export const INSTALLED = path.join(os.homedir(), 'Applications', `${APP.name}.app`);
 /** The app under its earlier names; moved to the Trash when this one is installed. */
-export const OLD_INSTALLED = ['JEVIS.app', 'Foxie.app', 'Inaro.app'].filter(n => n !== `${APP.name}.app`).map(n => path.join(os.homedir(), 'Applications', n));
+export const OLD_INSTALLED = ['Handry.app', 'Foxie.app', 'Inaro.app'].filter(n => n !== `${APP.name}.app`).map(n => path.join(os.homedir(), 'Applications', n));
 export const BUNDLE_ID = 'studio.purpfox.foxie';
 
 const plist = values => `<?xml version="1.0" encoding="UTF-8"?>
@@ -109,7 +109,7 @@ export function buildApp() {
     JEVISPort: String(config().server.port || 4263)
   }));
   execFileSync('swiftc', ['-O', '-o', path.join(APP_PATH, 'Contents', 'MacOS', APP.name),
-    ...['JEVIS.swift', 'Listener.swift', 'Fox.swift', 'Permissions.swift'].map(f => path.join(ROOT, 'app', 'macos', f)),
+    ...['Handry.swift', 'Listener.swift', 'Fox.swift', 'Permissions.swift'].map(f => path.join(ROOT, 'app', 'macos', f)),
     '-framework', 'AppKit', '-framework', 'WebKit', '-framework', 'Carbon', '-framework', 'AVFoundation', '-framework', 'Speech', '-framework', 'CoreAudio'], { stdio: 'pipe' });
   execFileSync('codesign', ['--force', '--deep', '--sign', signingIdentity(), APP_PATH], { stdio: 'pipe' });
   return APP_PATH;
@@ -119,7 +119,7 @@ export function buildApp() {
  * A real signing identity (the Apple Development certificate Xcode installs)
  * keeps the app's identity the same from build to build, so macOS remembers
  * its permissions. Without one the app is signed ad hoc and every build has to
- * be allowed again. jevis.config.json › app.signIdentity picks one by name.
+ * be allowed again. handry.config.json › app.signIdentity picks one by name.
  */
 export function signingIdentity() {
   const wanted = config().app?.signIdentity;

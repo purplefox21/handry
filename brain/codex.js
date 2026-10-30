@@ -1,4 +1,4 @@
-// Brain: OpenAI Codex CLI (ChatGPT subscription) in exec mode, with JEVIS as
+// Brain: OpenAI Codex CLI (ChatGPT subscription) in exec mode, with Handry as
 // an MCP server. Experimental: written from Codex's non-interactive docs and
 // not tested on this Mac (Codex isn't installed here).
 import { spawn } from 'node:child_process';

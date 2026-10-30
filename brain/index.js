@@ -1,4 +1,4 @@
-// Brain registry: which LLMs can drive JEVIS, and whether each is usable now.
+// Brain registry: which LLMs can drive Handry, and whether each is usable now.
 import * as claudeCode from './claude-code.js';
 import * as anthropic from './anthropic.js';
 import * as codex from './codex.js';

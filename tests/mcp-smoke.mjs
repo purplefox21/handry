@@ -1,4 +1,4 @@
-// Starts the JEVIS MCP server like Claude Code does (stdio) and calls its tools.
+// Starts the Handry MCP server like Claude Code does (stdio) and calls its tools.
 // Usage: node tests/mcp-smoke.mjs
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';

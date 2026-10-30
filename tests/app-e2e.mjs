@@ -1,6 +1,6 @@
 // Phase 5 end to end: app server API (fast path, Claude Code brain, busy
 // guard, stop), the OpenAI-compatible adapter against a mock server, the chat
-// UI and the compact bar, both driven through JEVIS's own browser hands.
+// UI and the compact bar, both driven through Handry's own browser hands.
 // Usage: node tests/app-e2e.mjs   (uses the Claude subscription for two short runs)
 import http from 'node:http';
 import { spawn } from 'node:child_process';
@@ -74,7 +74,7 @@ try {
   });
 
   await check('Beyin (Claude Code): formu doldur', async () => {
-    // fast: false, so JEVIS neither replays nor learns this task: the test is about the brain.
+    // fast: false, so Handry neither replays nor learns this task: the test is about the brain.
     const r = await run({ text: "Chrome'da açık test sayfasında Name alanına 'Sohbet Testi' yaz ve fiyatı $0.99 yap. Başka bir şeye dokunma.", fast: false });
     const tools = r.events.filter(e => e.type === 'tool').map(e => e.name);
     const page = await browser.activePage();
@@ -123,7 +123,7 @@ try {
     return calls === 2 && events.some(e => e.type === 'tool' && e.name === 'browser_verify') && events.some(e => e.type === 'tool_result' && e.text.startsWith('Evet')) && out.text === 'Sayfada Name alanı var.';
   });
 
-  await check('Arayüz: sohbet kutusunu JEVIS\'in kendi elleriyle kullan', async () => {
+  await check('Arayüz: sohbet kutusunu Handry\'in kendi elleriyle kullan', async () => {
     process.env.JEVIS_TEST_CONFIRM = 'allow'; // "Gönder" is a risky word; this test process answers its dialog
     await browser.open(`${BASE}/`, { newTab: true });
     await browser.type('Komut', 'hesap makinesini aç');
@@ -147,7 +147,7 @@ try {
 
     await browser.open(`${BASE}/`, { newTab: true });
     const win = await browser.activePage();
-    await saved('claude-sonnet-5', 'claude-sonnet-5')(win); // an older JEVIS: its default was Sonnet 5
+    await saved('claude-sonnet-5', 'claude-sonnet-5')(win); // an older Handry: its default was Sonnet 5
     await loadWindow(win);
     const adopted = await checked(win);
     await win.click(`#modelSwitch [data-model="${other}"]`);

@@ -3,7 +3,7 @@
 // phone. Only the code and who sent it come back, never other messages.
 // SMS: the Messages database on this Mac (iPhone text forwarding must be on;
 // the app that runs this needs Full Disk Access, which only the user grants).
-// E-mail: the Gmail inbox in the JEVIS Chrome (the user is logged in there).
+// E-mail: the Gmail inbox in the Handry Chrome (the user is logged in there).
 import fs from 'node:fs';
 import { execFile } from 'node:child_process';
 import { config, expandHome } from '../core/config.js';
@@ -116,7 +116,7 @@ function inboxRowsInPage() {
   }));
 }
 
-/** Looks at the Gmail inbox in a temporary tab of the JEVIS Chrome. */
+/** Looks at the Gmail inbox in a temporary tab of the Handry Chrome. */
 export async function findGmailCode({ withinMin = 5, from, url = config().codes?.gmailUrl || 'https://mail.google.com/mail/u/0/#inbox' } = {}) {
   const rows = await browser.withTempPage(url, async page => {
     await page.waitForSelector('tr.zA, [role="main"] tr[role="row"]', { timeout: 15000 }).catch(() => {});

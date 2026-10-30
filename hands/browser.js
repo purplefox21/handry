@@ -1,4 +1,4 @@
-// Browser hands: drives the user's installed Chrome (with a separate JEVIS
+// Browser hands: drives the user's installed Chrome (with a separate Handry
 // profile) through Playwright. Jev decides which element an instruction means;
 // risky clicks go through the confirmation dialog first.
 import fs from 'node:fs';
@@ -10,7 +10,7 @@ import { config, expandHome, homeDir, loadState, saveState } from '../core/confi
 import * as jev from '../core/jev.js';
 import { needsConfirm, confirmAction, harmlessByKind, allowedOnSite, rememberable } from '../guard/confirm.js';
 import { JevisError } from '../core/errors.js';
-import { APP_NAME } from '../core/brand.js';
+import { APP, APP_NAME } from '../core/brand.js';
 import * as human from './human.js';
 import * as captcha from './captcha.js';
 
@@ -36,7 +36,7 @@ async function cdpUp(port) {
 }
 
 /**
- * Main Chrome processes (not helpers) that run on the JEVIS profile, with or
+ * Main Chrome processes (not helpers) that run on the Handry profile, with or
  * without a debugging port. A second Chrome can't open the same profile: it
  * hands over to the one that runs, so this must be checked before starting.
  */
@@ -54,7 +54,7 @@ export function profileChromePids() {
   } catch { return []; }
 }
 
-/** Starts Chrome with the JEVIS profile and a local-only debugging port, unless it already runs. */
+/** Starts Chrome with the Handry profile and a local-only debugging port, unless it already runs. */
 export async function ensureChrome() {
   const { cdpPort, chromePath, profileDir } = config().browser;
   if (await cdpUp(cdpPort)) return false;
@@ -81,11 +81,11 @@ export async function ensureChrome() {
   throw new JevisError('NO_CHROME', 'Chrome açıldı ama bağlantı noktası hazır olmadı.');
 }
 
-/** Is the JEVIS Chrome up with its debugging port? */
+/** Is the Handry Chrome up with its debugging port? */
 export const chromeConnectable = () => cdpUp(config().browser.cdpPort);
 
 /**
- * Quits the JEVIS Chrome the clean way (Chrome saves cookies on a normal exit).
+ * Quits the Handry Chrome the clean way (Chrome saves cookies on a normal exit).
  * Only this profile's Chrome: the user's own Chrome is never touched.
  */
 export async function closeChrome() {
@@ -105,7 +105,7 @@ export async function closeChrome() {
   return false;
 }
 
-/** Opens the JEVIS profile as an ordinary Chrome window: no debugging port, nothing attached to it. */
+/** Opens the Handry profile as an ordinary Chrome window: no debugging port, nothing attached to it. */
 export async function launchPlainChrome(url) {
   const { chromePath, profileDir } = config().browser;
   if (!fs.existsSync(chromePath)) throw new JevisError('NO_CHROME', `Chrome bulunamadı: ${chromePath}`);
@@ -120,7 +120,7 @@ export async function launchPlainChrome(url) {
   throw new JevisError('NO_CHROME', 'Chrome açılamadı.');
 }
 
-/** Quits the plain (login) Chrome of the JEVIS profile with a normal quit signal; never a hard kill, that could lose the login. */
+/** Quits the plain (login) Chrome of the Handry profile with a normal quit signal; never a hard kill, that could lose the login. */
 export async function closePlainChrome() {
   for (const pid of profileChromePids()) { try { process.kill(pid, 'SIGTERM'); } catch {} }
   for (let i = 0; i < 100; i++) {
@@ -164,7 +164,7 @@ async function connect() {
 
 const context = () => browser.contexts()[0];
 
-// The JEVIS chat page itself is never a page to work on. The app server
+// The Handry chat page itself is never a page to work on. The app server
 // exports its real port in JEVIS_UI_PORT (inherited by brains and MCP).
 const isJevisUi = url => {
   const ports = new Set([String(config().server?.port || 4263), process.env.JEVIS_UI_PORT].filter(Boolean));
@@ -188,7 +188,7 @@ async function remember(page) {
   return page;
 }
 
-/** The tab JEVIS works on: the one the user is looking at, else the last one used. */
+/** The tab Handry works on: the one the user is looking at, else the last one used. */
 export async function activePage() {
   await connect();
   const pages = openPages();
@@ -199,7 +199,7 @@ export async function activePage() {
     if (isVisible) visible.push(p);
   }
   if (current && !current.isClosed() && (visible.length === 0 || visible.includes(current))) return current;
-  // Several windows each show a tab: prefer the one JEVIS used last.
+  // Several windows each show a tab: prefer the one Handry used last.
   const savedId = loadState().tab;
   let saved = null;
   if (savedId) {
@@ -649,7 +649,7 @@ async function resolve(page, target, purpose, { withRisk = false, scope } = {}) 
  * Asks the user when the action is risky. Returns null (no question needed)
  * or { reason, screenshot } as a record of what was approved.
  */
-// What JEVIS typed, chose or ticked on each page since the last approved
+// What Handry typed, chose or ticked on each page since the last approved
 // action, so the approval shows what is about to be saved.
 const pendingChanges = new WeakMap();
 function noteChange(page, field, value) {
@@ -666,13 +666,13 @@ async function guardRisk(page, item, riskP, actionText) {
   // geri alınabilir, zararsız işlemler (taslağı kaydet, formdan öğe çıkar) sorulmadan geçer; sayfa bağlamıyla bakılır
   if (await harmlessByKind(verdict, `${actionText} (sayfa: ${title}, ${page.url()})`)) return null;
   const changes = pendingChanges.get(page) || [];
-  const changed = changes.length ? `\n\nBu sayfada JEVIS'in girdikleri:\n${changes.slice(-12).map(c => `• ${c.field}: ${c.value}`).join('\n')}` : '';
+  const changed = changes.length ? `\n\nBu sayfada ${APP.genitive} girdikleri:\n${changes.slice(-12).map(c => `• ${c.field}: ${c.value}`).join('\n')}` : '';
   // kullanıcı bu sitede bu düğmeye "hep" dediyse sorulmaz (para, sipariş ve silme hariç)
   if (allowedOnSite(host, item.name)) {
     pendingChanges.delete(page);
     return { reason: `${verdict.reason} · bu sitede hep izinli` };
   }
-  const ok = await confirmAction(`JEVIS şunu yapmak istiyor:\n\n${actionText}${changed}\n\nSayfa: ${title}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`, { remember: rememberable(item.name) ? { host, name: item.name } : null });
+  const ok = await confirmAction(`${APP_NAME} şunu yapmak istiyor:\n\n${actionText}${changed}\n\nSayfa: ${title}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`, { remember: rememberable(item.name) ? { host, name: item.name } : null });
   if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
   pendingChanges.delete(page); // approved: these are being saved now
   const shot = path.join(homeDir('logs', 'approved'), `${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`);
@@ -719,7 +719,7 @@ function toUrl(input) {
   return `https://www.google.com/search?q=${encodeURIComponent(s)}`;
 }
 
-/** A new Chrome window (not a tab) with this address; it becomes the page JEVIS works on. */
+/** A new Chrome window (not a tab) with this address; it becomes the page Handry works on. */
 async function newWindowPage(url) {
   await connect();
   const cdp = await browser.newBrowserCDPSession();
@@ -766,7 +766,7 @@ const ACCOUNT_PAGES = {
 const LOGIN_URL = /(login|signin|sign-in|sso\.|\/auth|accounts\.google\.com|idmsa\.apple\.com|oauth)/i;
 
 /**
- * Is the user logged in to these sites in the JEVIS Chrome? Looks at the
+ * Is the user logged in to these sites in the Handry Chrome? Looks at the
  * cookies, then (deep) opens each site's account page in a new tab, sees
  * where it lands and what it says, and closes the tab again.
  */
@@ -876,7 +876,7 @@ export async function type(target, text, { submit = false, append = false } = {}
 
 /**
  * Clicks a download link or button and puts the file where it belongs
- * (default ~/Downloads/JEVIS; a folder or a full path, inside the home
+ * (default ~/Downloads/Handry; a folder or a full path, inside the home
  * folder). An existing file is never overwritten: a number is added.
  */
 export async function download(target, saveTo) {
@@ -888,7 +888,7 @@ export async function download(target, saveTo) {
   try { dl = await waiting; } catch { throw new JevisError('NO_DOWNLOAD', `"${item.name}" tıklandı ama 60 sn içinde bir indirme başlamadı.`); }
   const name = dl.suggestedFilename();
   const home = os.homedir();
-  const wanted = path.resolve(expandHome(saveTo || '~/Downloads/JEVIS/'));
+  const wanted = path.resolve(expandHome(saveTo || `~/Downloads/${APP_NAME}/`));
   if (wanted !== home && !wanted.startsWith(home + path.sep)) throw new JevisError('OUTSIDE_HOME', 'İndirilen dosya sadece ev klasörünün içine kaydedilir.');
   const isDir = /[\\/]$/.test(String(saveTo || '/')) || (fs.existsSync(wanted) && fs.statSync(wanted).isDirectory());
   let dest = isDir ? path.join(wanted, name) : wanted;
@@ -1293,7 +1293,7 @@ async function findTab(ref) {
  * the tab with these words in its title or address, else the current one.
  */
 export async function tabText(ref, maxChars = 6000) {
-  if (!(await cdpUp(config().browser.cdpPort))) throw new JevisError('NO_BROWSER', "JEVIS'in Chrome penceresi kapalı.");
+  if (!(await cdpUp(config().browser.cdpPort))) throw new JevisError('NO_BROWSER', `${APP.genitive} Chrome penceresi kapalı.`);
   const page = ref ? await findTab(ref) : await activePage();
   const text = await page.evaluate(() => document.body?.innerText || '').catch(() => '');
   return { title: await page.title().catch(() => ''), url: page.url(), text: text.slice(0, maxChars) };

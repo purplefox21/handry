@@ -1,5 +1,5 @@
-/* The compact JEVIS bar: a Spotlight-like field that drops from the top of
-   the screen. In JEVIS.app it sits on a blurred, rounded panel, so the page
+/* The compact Handry bar: a Spotlight-like field that drops from the top of
+   the screen. In Handry.app it sits on a blurred, rounded panel, so the page
    itself is transparent; opened in a browser it gets its own card. */
 
 :root {

@@ -19,7 +19,7 @@ const clip = (s, n) => { const t = String(s ?? '').replace(/\s+/g, ' ').trim(); 
 
 /**
  * What is on screen now, told to the brain with each message: the front app
- * and window, and the JEVIS Chrome tab (Chrome is only asked, never started).
+ * and window, and the Handry Chrome tab (Chrome is only asked, never started).
  */
 async function screenNow() {
   const parts = [];
@@ -116,7 +116,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
     const brainFor = () => brainOverride || getBrain(brainId);
     const learning = fast && config().learn?.enabled !== false;
     if (fast) {
-      // What JEVIS said just before, so an answer to it isn't taken for a new command.
+      // What Handry said just before, so an answer to it isn't taken for a new command.
       const before = chat?.entries.slice(0, -1).findLast(e => e.role === 'jevis');
       const previous = before && Date.now() - before.at < 10 * 60 * 1000 ? String(before.text || '').slice(0, 400) : '';
       const quick = await tryFast(text, emit, { previous });

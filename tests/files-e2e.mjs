@@ -50,12 +50,12 @@ try {
   await step('Metin okunuyor, anahtar ve şifre maskeleniyor', () => call('files_read', { path: path.join(dir, 'notlar.txt') }), r => !r.isError && r.text.includes('süt, ekmek') && !r.text.includes(fake) && !r.text.includes('çokgizli123') && r.text.includes('[gizli]'));
   await step('.env dosyası okunmuyor', () => call('files_read', { path: path.join(dir, '.env') }), r => r.isError && r.text.includes('okumaz'));
   await step('Ev klasörü dışı reddediliyor', () => call('files_read', { path: '/etc/hosts' }), r => r.isError && r.text.includes('ev klasöründeki'));
-  await step('JEVIS\'in kendi klasörü (~/.jevis) okunmuyor', () => call('files_read', { path: '~/.jevis/state.json' }), r => r.isError && r.text.includes('okumaz'));
+  await step('Handry\'in kendi klasörü (~/.jevis) okunmuyor', () => call('files_read', { path: '~/.jevis/state.json' }), r => r.isError && r.text.includes('okumaz'));
   await step('Ad ile arama (Spotlight)', () => call('files_search', { query: 'PLAN.md', path: '~/Desktop/jev' }), r => !r.isError && r.text.includes('~/Desktop/jev/PLAN.md'));
   await step('Son kullanılan uygulamalar', () => call('files_recent', { kind: 'apps', days: 7 }), r => !r.isError && /Calculator|TextEdit|Google Chrome/.test(r.text));
   await step('Son projeler (VS Code + Claude Code)', () => call('files_recent', { kind: 'projects' }), r => !r.isError && /📁 jev — ~\/Desktop\/jev .*Claude Code/.test(r.text) && !r.text.includes('/private/tmp'));
   await step('Git: son commit ve kaydedilmemiş değişiklik', () => {
-    const git = (...a) => execFileSync('git', ['-C', dir, '-c', 'user.name=JEVIS Test', '-c', 'user.email=test@jevis.local', ...a], { stdio: 'pipe' });
+    const git = (...a) => execFileSync('git', ['-C', dir, '-c', 'user.name=Handry Test', '-c', 'user.email=test@jevis.local', ...a], { stdio: 'pipe' });
     git('init', '-q');
     git('add', 'notlar.txt');
     git('commit', '-qm', 'İlk kayıt');

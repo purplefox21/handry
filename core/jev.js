@@ -1,5 +1,5 @@
 // The one place that talks to TypeSafe Jev, plus the ready-made judgments
-// JEVIS needs: which element to use, whether an action is risky, and whether
+// Handry needs: which element to use, whether an action is risky, and whether
 // the page is in the expected state.
 import fs from 'node:fs';
 import path from 'node:path';

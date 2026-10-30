@@ -1,7 +1,7 @@
-// Secrets live in the macOS Keychain (service "jevis"). JEVIS reads them only
+// Secrets live in the macOS Keychain (service "jevis"). Handry reads them only
 // to type them into a field: the value is never returned to the brain or
 // written to logs. Each secret lists the sites it may be typed on, so a fake
-// page (or injected instructions) can't make JEVIS type it elsewhere.
+// page (or injected instructions) can't make Handry type it elsewhere.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile, spawnSync } from 'node:child_process';

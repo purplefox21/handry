@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import util from 'node:util';
 import path from 'node:path';
 import os from 'node:os';
+import { APP_NAME } from '../core/brand.js';
 
 // execFile passes arguments straight to the program (no shell), so user text
 // with quotes or apostrophes ("Ali'ye") can neither break nor inject commands.
@@ -243,7 +244,7 @@ export async function lockScreen() {
  */
 export async function notify(title, message) {
   try {
-    await runAppleScript(['on run argv', 'display notification (item 2 of argv) with title (item 1 of argv)', 'end run'], [title || 'JEVIS', message || '']);
+    await runAppleScript(['on run argv', 'display notification (item 2 of argv) with title (item 1 of argv)', 'end run'], [title || APP_NAME, message || '']);
     return { success: true, message: `🔔 Bildirim gösterildi: ${message}` };
   } catch (err) {
     return { success: false, error: `Bildirim gösterilemedi: ${err.message}` };

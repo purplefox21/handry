@@ -636,7 +636,7 @@ final class FoxPet {
         }
     }
 
-    /// Activity from ~/.jevis/activity.json (written by the server and the JEVIS tools).
+    /// Activity from ~/.jevis/activity.json (written by the server and the Handry tools).
     func react(kind: String, app: String?) {
         guard visible, mode != .held else { return }
         switch kind {

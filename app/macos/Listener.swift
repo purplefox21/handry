@@ -1,11 +1,11 @@
-// JEVIS's ears. Listener turns speech into text while it is spoken (Apple's
+// Handry's ears. Listener turns speech into text while it is spoken (Apple's
 // on-device Turkish recognizer), notices when a phrase has ended (a short
 // silence), keeps the phrase as a 16 kHz WAV for whisper, and can wait for
-// "Hey Jev" in the background.
+// "Hey Handry" in the background.
 //
-// Waiting for "Hey Jev" is cheap: only a loudness check runs all the time.
+// Waiting for "Hey Handry" is cheap: only a loudness check runs all the time.
 // When someone starts speaking after a pause, the recognizer listens to the
-// first three seconds; if they don't start with "Hey Jev" it stops again.
+// first three seconds; if they don't start with "Hey Handry" it stops again.
 // Timing uses the audio itself (frames heard), so a WAV file can be run
 // through exactly the same steps as the microphone (see runFileTest).
 import AVFoundation
@@ -60,7 +60,7 @@ final class Listener {
             ?? "^\\s*(?:hey|hei|hay|hi|ey|ay|he)[\\s,.!]*(?:foxie|foxy|foxi|foksi|foksy|foksie|fogsi|fuksi|focsi|fox|foks)(?![\\p{L}\\p{N}])[\\s,.!?:;-]*",
         options: [.caseInsensitive])
 
-    /// The command after "Hey Foxie" / "Hey Jev", or nil when the text doesn't start with it.
+    /// The command after "Hey Foxie" / "Hey Handry", or nil when the text doesn't start with it.
     static func afterWake(_ text: String) -> String? {
         let ns = text as NSString
         guard let m = wakePattern.firstMatch(in: text, range: NSRange(location: 0, length: ns.length)) else { return nil }
@@ -261,7 +261,7 @@ final class Listener {
             preroll.append((buffer, pcm, seconds))
             var kept = preroll.reduce(0) { $0 + $1.seconds }
             while kept > 1.0, !preroll.isEmpty { kept -= preroll.removeFirst().seconds }
-            // Someone starts speaking after a pause: is it "Hey Jev"?
+            // Someone starts speaking after a pause: is it "Hey Handry"?
             if voiced && quietFor > 0.25 && !jevisSpeaking() {
                 beginRecognition(keepSeconds: 1.0)
                 mode = .candidate
@@ -361,7 +361,7 @@ final class Listener {
                 update(command)
             }
         case .active:
-            // The recognizer sometimes rewrites "Hey Jev" later ("Hey J"): drop as many words.
+            // The recognizer sometimes rewrites "Hey Handry" later ("Hey J"): drop as many words.
             update(woke ? (Listener.afterWake(full) ?? full.split(separator: " ").dropFirst(wakeWords).joined(separator: " ")) : full)
         default:
             break
@@ -369,7 +369,7 @@ final class Listener {
         if final && finishing { deliver() }
     }
 
-    /// When the words "Hey Jev" end, from the recognizer's word timings.
+    /// When the words "Hey Handry" end, from the recognizer's word timings.
     /// whisper hears the rest badly when it starts with them, so they are cut off.
     static func wakeEnd(_ segments: [SFTranscriptionSegment]) -> Double? {
         var head = ""
@@ -439,7 +439,7 @@ final class Listener {
 
     // MARK: Test with a WAV file (same steps as the microphone)
 
-    /// JEVIS --test-listener <in.wav> --out <out.json> [--active]
+    /// Handry --test-listener <in.wav> --out <out.json> [--active]
     static func runFileTest(input: String, output: String, active: Bool) {
         let listener = Listener()
         listener.fileMode = true

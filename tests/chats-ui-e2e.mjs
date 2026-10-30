@@ -1,5 +1,5 @@
 // Chats in the chat window and the bar, through a real server (throwaway
-// JEVIS home) driven with JEVIS's own browser hands: a command in the window,
+// Handry home) driven with Handry's own browser hands: a command in the window,
 // one in the bar that the window then shows, "yeni sohbet", and going back
 // to the first chat from the Sohbetler list. Only fast-path commands, no Claude.
 // Usage: node tests/chats-ui-e2e.mjs

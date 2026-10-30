@@ -1,5 +1,5 @@
 // Shared by the chat page (app.js) and the compact bar (bar.js): talking to
-// the JEVIS server, how each tool call reads to a person, small DOM helpers
+// the Handry server, how each tool call reads to a person, small DOM helpers
 // and the audio helpers for whisper. Untrusted text always goes through
 // textContent, never innerHTML.
 
@@ -204,8 +204,8 @@ async function runStream(body, onEvent, signal) {
   }
 }
 
-// The model picked in the window or the bar is remembered. When JEVIS's
-// default model changes (jevis.config.json), both switch to it once; after
+// The model picked in the window or the bar is remembered. When Handry's
+// default model changes (handry.config.json), both switch to it once; after
 // that the user's own pick is kept again.
 function adoptDefaultModel(defaultModel) {
   if (!defaultModel || store.get('modelDefault', null) === defaultModel) return;

@@ -54,8 +54,8 @@ await step('Yeni belge (⌘N)', async () => {
   await sleep(800);
   return call('desktop_read', { app: 'TextEdit' });
 }, r => /Adsız|Untitled/.test(r.text.split('\n')[1] || ''));
-await step('Belgeye yaz', () => call('desktop_type', { target: 'belge metin alanı', text: 'JEVIS masaüstü testi', app: 'TextEdit' }), r => !r.isError);
-await step('Yazı metin alanında', () => call('desktop_read', { app: 'TextEdit' }), r => /\[TextArea\][^\n]*JEVIS masaüstü testi/.test(r.text));
+await step('Belgeye yaz', () => call('desktop_type', { target: 'belge metin alanı', text: 'Handry masaüstü testi', app: 'TextEdit' }), r => !r.isError);
+await step('Yazı metin alanında', () => call('desktop_read', { app: 'TextEdit' }), r => /\[TextArea\][^\n]*Handry masaüstü testi/.test(r.text));
 await step('Menü öğesi: "Tümünü Seç" (menü açılmadan)', () => call('desktop_click', { target: 'Tümünü Seç', app: 'TextEdit' }), r => !r.isError && r.text.includes('Tümünü Seç'));
 await sleep(500);
 await step('Terminal koruması: odaktaki alana yazmak (TextEdit, sorulmamalı)', () => call('desktop_type', { text: ' +', app: 'TextEdit' }), r => !r.isError);

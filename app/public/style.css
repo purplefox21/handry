@@ -1,4 +1,4 @@
-/* JEVIS — macOS-style chat. Light and dark follow the system setting. */
+/* Handry — macOS-style chat. Light and dark follow the system setting. */
 
 :root {
   --bg: #f5f5f7;
@@ -247,7 +247,7 @@ kbd {
 }
 .answer.error { background: var(--red-soft); border-color: transparent; color: var(--red); }
 
-/* Activity: what JEVIS did, folded once finished */
+/* Activity: what Handry did, folded once finished */
 .activity {
   border-radius: 12px;
   background: var(--surface-2);

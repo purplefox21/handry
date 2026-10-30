@@ -1,4 +1,4 @@
-// JEVIS chat UI (the big window). Shared pieces live in common.js. Everything
+// Handry chat UI (the big window). Shared pieces live in common.js. Everything
 // shown here can come from web pages or tools: untrusted text always goes
 // through textContent, never innerHTML.
 
@@ -560,7 +560,7 @@ async function refreshTimers() {
   if (openDrawerId === 'timersDrawer') renderTimers();
 }
 
-/** Shows a chat in the window (also called by JEVIS.app's menu: "Sohbeti Aç"). */
+/** Shows a chat in the window (also called by Handry.app's menu: "Sohbeti Aç"). */
 async function openChatById(id) {
   if (state.running) { toast('Önce çalışan işi bitir ya da durdur.'); return false; }
   const res = await api('/api/chats/switch', { method: 'POST', body: JSON.stringify({ id }) });

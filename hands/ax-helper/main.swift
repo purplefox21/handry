@@ -1,4 +1,4 @@
-// jevis-ax: JEVIS desktop helper. Reads an app's accessibility tree and
+// jevis-ax: Handry desktop helper. Reads an app's accessibility tree and
 // presses, types, clicks, scrolls and sends key combos. Prints one JSON object.
 //
 //   jevis-ax trusted [--prompt]
@@ -574,7 +574,7 @@ case "record":
         while !answered && Date() < until { RunLoop.current.run(until: Date().addingTimeInterval(0.1)) }
     }
     guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
-        fail("Mikrofon izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Mikrofon bölümünden JEVIS'i çalıştıran uygulamaya izin ver.", code: "NO_PERMISSION")
+        fail("Mikrofon izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Mikrofon bölümünden Handry'yi çalıştıran uygulamaya izin ver.", code: "NO_PERMISSION")
     }
     let settings: [String: Any] = [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16000, AVNumberOfChannelsKey: 1,
                                    AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false]
@@ -667,7 +667,7 @@ case "hit":
           "pid": pid, "app": NSRunningApplication(processIdentifier: pid)?.localizedName ?? ""])
 
 case "automation":
-    // automation <bundleId>: may the app running JEVIS send that app Apple
+    // automation <bundleId>: may the app running Handry send that app Apple
     // Events? Only looks; never shows the permission question.
     guard let bundle = args.first else { fail("Kullanım: automation <bundleId>", code: "BAD_ARGS") }
     var target = AEAddressDesc()

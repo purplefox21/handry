@@ -1,4 +1,4 @@
-// `node cli.js doctor`: checks every part of JEVIS and says what to fix.
+// `node cli.js doctor`: checks every part of Handry and says what to fix.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

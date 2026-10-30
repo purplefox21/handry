@@ -2,8 +2,8 @@
 // variables, the same task with other details replays without the brain,
 // other tasks and questions still go to the brain, invented texts are not
 // learned, a failing learned task hands off and is forgotten after two misses.
-// Uses a stand-in brain that calls the JEVIS tools the way Claude would, a
-// throwaway JEVIS home, and the JEVIS Chrome with the test form.
+// Uses a stand-in brain that calls the Handry tools the way Claude would, a
+// throwaway Handry home, and the Handry Chrome with the test form.
 // Usage: node tests/learn-e2e.mjs
 import fs from 'node:fs';
 import os from 'node:os';
@@ -24,7 +24,7 @@ const formState = async () => (await browser.activePage()).evaluate(() => ({
   status: document.getElementById('status').textContent
 }));
 
-// Does the task with the JEVIS tools, like Claude would, and counts its calls.
+// Does the task with the Handry tools, like Claude would, and counts its calls.
 function standInBrain(doTask) {
   const brain = { id: 'test', label: 'Test beyni', calls: 0, run: async () => { brain.calls++; return doTask(); } };
   return brain;

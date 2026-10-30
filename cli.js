@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// JEVIS komut satırı. Bütün komutlar callTool'dan geçer: acil durdurma,
+// Handry komut satırı. Bütün komutlar callTool'dan geçer: acil durdurma,
 // eylem kaydı ve sayfa bekçisi burada da geçerli.
 import { callTool } from './core/tools.js';
+import { APP_NAME } from './core/brand.js';
 import * as browser from './hands/browser.js';
 import * as vault from './guard/vault.js';
 import { requestStop, clearStop } from './guard/stop.js';
@@ -21,7 +22,7 @@ import { speak } from './voice/tts.js';
 import { config, homeDir } from './core/config.js';
 import path from 'node:path';
 
-const HELP = `JEVIS komutları
+const HELP = `${APP_NAME} komutları
 
 Komut ver (hızlı yol ya da beyin)
   do "<komut>" [--new] [--brain=claude-code] [--model=claude-sonnet-5-5] [--effort=high] [--no-fast] [--say]
@@ -67,7 +68,7 @@ Mac uygulamaları
 Uygulama ve kurulum
   doctor                              Her şeyi kontrol et, eksikleri söyle
   app build | app install | app open  Menü çubuğu uygulaması (⌥Space, ⌥⇧Space bas-konuş, ⌥Esc durdur)
-  autostart on | off | status         Bilgisayar açılınca JEVIS başlasın
+  autostart on | off | status         Bilgisayar açılınca ${APP_NAME} başlasın
 
 Şifreler (macOS Anahtar Zinciri)
   secret add <isim> --site=site1.com,site2.com   Şifreyi sorar, sadece bu sitelerde kullanılır
@@ -170,7 +171,7 @@ async function notifyCommand() {
   if (args[0] === 'set' && args[1]) {
     user.notify = { ...(user.notify || {}), imessageTo: args[1] };
     fs.writeFileSync(file, `${JSON.stringify(user, null, 2)}\n`);
-    return `✅ JEVIS seni 1 dakika bekleyince ${args[1]} adresine iMessage atacak. Denemek için: node cli.js notify test`;
+    return `✅ ${APP_NAME} seni 1 dakika bekleyince ${args[1]} adresine iMessage atacak. Denemek için: node cli.js notify test`;
   }
   if (args[0] === 'off') {
     user.notify = { ...(user.notify || {}), imessageTo: '' };
@@ -179,14 +180,14 @@ async function notifyCommand() {
   }
   if (args[0] === 'test') {
     const { sendIMessage } = await import('./guard/notify.js');
-    await sendIMessage('JEVIS deneme: bu mesaj geldiyse giriş ya da onay gerektiğinde sana buradan haber vereceğim.', user.notify?.imessageTo || config().notify?.imessageTo);
+    await sendIMessage(`${APP_NAME} deneme: bu mesaj geldiyse giriş ya da onay gerektiğinde sana buradan haber vereceğim.`, user.notify?.imessageTo || config().notify?.imessageTo);
     return '✅ Gönderildi. Telefonuna geldiyse hazır.';
   }
   return 'Kullanım: notify set <telefon ya da Apple ID> | notify test | notify off';
 }
 
 async function doCommand(text) {
-  // The same chat as the JEVIS bar and window (--new starts a fresh one).
+  // The same chat as the Handry bar and window (--new starts a fresh one).
   if (flags.has('--new')) (await import('./core/chats.js')).newChat();
   const out = await runCommand({ text, brainId: flagValue('--brain') || config().brain.default, fast: !flags.has('--no-fast'), model: flagValue('--model'), effort: flagValue('--effort'), onEvent: printEvent, source: 'cli' });
   if (flags.has('--say') && out.text) await speak(out.text);
@@ -219,7 +220,7 @@ async function run() {
     if (args[0] === 'install') return `Kuruldu: ${installApp()}\nAçmak için: node cli.js app open`;
     if (args[0] === 'open') {
       execFileSync('open', [fs.existsSync(INSTALLED) ? INSTALLED : buildApp()]);
-      return 'JEVIS açıldı: menü çubuğundaki ⚡ simgesi. ⌥Space sohbet, ⌥⇧Space bas-konuş, ⌥Esc acil durdur.';
+      return `${APP_NAME} açıldı: menü çubuğundaki el simgesi (✋). ⌥Space sohbet, ⌥⇧Space bas-konuş, ⌥Esc acil durdur.`;
     }
     return 'Kullanım: app build | app install | app open';
   }
@@ -227,7 +228,7 @@ async function run() {
     if (args[0] === 'on') {
       const target = fs.existsSync(INSTALLED) ? INSTALLED : installApp();
       enableAutostart(target);
-      return `✅ JEVIS bilgisayar açılınca başlayacak (${target}).`;
+      return `✅ ${APP_NAME} bilgisayar açılınca başlayacak (${target}).`;
     }
     if (args[0] === 'off') { disableAutostart(); return 'Açılışta başlama kapatıldı.'; }
     return autostartEnabled() ? 'Açılışta başlama: açık' : 'Açılışta başlama: kapalı';

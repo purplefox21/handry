@@ -14,3 +14,6 @@ dist/
 # Elin çizilen kareleri ve ikonu (app/hand/make.mjs üretir)
 app/hand/sprites/
 app/hand/icon/
+
+# Personal: absolute paths of this machine. Register the MCP server with: claude mcp add --scope user handry -- node "$(pwd)/mcp/server.js"
+.mcp.json

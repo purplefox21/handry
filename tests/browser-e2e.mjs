@@ -35,9 +35,9 @@ const steps = [
   ['"uygulamayı sil" (onay: reddet)', () => b.click('uygulamayı sil'), null, 'deny', e => e.code === 'DENIED'],
   ['Gönder/sil gerçekten yapılmadı', async () => dom(() => window.__log), l => !l.includes('submit') && !l.includes('delete')],
   ['Olmayan şey: "dark mode aç"', () => b.click('dark mode aç'), null, 'deny', e => e.code === 'NOT_FOUND' || e.code === 'LOW_CONFIDENCE'],
-  ['"dokümantasyon" linki (yeni sekme)', () => b.click('dokümantasyon'), r => r.newTab && r.title === 'JEVIS Test Documentation'],
+  ['"dokümantasyon" linki (yeni sekme)', () => b.click('dokümantasyon'), r => r.newTab && r.title === 'Handry Test Documentation'],
   ['Sekmeye geri dön', () => b.switchTab('App Store Connect'), r => r.title.includes('App Store Connect')],
-  ['Dokümantasyon sekmesini kapat', () => b.closeTab('Documentation'), r => r.title === 'JEVIS Test Documentation'],
+  ['Dokümantasyon sekmesini kapat', () => b.closeTab('Documentation'), r => r.title === 'Handry Test Documentation'],
   ['read + "#id" ile yaz', async () => {
     const r = await b.read({ text: false });
     const name = r.elements.find(e => e.name === 'Name');

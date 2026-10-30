@@ -1,7 +1,7 @@
-// The compact bar in the real JEVIS.app, driven like a person would: ⌥Space,
+// The compact bar in the real Handry.app, driven like a person would: ⌥Space,
 // type a harmless command, Enter. Checks that the command arrived from the
 // bar, that the app the user was in stayed in front (the bar doesn't steal
-// it), and that Esc / ⌥Space hide it again. Needs JEVIS.app running.
+// it), and that Esc / ⌥Space hide it again. Needs Handry.app running.
 // Usage: node tests/bar-live-e2e.mjs
 import fs from 'node:fs';
 import os from 'node:os';
@@ -12,7 +12,7 @@ import * as desktop from '../hands/desktop.js';
 const HELPER = new URL('../bin/jevis-ax', import.meta.url).pathname;
 const helper = (...args) => JSON.parse(execFileSync(HELPER, args.map(String)).toString() || '{}');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const BASE = `http://127.0.0.1:${JSON.parse(fs.readFileSync(new URL('../jevis.config.json', import.meta.url))).server.port}`;
+const BASE = `http://127.0.0.1:${JSON.parse(fs.readFileSync(new URL('../handry.config.json', import.meta.url))).server.port}`;
 
 let passed = 0;
 let total = 0;
@@ -28,7 +28,7 @@ async function check(name, fn) {
 
 const token = (await (await fetch(`${BASE}/`)).text()).match(/name="jevis-token" content="([a-f0-9]+)"/)?.[1];
 const history = async () => (await (await fetch(`${BASE}/api/history`, { headers: { 'X-Jevis-Token': token } })).json()).runs;
-// JEVIS.app writes whether the bar is up and has the keyboard to ~/.jevis/bar.json.
+// Handry.app writes whether the bar is up and has the keyboard to ~/.jevis/bar.json.
 const barState = () => { try { return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.jevis', 'bar.json'), 'utf-8')); } catch { return {}; } };
 const barOnScreen = () => Boolean(barState().visible);
 const barHasKeyboard = () => { const s = barState(); return Boolean(s.visible && s.key); };
@@ -51,7 +51,7 @@ await check('⌥Space çubuğu açıyor', async () => {
 
 await check('Yazılan komut Enter ile çubuktan gidiyor', async () => {
   const front = await desktop.frontmost();
-  // The keys must land in JEVIS's bar, never in the app the user is working in.
+  // The keys must land in Handry's bar, never in the app the user is working in.
   if (!barHasKeyboard() || SYSTEM_DIALOGS.test(front.app || '')) {
     return { ok: false, note: `klavye çubukta değil (önde ${front.app}); hiçbir şey yazılmadı` };
   }

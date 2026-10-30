@@ -1,4 +1,4 @@
-// Start JEVIS at login through a LaunchAgent. Off unless the user turns it on.
+// Start Handry at login through a LaunchAgent. Off unless the user turns it on.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

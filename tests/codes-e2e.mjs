@@ -2,9 +2,9 @@
 // messages), the Messages database (a fake chat.db in a temp folder; the real
 // one is never opened), the Gmail inbox (a page that looks like Gmail's rows),
 // the confirmation ("Hayır" = nothing is read), and that the log never holds
-// a code. Login window: the JEVIS profile Chrome is closed cleanly, reopens as
+// a code. Login window: the Handry profile Chrome is closed cleanly, reopens as
 // a plain Chrome with no debugging port, and the cookie set before survives.
-// Real Chrome in its own profile and port (the JEVIS Chrome you use is not touched).
+// Real Chrome in its own profile and port (the Handry Chrome you use is not touched).
 // Usage: node tests/codes-e2e.mjs
 import fs from 'node:fs';
 import os from 'node:os';

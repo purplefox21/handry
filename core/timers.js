@@ -2,13 +2,13 @@
 // 01:01'de ekranı kilitle", "VS Code'daki işler bitince bilgisayarı kapat",
 // "5 dakikada bir bak, indirme bitince uyut". A task has a time (at), a
 // condition (until) checked every `every` ms, or both, and one thing to do:
-// lock / sleep / restart / shutdown, a reminder, or a JEVIS command.
-// Conditions are checked by JEVIS itself, without an LLM: Claude Code's own
-// session status files, or the text of an app window or a JEVIS Chrome tab
+// lock / sleep / restart / shutdown, a reminder, or a Handry command.
+// Conditions are checked by Handry itself, without an LLM: Claude Code's own
+// session status files, or the text of an app window or a Handry Chrome tab
 // (a plain "contains", or a yes/no by Jev).
 // Tasks live in ~/.jevis/timers.json, so a task set from any Claude session
-// through the JEVIS tools is kept too; the JEVIS server runs them
-// (startScheduler). Shut down and restart get a countdown first (JEVIS bar,
+// through the Handry tools is kept too; the Handry server runs them
+// (startScheduler). Shut down and restart get a countdown first (Handry bar,
 // notification, then an iMessage to the user) and can be cancelled with ⌥Esc,
 // "dur" or "zamanlayıcıyı iptal et"; then macOS asks once more for a minute.
 // Safety: a shutdown that comes due while the Mac slept is not done late, and
@@ -34,7 +34,7 @@ export const POWER = new Set(['lock', 'sleep', 'restart', 'shutdown']);
 const OFF = new Set(['restart', 'shutdown']);
 const ACTIONS = new Set([...POWER, 'remind', 'command']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-export const TITLE = 'Zamanlayıcı'; // notices from here (the bar shows them without "JEVIS goes on by itself")
+export const TITLE = 'Zamanlayıcı'; // notices from here (the bar shows them without "Handry goes on by itself")
 
 const file = () => path.join(HOME, 'timers.json');
 const lockFile = () => path.join(HOME, 'timers.lock');
@@ -185,12 +185,12 @@ export function addJob({ action, text = '', at = null, until = null, every, coun
     nextCheck: now,
     chatId
   };
-  job.label = { what: whatLabel(job), when: capital(whenPart(job)) }; // JEVIS.app's menu shows these as they are
+  job.label = { what: whatLabel(job), when: capital(whenPart(job)) }; // Handry.app's menu shows these as they are
   saveJobs([...listJobs(), job]);
   return job;
 }
 
-/** What JEVIS says after setting a task. */
+/** What Handry says after setting a task. */
 export function confirmText(job) {
   const lines = [`Tamam: ${whenPart(job)} ${futureText(job)}.`];
   if (job.until) lines.push(`${job.every >= MIN ? `${Math.round(job.every / MIN)} dakikada` : `${Math.max(1, Math.round(job.every / 1000))} saniyede`} bir bakıyorum.`);
@@ -305,11 +305,11 @@ function takeLock() {
   return true;
 }
 
-/** Makes sure something runs the tasks: the JEVIS app (its server) is opened in the background if needed. */
+/** Makes sure something runs the tasks: the Handry app (its server) is opened in the background if needed. */
 export async function ensureScheduler() {
   if (schedulerAlive()) return true;
   if (process.env.JEVIS_HOME || process.env.JEVIS_NO_TIMERS === '1') return false; // tests, throwaway homes
-  const app = [`${APP_NAME}.app`, 'Inaro.app', 'Foxie.app', 'JEVIS.app'].map(name => path.join(os.homedir(), 'Applications', name)).find(p => fs.existsSync(p));
+  const app = [`${APP_NAME}.app`, 'Inaro.app', 'Foxie.app', 'Handry.app'].map(name => path.join(os.homedir(), 'Applications', name)).find(p => fs.existsSync(p));
   if (!app) return false;
   execFile('open', ['-g', app], () => {});
   for (let i = 0; i < 60; i++) {
@@ -331,7 +331,7 @@ function keepAwake(on) {
   }
 }
 
-/** `run(text)` runs a JEVIS command (the server passes one that waits until nothing else runs). */
+/** `run(text)` runs a Handry command (the server passes one that waits until nothing else runs). */
 export function startScheduler({ run } = {}) {
   if (process.env.JEVIS_NO_TIMERS === '1' || loopTimer) return;
   runCommandFn = run || null;

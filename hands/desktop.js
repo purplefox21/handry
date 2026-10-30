@@ -444,7 +444,7 @@ export async function waitFor(words, { app, seconds = 10, gone = false } = {}) {
   throw new JevisError('TIMEOUT', `${Math.round(limit / 1000)} sn beklendi; "${words}" ${gone ? 'hâlâ duruyor' : 'görünmedi'} (${r.app}${r.window ? ` — ${r.window}` : ''}).`);
 }
 
-/** May JEVIS send Apple Events to that app? granted | denied | ask | not_running (never asks). */
+/** May Handry send Apple Events to that app? granted | denied | ask | not_running (never asks). */
 /**
  * The Apple menu's items, read from Finder's menu bar (Finder always runs).
  * Pressing one works in the background, like clicking it; only Accessibility is needed.

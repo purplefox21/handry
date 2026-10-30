@@ -9,7 +9,7 @@ import { callTool } from './tools.js';
 import { actionsOfRun } from '../guard/log.js';
 
 const DIR = path.join(ROOT, 'recipes');
-// Recipes JEVIS learned by itself (core/learn.js) hold the user's own
+// Recipes Handry learned by itself (core/learn.js) hold the user's own
 // commands, so they live outside the repository.
 export const LEARNED_DIR = path.join(HOME, 'learned');
 

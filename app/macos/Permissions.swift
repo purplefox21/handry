@@ -5,7 +5,7 @@
 // ("İzinler…"). States are checked every second while it is open, so a row
 // turns green as soon as the user allows it (no restart needed, except
 // Screen Recording, which macOS applies after the app restarts).
-// The JEVIS server runs as the app's child, so what the app is allowed here, the
+// The Handry server runs as the app's child, so what the app is allowed here, the
 // server's actions are allowed too.
 import SwiftUI
 import AVFoundation

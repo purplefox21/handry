@@ -1,5 +1,5 @@
-// The compact JEVIS bar. JEVIS.app shows it on a floating panel at the top of
-// the screen (⌥Space, or "Hey Jev"); it talks to the app through
+// The compact Handry bar. Handry.app shows it on a floating panel at the top of
+// the screen (⌥Space, or "Hey Handry"); it talks to the app through
 // window.webkit.messageHandlers.bar and the app calls window.jevisBar.
 // Typing: Enter sends, Esc hides. Voice: the app streams the words as they
 // are heard and hands over the finished phrase, which is sent after a short
@@ -307,7 +307,7 @@ input.addEventListener('keydown', e => {
 input.addEventListener('input', () => clearTimeout(hideTimer));
 
 // ---------------------------------------------------------------------------
-// Voice (the app listens; see JEVIS.swift)
+// Voice (the app listens; see Handry.swift)
 // ---------------------------------------------------------------------------
 
 function cancelCountdown() {
@@ -332,7 +332,7 @@ async function voiceFinished({ text, file, wake }) {
   void countdown.offsetWidth; // restart the animation
   countdown.classList.add('running');
   const wait = new Promise(r => setTimeout(r, ms));
-  // whisper knows names like JEVIS, VS Code and Claude better than the live recognizer.
+  // whisper knows names like Handry, VS Code and Claude better than the live recognizer.
   let better = null;
   if (file) {
     try {
@@ -351,7 +351,7 @@ async function voiceFinished({ text, file, wake }) {
 }
 
 // ---------------------------------------------------------------------------
-// Called by JEVIS.app
+// Called by Handry.app
 // ---------------------------------------------------------------------------
 
 window.jevisBar = {
@@ -413,7 +413,7 @@ window.jevisBar = {
     answer.hidden = false;
     answer.classList.add('error');
     answer.textContent = `${ev.title}: ${ev.message}`;
-    // Timer notices and reminders are news, not a login JEVIS waits for.
+    // Timer notices and reminders are news, not a login Handry waits for.
     const news = ev.title === 'Zamanlayıcı' || ev.title === 'Hatırlatma';
     answer.classList.toggle('error', !news);
     foot.replaceChildren(el('span', null, news ? '' : `Bitirince ${APP_NAME} kendiliğinden devam eder.`));

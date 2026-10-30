@@ -1,9 +1,9 @@
 // Chats and their Claude sessions, with a stand-in brain that records what it
-// is sent: the session continues, what JEVIS did without Claude is told to it
+// is sent: the session continues, what Handry did without Claude is told to it
 // ("Sen yokken…"), the screen goes with every message, the session is
 // refreshed with a summary after ROTATE_TURNS turns or a model change,
 // "yeni sohbet" and 2 hours of silence start a new chat, old chats can be
-// picked up again. Works in a throwaway JEVIS home.
+// picked up again. Works in a throwaway Handry home.
 // Usage: node tests/chats-e2e.mjs
 import fs from 'node:fs';
 import os from 'node:os';

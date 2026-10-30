@@ -1,4 +1,4 @@
-// Handry, JEVIS's app (the name comes from core/brand.js): starts the JEVIS
+// Handry, Handry's app (the name comes from core/brand.js): starts the Handry
 // server and shows it three ways:
 //   - the bar: a compact field that drops from the top of the screen
 //     (app/public/bar.html on a floating panel), and
@@ -12,7 +12,7 @@
 //   ⌥⇧Space       hold to talk (push to talk)
 //   ⌥Esc          emergency stop
 // The server runs as this app's child, so macOS permissions (Accessibility,
-// Screen Recording, Microphone, Speech Recognition) are granted to JEVIS.
+// Screen Recording, Microphone, Speech Recognition) are granted to Handry.
 import Cocoa
 import WebKit
 import Carbon
@@ -39,7 +39,7 @@ let WAKE_LABEL = info["WakeLabel"] as? String ?? "Hey Handry"
 let BAR_WIDTH: CGFloat = 680
 let BAR_HEIGHT: CGFloat = 58
 
-/// A panel that can take typing without making JEVIS the active app, so the
+/// A panel that can take typing without making Handry the active app, so the
 /// app the user was in stays "in front" for commands like "bunu kapat".
 final class BarPanel: NSPanel {
     override var canBecomeKey: Bool { true }
@@ -100,7 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         return true
     }
 
-    // Closing the window keeps JEVIS running for the bar and the keys.
+    // Closing the window keeps Handry running for the bar and the keys.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     /// Shows a waiting page, then the chat once the server answers. On first
@@ -132,7 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         }
     }
 
-    // MARK: Main menu (shown at the top of the screen while JEVIS is in front)
+    // MARK: Main menu (shown at the top of the screen while Handry is in front)
 
     func buildMainMenu() {
         let main = NSMenu()
@@ -295,7 +295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         fox?.scale = CGFloat(value)
     }
 
-    /// ~/.jevis/activity.json: what the assistant is doing (written by the server and the JEVIS tools, also in other Claude sessions).
+    /// ~/.jevis/activity.json: what the assistant is doing (written by the server and the Handry tools, also in other Claude sessions).
     func watchActivity() {
         Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
             guard let self, let data = FileManager.default.contents(atPath: "\(HOME)/.jevis/activity.json"),
@@ -309,7 +309,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
     // MARK: Timers in the menu bar
 
-    /// One waiting timer or watch from ~/.jevis/timers.json (JEVIS writes its wording into "label").
+    /// One waiting timer or watch from ~/.jevis/timers.json (Handry writes its wording into "label").
     struct TimerJob {
         let id: String, what: String, when: String, note: String
         let at: Double?, watch: Bool, firingEnd: Double?, chatId: String?
@@ -408,7 +408,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         }
     }
 
-    /// Ids are JEVIS's own ("t…", "c…"); anything else is not passed to a page.
+    /// Ids are Handry's own ("t…", "c…"); anything else is not passed to a page.
     func safeId(_ id: String) -> Bool {
         !id.isEmpty && id.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }
     }
@@ -580,7 +580,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         }
     }
 
-    // MARK: Attention (JEVIS needs the user: a login, a 2FA code…)
+    // MARK: Attention (Handry needs the user: a login, a 2FA code…)
 
     var attentionId = ""
     var attentionHide: DispatchWorkItem?
@@ -676,7 +676,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         guard on else { listener.setWake(false); return }
         Listener.requestPermissions { [weak self] mic, speech in
             guard let self else { return }
-            // "Hey Jev" is found by the speech recognizer: it needs both permissions.
+            // "Hey Handry" is found by the speech recognizer: it needs both permissions.
             self.listener.setWake(mic && speech)
             if !(mic && speech) { self.wakeItems.forEach { $0.state = .mixed } }
         }
@@ -829,8 +829,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 struct JEVISApp {
     static func main() {
         let args = CommandLine.arguments
-        // JEVIS --test-listener in.wav --out out.json [--active]: runs a recording
-        // through the listener (uses JEVIS's own speech permission), then quits.
+        // Handry --test-listener in.wav --out out.json [--active]: runs a recording
+        // through the listener (uses Handry's own speech permission), then quits.
         if let i = args.firstIndex(of: "--test-listener"), i + 1 < args.count,
            let o = args.firstIndex(of: "--out"), o + 1 < args.count {
             Listener.runFileTest(input: args[i + 1], output: args[o + 1], active: args.contains("--active"))

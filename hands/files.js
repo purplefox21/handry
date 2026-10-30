@@ -125,7 +125,7 @@ export async function search(query, { dir = '~', limit = 40 } = {}) {
 /** The text of a file (plain text, or Word/RTF/HTML through textutil). */
 export async function read(target, { maxChars = 20000 } = {}) {
   const p = resolvePath(target);
-  if (SECRET_FILE.test(p) || SECRET_DIR.test(tilde(p).replace(/^~/, ''))) throw new JevisError('SECRET', 'Bu dosya şifre ya da anahtar içerebilir; JEVIS onu okumaz.');
+  if (SECRET_FILE.test(p) || SECRET_DIR.test(tilde(p).replace(/^~/, ''))) throw new JevisError('SECRET', 'Bu dosya şifre ya da anahtar içerebilir; Handry onu okumaz.');
   const st = statOf(p);
   if (!st) throw new JevisError('NOT_FOUND', `Böyle bir dosya yok: ${tilde(p)}`);
   if (st.isDirectory()) throw new JevisError('NOT_FILE', `${tilde(p)} bir klasör; files_list ile bak.`);
