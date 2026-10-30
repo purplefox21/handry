@@ -188,7 +188,15 @@ export async function tryFast(command, onEvent, { previous = '' } = {}) {
     }
   }
   const learned = listLearned();
-  const decision = await classify(command, learned, { previous });
+  let decision;
+  try {
+    decision = await classify(command, learned, { previous });
+  } catch (err) {
+    // No Jev (busy, offline, no key): the fast path can't judge the command, so the brain does it.
+    onEvent({ type: 'route', route: 'needs_brain', why: 'jev_unavailable', confidence: 0, ms: 0 });
+    const why = err.code === 'JEV_DOWN' ? 'Jev şu an cevap vermiyor' : `Jev'e sorulamadı (${firstLine(err.message).slice(0, 120)})`;
+    return { handled: false, note: `${why}; hızlı yol yerine Claude yapıyor.` };
+  }
   const { confidence, answers, ms, intent } = decision;
   // "bilgisayarı kapat" & co. were read by the rules; Jev still has to agree that it is meant now.
   const route = parsed?.type === 'now' ? `power_${parsed.action}` : decision.route;

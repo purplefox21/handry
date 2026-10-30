@@ -4,8 +4,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT, config } from './config.js';
+import { JevisError } from './errors.js';
 
-const API_URL = 'https://api.typesafe.ai/v1/systemone';
+// JEVIS_JEV_URL points the client somewhere else (tests use a local stand-in).
+const API_URL = process.env.JEVIS_JEV_URL || 'https://api.typesafe.ai/v1/systemone';
 const NONE = 'None of these elements matches the instruction';
 
 let apiKey;
@@ -25,7 +27,18 @@ export function getApiKey() {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-/** Raw Jev call. Retries once on rate limits, server errors and network failures. */
+// Busy (429, 529 "system_overloaded"), server errors and network failures are tried again after these waits.
+// A busy Jev may say how long to wait (Retry-After); at most 3 s, so a click never hangs for long.
+const RETRY_WAITS = [600, 1500];
+const retryWait = (attempt, res) => {
+  const said = Number(res?.headers?.get('retry-after')) * 1000;
+  return Math.min(Math.max(RETRY_WAITS[attempt], Number.isFinite(said) ? said : 0), 3000);
+};
+
+/**
+ * Raw Jev call. Throws JevisError JEV_DOWN when Jev can't be reached or stays busy
+ * (callers can then go on without it), JEV_ERROR for other failures.
+ */
 export async function ask(state, questions) {
   const started = Date.now();
   for (let attempt = 0; ; attempt++) {
@@ -39,16 +52,17 @@ export async function ask(state, questions) {
         signal: AbortSignal.timeout(20000)
       });
     } catch (err) {
-      if (attempt === 0) { await sleep(400); continue; }
-      throw new Error(`Jev'e ulaşılamadı: ${err.message}`);
+      if (attempt < RETRY_WAITS.length) { await sleep(retryWait(attempt)); continue; }
+      throw new JevisError('JEV_DOWN', `Jev'e ulaşılamadı: ${err.message}`);
     }
     const text = await res.text();
     if (res.ok) {
       const data = JSON.parse(text);
       return { answers: data.answers || {}, usage: data.usage, ms: Date.now() - started };
     }
-    if (attempt === 0 && (res.status === 429 || res.status >= 500)) { await sleep(600); continue; }
-    throw new Error(`Jev API hatası (${res.status}): ${text.slice(0, 300)}`);
+    const busy = res.status === 429 || res.status >= 500;
+    if (busy && attempt < RETRY_WAITS.length) { await sleep(retryWait(attempt, res)); continue; }
+    throw new JevisError(busy ? 'JEV_DOWN' : 'JEV_ERROR', `Jev API hatası (${res.status}): ${text.slice(0, 300)}`, { status: res.status });
   }
 }
 
