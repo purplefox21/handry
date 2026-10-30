@@ -664,7 +664,8 @@ async function guardRisk(page, item, riskP, actionText) {
   if (!verdict.ask) return null;
   const title = await page.title().catch(() => '');
   // geri alınabilir, zararsız işlemler (taslağı kaydet, formdan öğe çıkar) sorulmadan geçer; sayfa bağlamıyla bakılır
-  if (await harmlessByKind(verdict, `${actionText} (sayfa: ${title}, ${page.url()})`)) return null;
+  // the text next to the button too: "Delete" under "Delete this project?" is not "Remove" in a draft
+  if (await harmlessByKind(verdict, `${actionText} (sayfa: ${title}, ${page.url()}${item.ctx ? `; yanındaki metin: ${String(item.ctx).slice(0, 300)}` : ''})`)) return null;
   const changes = pendingChanges.get(page) || [];
   const changed = changes.length ? `\n\nBu sayfada ${APP.genitive} girdikleri:\n${changes.slice(-12).map(c => `• ${c.field}: ${c.value}`).join('\n')}` : '';
   // kullanıcı bu sitede bu düğmeye "hep" dediyse sorulmaz (para, sipariş ve silme hariç)

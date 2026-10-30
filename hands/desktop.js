@@ -97,7 +97,8 @@ export async function read({ app, menus = false, remember = true } = {}) {
   await ensureTrusted();
   const tree = await ax('tree', ...(await appArgs(app)), ...(menus ? ['--menus'] : []));
   const elements = tree.elements.map((e, i) => ({ ...e, id: `d${i + 1}`, name: clean(e.name), ctx: clean(e.ctx) }));
-  if (remember) saveState({ desktop: { pid: tree.pid, app: tree.app, window: tree.window, ids: Object.fromEntries(elements.map(e => [e.id, { path: e.path, name: e.name }])) } });
+  // The window's texts are kept too: a later #dN click shows them to the risk check ("Bu belgeyi tutmak istiyor musunuz?").
+  if (remember) saveState({ desktop: { pid: tree.pid, app: tree.app, window: tree.window, texts: tree.texts.map(clean).filter(Boolean).slice(0, 12), ids: Object.fromEntries(elements.map(e => [e.id, { path: e.path, name: e.name }])) } });
   return {
     app: tree.app,
     pid: tree.pid,
@@ -123,7 +124,7 @@ async function resolve(target, purpose, { app, withRisk = false } = {}) {
     if (!entry) throw new JevisError('STALE', `#${id[1]} bilinmiyor. Önce pencereyi oku (desktop_read).`);
     const front = await frontmost();
     const risk = withRisk ? (await jev.isRisky(PURPOSE[purpose](entry.name), { app: saved.app, window: saved.window })).p : null;
-    return { path: entry.path, name: entry.name, expect: entry.name, role: '', pid: saved.pid, bundleId: front.bundleId, pick: { confidence: 1, risk, ms: 0 } };
+    return { path: entry.path, name: entry.name, expect: entry.name, role: '', pid: saved.pid, bundleId: front.bundleId, context: saved.texts || [], pick: { confidence: 1, risk, ms: 0 } };
   }
 
   // The window first; its menus too when the window has no confident match
@@ -138,7 +139,7 @@ async function resolve(target, purpose, { app, withRisk = false } = {}) {
     const alternatives = pick.alternatives.filter(a => a.index !== null).map(a => ({ id: r.elements[a.index].id, label: labels[a.index], p: pct(a.p) }));
     if (pick.index !== null && jev.isConfident(pick)) {
       const el = r.elements[pick.index];
-      return { path: el.path, name: el.name || el.subrole || el.role, expect: el.name, role: el.role, pid: r.pid, bundleId: r.bundleId, pick };
+      return { path: el.path, name: el.name || el.subrole || el.role, expect: el.name, role: el.role, pid: r.pid, bundleId: r.bundleId, context: r.texts.slice(0, 12), pick };
     }
     if (!best || (alternatives[0]?.p || 0) > (best.alternatives[0]?.p || 0)) best = { app: r.app, pick, alternatives };
   }
@@ -152,7 +153,10 @@ async function resolve(target, purpose, { app, withRisk = false } = {}) {
 async function guard(el, riskP, actionText, app) {
   const verdict = needsConfirm({ name: el.name, role: el.role }, riskP, app || '');
   if (!verdict.ask) return null;
-  if (await harmlessByKind(verdict, `${actionText} (uygulama: ${app})`)) return null;
+  // What the window says decides what a button does: "Sil" under "Bu belgeyi tutmak istiyor musunuz?" throws a
+  // document away. Without it Jev took that "Sil" for something harmless and the user was never asked.
+  const said = el.context?.length ? `; pencerede: ${el.context.join(' · ').slice(0, 600)}` : '';
+  if (await harmlessByKind(verdict, `${actionText} (uygulama: ${app}${said})`)) return null;
   const ok = await confirmAction(`${APP_NAME} şunu yapmak istiyor:\n\n${actionText}\n\nUygulama: ${app}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`);
   if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
   return { reason: verdict.reason };
