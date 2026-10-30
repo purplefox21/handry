@@ -48,7 +48,7 @@ async function check(name, fn) {
   const started = Date.now();
   let ok = false;
   let note = '';
-  try { const r = await fn(); ok = Boolean(r?.ok ?? r); note = r?.note || ''; } catch (err) { note = err.message; }
+  try { const r = await fn(); ok = r && typeof r === 'object' && 'ok' in r ? Boolean(r.ok) : Boolean(r); note = r?.note || ''; } catch (err) { note = err.message; }
   if (ok) passed++;
   console.log(`${ok ? '✅' : '❌'} ${String(Date.now() - started).padStart(5)} ms  ${name}${note ? `  → ${note}` : ''}`);
 }
