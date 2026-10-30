@@ -69,9 +69,9 @@ export async function doctor() {
   for (const b of await listBrains()) {
     lines.push(b.available ? ok(`Beyin: ${b.label}`) : `➖ Beyin: ${b.label} — ${b.reason}`);
   }
-  lines.push(fs.existsSync(path.join(ROOT, '.mcp.json')) && findBinary('claude')
-    ? ok('Claude Code MCP bağlantısı', '.mcp.json (bu klasörde açılan oturumlar)')
-    : warn('Claude Code MCP bağlantısı', '.mcp.json ya da claude komutu yok'));
+  // .mcp.json is personal (absolute paths) and not in git; the user-scope registration below is the usual way.
+  if (!findBinary('claude')) lines.push(warn('Claude Code', 'claude komutu bulunamadı (https://claude.com/claude-code)'));
+  else if (fs.existsSync(path.join(ROOT, '.mcp.json'))) lines.push(ok('Claude Code MCP bağlantısı', '.mcp.json (bu klasörde açılan oturumlar)'));
   // Other Claude sessions using the app's hands: every Claude Code session, and the Claude app.
   const readJson = f => { try { return JSON.parse(fs.readFileSync(f, 'utf-8')); } catch { return null; } };
   lines.push(readJson(path.join(os.homedir(), '.claude.json'))?.mcpServers?.[MCP_NAME]
