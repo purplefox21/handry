@@ -84,6 +84,23 @@ private func folderRow(_ folder: String, _ title: String, _ why: String, needed:
     })
 }
 
+/// Full Disk Access has no dialog an app could show: the user adds the app in System Settings and opens it
+/// again. Whether it is on shows by opening a file only that access opens (the Messages database; TCC's own
+/// database when Messages was never used).
+private func fullDiskRow() -> PermissionRow {
+    let probes = ["\(HOME)/Library/Messages/chat.db", "\(HOME)/Library/Application Support/com.apple.TCC/TCC.db"]
+    let readable = {
+        guard let file = probes.first(where: { FileManager.default.fileExists(atPath: $0) }) else { return false }
+        guard let h = FileHandle(forReadingAtPath: file) else { return false }
+        h.closeFile()
+        return true
+    }
+    return PermissionRow(id: "fulldisk", symbol: "externaldrive.badge.checkmark", title: "Tam Disk Erişimi",
+                         why: "Telefondan onay ve komut (kendine \"\(APP_NAME), …\" yazmak) ve SMS kodları: Mesajlar'daki mesajlarını okumak. macOS bunu soramaz: Ayarlar'da \(APP_ACC) ekleyip aç, sonra \(APP_ACC) yeniden başlat.", needed: false,
+                         check: { readable() ? .granted : .denied },
+                         ask: { openSettings("Privacy_AllFiles") })
+}
+
 func allPermissions() -> [PermissionRow] {
     var rows: [PermissionRow] = [
         PermissionRow(id: "accessibility", symbol: "hand.point.up.left", title: "Erişilebilirlik",
@@ -125,7 +142,8 @@ func allPermissions() -> [PermissionRow] {
                       }),
         folderRow("Desktop", "Masaüstü klasörü", "\(APP_GEN) kendi dosyaları burada (~/Desktop/jev); dosya işleri.", needed: true),
         folderRow("Documents", "Belgeler klasörü", "\"Belgelerimde şunu bul\" gibi dosya işleri.", needed: false),
-        folderRow("Downloads", "İndirilenler klasörü", "İndirilen dosyaları bulmak, taşımak.", needed: false)
+        folderRow("Downloads", "İndirilenler klasörü", "İndirilen dosyaları bulmak, taşımak.", needed: false),
+        fullDiskRow()
     ]
     let apps: [(String, String, String, String)] = [
         ("com.apple.systemevents", "System Events", "Karanlık mod gibi sistem ayarları.", "gearshape"),
