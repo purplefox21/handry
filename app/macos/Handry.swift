@@ -50,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     var statusItem: NSStatusItem!
     var flashUntil = Date.distantPast // the ⛔ after an emergency stop stays a moment
     var fox: FoxPet?
+    var overlay: Overlay?
     let permissions = PermissionsWindow()
     var activitySeen: Double = 0
     var window: NSWindow!
@@ -76,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         watchTimers()
         registerHotKeys()
         makeFox()
+        overlay = Overlay()
         watchActivity()
         showBar(mode: "type")
         loadWhenReady()
@@ -203,6 +205,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         menu.addItem(item("⛔ Acil Durdur   ⌥Esc", #selector(emergencyStop)))
         menu.addItem(.separator())
         menu.addItem(foxMenuItem())
+        menu.addItem(dotItem())
         menu.addItem(.separator())
         menu.addItem(item("Tarayıcıda Aç", #selector(openInBrowser)))
         menu.addItem(item("İzinler…", #selector(checkPermissions)))
@@ -280,6 +283,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     }
 
     @objc func foxSleep() { fox?.sleepNow() }
+
+    /// "Üstteki Nokta": the dot under the notch (or the menu bar) that shows what Handry is doing. Drawings stay either way.
+    func dotItem() -> NSMenuItem {
+        let it = item("Üstteki Nokta", #selector(toggleDot(_:)))
+        it.state = (UserDefaults.standard.object(forKey: "overlayDot") as? Bool ?? true) ? .on : .off
+        return it
+    }
+
+    @objc func toggleDot(_ sender: NSMenuItem) {
+        let on = !(overlay?.dotShown ?? true)
+        overlay?.dotShown = on
+        sender.state = on ? .on : .off
+    }
 
     /// The other pet: the old one leaves the screen, the new one comes out where the old one was.
     @objc func choosePet(_ sender: NSMenuItem) {

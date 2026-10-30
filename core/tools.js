@@ -12,6 +12,7 @@ import * as mac from '../hands/mac.js';
 import * as files from '../hands/files.js';
 import * as apps from '../hands/apps.js';
 import * as codes from '../hands/codes.js';
+import * as overlay from '../hands/overlay.js';
 import { sendIMessage, sendIMessageFile } from '../guard/notify.js';
 import * as jev from './jev.js';
 import { config } from './config.js';
@@ -105,6 +106,7 @@ Mac apps (desktop_* tools) work the same way: desktop_read lists the front windo
 Teaching ${APP_NAME}: after finishing a task the user may want again, call ${MCP_NAME}_teach with the command in the user's words; next time ${APP_NAME} does it without an LLM. When a site hid something or needed a trick, leave a site_note; notes come back whenever the site is opened or read.
 Logins: before work on sites that need one, call browser_sessions with those sites so the user can log in to all of them first. When a page asks for a login, the user is alerted (sound, notification, ${APP_NAME} bar, an iMessage after a minute); call wait_for_user with leave_url or until_text so the work goes on by itself once they are done.
 Speed vs. human input: the mouse and keyboard are fast and plain by default. When a site blocks automation (Google "This browser or app may not be secure", "Couldn't sign you in", a bot or CAPTCHA wall, "unusual traffic"; tool results warn you when a page looks like that), call human_mode on: true (gliding mouse, key-by-key typing; slower) and retry; before a Google or Apple sign-in you may switch it on up front. Turn it off again when done. If it is on and the site still blocks (Google sign-in above all), call login_window: it opens the profile as a plain Chrome with nothing attached, the user signs in by hand once, the login stays in the profile.
+Showing instead of doing: screen_draw draws an arrow, a circle, an underline or a box (with a short label) around a thing on the screen without clicking it, when the user asks where something is or how to do it, or to point at a mistake; for several places use steps (one after another, numbered), never many drawings at once.
 Phone: the user may be away and texting from the phone (commands that start with the name come in by iMessage and your answer goes back there); phone_send sends text or a screenshot to their own phone when they ask to see something there.
 Codes by SMS or e-mail: when a site says it sent a code, call verification_code (source sms = Messages on this Mac, gmail = the Gmail inbox in the Chrome); give target to have it typed into the field. Do not open the user's Messages or mail to look for codes yourself. CAPTCHAs: call browser_solve_captcha first — it tries 2captcha.com (if CAPTCHA_KEY is set) then Claude Vision; only call wait_for_user if it reports failure.
 Forms: fill many fields with one browser_fill call instead of one browser_type/browser_select per field.
@@ -619,6 +621,64 @@ export const TOOLS = [
     }
   },
   {
+    name: 'screen_draw',
+    description: `Show the user something on the screen without clicking it: lines appear around it (no pen), with a short label if you give one; the color is picked to stand out from what is under it. shape: "arrow" (default; out of the ${APP_NAME} light under the camera notch), "circle", "underline", "box", or "note" (only the label). What: browser (words on the page or #id from browser_read; the ${APP_NAME} Chrome window comes to the front), desktop (words or #dN from desktop_read; app: which app, it comes to the front), or x and y (pixels of the last desktop_screenshot). note: a few words in Turkish ("buraya bas"). A drawing goes after seconds (default 5) or as soon as the user clicks or types. Several places: give steps (each { browser | desktop | x, y, app, shape, note }) and they come one after another, numbered, each until its seconds are up or the user acts: use this for "how do I…" (first here, then here) instead of drawing everything at once. clear: true removes everything. Use it when the user asks where something is or how to do something ("göster", "nereye basayım"), or to point at a mistake; when the user asked you to do the task, do it instead.`,
+    inputSchema: obj({
+      shape: { type: 'string', enum: overlay.SHAPES },
+      browser: { type: 'string' },
+      desktop: { type: 'string' },
+      app: { type: 'string' },
+      x: { type: 'number' },
+      y: { type: 'number' },
+      note: { type: 'string' },
+      color: { type: 'string', enum: ['auto', ...Object.keys(overlay.PALETTE)], description: 'auto (default): the color that stands out most on what is under it.' },
+      seconds: { type: 'number' },
+      steps: {
+        type: 'array', maxItems: 8,
+        items: { type: 'object', properties: { browser: { type: 'string' }, desktop: { type: 'string' }, app: { type: 'string' }, x: { type: 'number' }, y: { type: 'number' }, shape: { type: 'string', enum: overlay.SHAPES }, note: { type: 'string' } } }
+      },
+      clear: { type: 'boolean' }
+    }),
+    run: async ({ shape = 'arrow', browser: onPage, desktop: inApp, app, x, y, note, color = 'auto', seconds = 5, steps, clear }) => {
+      if (clear) { overlay.clear(); return text('Ekrandaki çizimler silindi.'); }
+      // where a target is on the screen; its app (or the Handry Chrome) comes to the front first
+      const place = async t => {
+        if (t.browser) {
+          const pid = browser.profileChromePids()[0];
+          if (pid) await desktop.activate(pid).catch(() => {});
+          const r = await browser.screenRect(t.browser);
+          return { rect: r.rect, what: `"${r.name}" (sayfada)` };
+        }
+        if (t.desktop) {
+          const r = await desktop.frameOf(t.desktop, { app: t.app });
+          return { rect: r.rect, what: `"${r.name}"${r.app ? ` (${r.app})` : ''}` };
+        }
+        if (t.x !== undefined && t.y !== undefined) {
+          const p = desktop.shotToScreen(Number(t.x), Number(t.y));
+          return { rect: { x: p.x - 18, y: p.y - 18, w: 36, h: 36 }, what: `ekran görüntüsündeki (${t.x}, ${t.y}) noktası` };
+        }
+        throw Object.assign(new Error('Neyi göstereceğimi söyle: browser, desktop ya da x ve y.'), { code: 'BAD_ARGS' });
+      };
+      const secs = Math.min(Math.max(1, Number(seconds) || 5), 60);
+      const warn = overlay.appRunning() ? '' : ` (${APP_NAME}.app açık değil: çizim ancak o açıkken görünür)`;
+      if (steps?.length) {
+        const found = [];
+        for (const [i, st] of steps.slice(0, 8).entries()) {
+          try {
+            found.push({ ...(await place({ app, ...st })), shape: st.shape || 'arrow', note: st.note });
+          } catch (err) {
+            throw Object.assign(new Error(`${i + 1}. adım bulunamadı: ${err.message}`), { code: err.code || 'NOT_FOUND' });
+          }
+        }
+        const ids = await overlay.drawSteps(found, { seconds: secs, color });
+        return text(`${found.length} adım sırayla gösterilecek (her biri ${secs} sn ya da kullanıcı tıklayınca/yazınca sonrakine geçer): ${found.map((f, i) => `${i + 1}. ${f.what}${f.note ? ` — "${f.note}"` : ''}`).join('; ')}.${warn}`, { ids });
+      }
+      const p = await place({ browser: onPage, desktop: inApp, app, x, y });
+      const id = await overlay.draw({ shape, rect: p.rect, note, color, seconds: secs });
+      return text(`Ekranda gösterildi: ${shape} → ${p.what}${note ? ` — "${note}"` : ''}, ${secs} sn ya da kullanıcı tıklayana/yazana kadar.${warn}`, { id, rect: p.rect });
+    }
+  },
+  {
     name: 'phone_send',
     description: `Send something to the user's phone by iMessage, to their own address (notify.imessageTo; never anyone else): text, and/or a screenshot (screenshot "screen" = the main display, "window" = the front window; app: that app's window). Use it when the user asks to see the screen or a result on the phone ("ekranı telefonuma at"), or is writing from the phone.`,
     inputSchema: obj({
@@ -697,7 +757,7 @@ export const TOOLS = [
   },
   {
     name: 'desktop_windows',
-    description: 'List the windows of a Mac app (default: the frontmost app), e.g. one VS Code window per project. Windows on other desktops (Spaces) are listed too, without a number; desktop_focus_window goes to them.',
+    description: 'List the windows of a Mac app (default: the frontmost app), e.g. one VS Code window per project. Windows that are not on screen (on another desktop, or hidden) are listed too, without a number; desktop_focus_window goes to one on another desktop.',
     inputSchema: obj({ app: { type: 'string' } }),
     run: async ({ app }) => {
       const r = await desktop.windows(app);
@@ -705,7 +765,7 @@ export const TOOLS = [
       return text([
         `${r.app} pencereleri:`,
         ...r.windows.map(w => `${w.focused ? '▶' : ' '} ${w.index}. ${w.title || '(başlıksız)'}${w.minimized ? ' (küçültülmüş)' : ''}`),
-        ...(r.elsewhere.length ? [`Başka masaüstlerinde (desktop_focus_window ile oraya gidilir): ${r.elsewhere.join(' | ')}`] : [])
+        ...(r.elsewhere.length ? [`Ekranda değil (başka masaüstünde ya da gizli; desktop_focus_window başka masaüstündeyse oraya gider): ${r.elsewhere.join(' | ')}`] : [])
       ].join('\n'), r);
     }
   },
@@ -1091,7 +1151,8 @@ for (const old of ['jevis', 'inaro']) {
 // could do them twice.
 const TIME_LIMIT = {
   browser_read: 60e3, browser_screenshot: 60e3, browser_verify: 60e3, browser_table: 60e3, browser_tabs: 30e3, browser_scroll: 30e3,
-  browser_open: 90e3, browser_wait: 90e3, desktop_read: 60e3, desktop_screenshot: 60e3, desktop_windows: 30e3, desktop_apps: 30e3
+  browser_open: 90e3, browser_wait: 90e3, desktop_read: 60e3, desktop_screenshot: 60e3, desktop_windows: 30e3, desktop_apps: 30e3,
+  screen_draw: 60e3
 };
 function withLimit(promise, ms, name) {
   let timer;

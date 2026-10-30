@@ -12,6 +12,7 @@ import { needsConfirm, confirmAction, harmlessByKind, allowedOnSite, rememberabl
 import { JevisError } from '../core/errors.js';
 import { APP, APP_NAME } from '../core/brand.js';
 import * as human from './human.js';
+import * as overlay from './overlay.js';
 import * as captcha from './captcha.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -658,7 +659,30 @@ function noteChange(page, field, value) {
   pendingChanges.set(page, list);
 }
 
-async function guardRisk(page, item, riskP, actionText) {
+/**
+ * Where an element is on the screen, in global top-left points (what the desktop hands and the drawing
+ * layer use): the window's place, the toolbar above the page, and the page zoom are taken into account.
+ */
+async function rectOf(page, loc) {
+  await loc.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
+  const box = await loc.boundingBox();
+  if (!box) throw new JevisError('NOT_VISIBLE', 'Öğe sayfada görünmüyor.');
+  const w = await page.evaluate(() => ({ x: window.screenX, y: window.screenY, ow: window.outerWidth, oh: window.outerHeight, iw: window.innerWidth, ih: window.innerHeight }));
+  const zoom = w.iw > 0 && w.ow / w.iw > 0.25 && w.ow / w.iw < 5 ? w.ow / w.iw : 1;
+  const left = w.x + (w.ow - w.iw * zoom) / 2;
+  const top = w.y + (w.oh - w.ih * zoom); // the tabs and the address bar are above the page
+  return { x: left + box.x * zoom, y: top + box.y * zoom, w: box.width * zoom, h: box.height * zoom };
+}
+
+/** A page element's place on the screen (for screen_draw). The tab is brought to the front first. */
+export async function screenRect(target) {
+  const page = await activePage();
+  await page.bringToFront().catch(() => {});
+  const { loc, item } = await resolve(page, target, 'click');
+  return { rect: await rectOf(page, loc), name: item.name };
+}
+
+async function guardRisk(page, item, riskP, actionText, loc = null) {
   const host = (() => { try { return new URL(page.url()).host; } catch { return ''; } })();
   const verdict = needsConfirm(item, riskP, host);
   if (!verdict.ask) return null;
@@ -673,7 +697,12 @@ async function guardRisk(page, item, riskP, actionText) {
     pendingChanges.delete(page);
     return { reason: `${verdict.reason} · bu sitede hep izinli` };
   }
+  // while the question is open, the button it is about is circled on the screen
+  const mark = loc && config().overlay?.confirmHighlight !== false
+    ? await rectOf(page, loc).then(r => overlay.draw({ shape: 'circle', rect: r, note: 'Buna basmak istiyorum', seconds: 900 }), () => null)
+    : null;
   const ok = await confirmAction(`${APP_NAME} şunu yapmak istiyor:\n\n${actionText}${changed}\n\nSayfa: ${title}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`, { remember: rememberable(item.name) ? { host, name: item.name } : null });
+  if (mark) overlay.clear(mark);
   if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
   pendingChanges.delete(page); // approved: these are being saved now
   const shot = path.join(homeDir('logs', 'approved'), `${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`);
@@ -824,7 +853,7 @@ export async function click(target, { risk = true, purpose = 'click', scope } = 
   if (await loc.evaluate(el => el.tagName === 'INPUT' && el.type === 'file')) {
     throw new JevisError('WRONG_TOOL', 'Bu bir dosya seçme alanı; dosya yüklemek için upload kullanın.');
   }
-  const approval = risk ? await guardRisk(page, item, pick.risk, `"${item.name}" öğesine tıklamak`) : null;
+  const approval = risk ? await guardRisk(page, item, pick.risk, `"${item.name}" öğesine tıklamak`, loc) : null;
   // the pointer glides for a while before it presses, so the wait must outlast the glide
   const popup = context().waitForEvent('page', { timeout: 8000 }).catch(() => null);
   await clickLocator(loc);

@@ -42,6 +42,10 @@ Handry started as a way to stop filling in App Store Connect by hand (pricing, t
 - A Spotlight-like bar (⌥Space) and a chat window.
 - A small pixel-art hand that walks on its fingers across your screen and shows what Handry is doing.
 
+**Shows instead of doing, when you ask "where?" or "how?"**
+- Lines appear on your screen without clicking anything: an arrow out of a soft light at the camera notch, a circle, an underline, a box, with a short label. The color is picked to stand out from what is under it. Several places come one after another ("1. first here", "2. then here"), and they go as soon as you click or type.
+- While a risky step waits for your OK, the button it is about is circled.
+
 **From your phone**
 - Text yourself "Handry, turn the volume down" by iMessage: Handry does it and texts back the answer. "Handry, ekranı göster" sends a screenshot. Only your own conversation counts, only messages that start with the name, only new ones; risky steps still ask you (on the phone, with a code).
 
@@ -134,7 +138,7 @@ Measured on my Mac:
 
 ## Tests
 
-`tests/` has 30 end-to-end scripts that run against real Chrome, real Mac apps and the real Jev. Most use a throwaway Handry folder and their own Chrome profile, so your setup isn't touched; the comment at the top of each file says what it opens or changes. Most spend a few Jev calls, and `app-e2e` uses a little of your Claude subscription.
+`tests/` has 31 end-to-end scripts that run against real Chrome, real Mac apps and the real Jev. Most use a throwaway Handry folder and their own Chrome profile, so your setup isn't touched; the comment at the top of each file says what it opens or changes. Most spend a few Jev calls, and `app-e2e` uses a little of your Claude subscription.
 
 ```bash
 node tests/mcp-smoke.mjs              # the MCP server and a form, end to end (uses the Handry Chrome window)
@@ -144,6 +148,7 @@ node tests/jev-resilience-e2e.mjs     # Jev busy or offline: retries, then Claud
 node tests/remote-approve-e2e.mjs     # approving from the phone (stand-in Messages database, nothing is sent)
 node tests/phone-e2e.mjs              # commands from the phone by iMessage, screenshots to the phone (nothing is sent)
 node tests/spaces-e2e.mjs             # desktops (Spaces) on the real screen; puts everything back
+node tests/overlay-e2e.mjs            # drawing on the screen: places checked against the accessibility tree and by pixels
 ```
 
 ## Status and limits

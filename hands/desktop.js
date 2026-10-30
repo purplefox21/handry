@@ -6,13 +6,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
-import { ROOT, homeDir, loadState, saveState } from '../core/config.js';
+import { ROOT, config, homeDir, loadState, saveState } from '../core/config.js';
 import { JevisError } from '../core/errors.js';
 import { desktopHumanOn } from './human.js';
 import * as jev from '../core/jev.js';
 import { needsConfirm, confirmAction, dialogOpen, harmlessByKind } from '../guard/confirm.js';
 import { isStopped } from '../guard/stop.js';
 import { APP_NAME } from '../core/brand.js';
+import * as overlay from './overlay.js';
 
 const execFileAsync = promisify(execFile);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -98,7 +99,7 @@ export async function read({ app, menus = false, remember = true } = {}) {
   const tree = await ax('tree', ...(await appArgs(app)), ...(menus ? ['--menus'] : []));
   const elements = tree.elements.map((e, i) => ({ ...e, id: `d${i + 1}`, name: clean(e.name), ctx: clean(e.ctx) }));
   // The window's texts are kept too: a later #dN click shows them to the risk check ("Bu belgeyi tutmak istiyor musunuz?").
-  if (remember) saveState({ desktop: { pid: tree.pid, app: tree.app, window: tree.window, texts: tree.texts.map(clean).filter(Boolean).slice(0, 12), ids: Object.fromEntries(elements.map(e => [e.id, { path: e.path, name: e.name }])) } });
+  if (remember) saveState({ desktop: { pid: tree.pid, app: tree.app, window: tree.window, texts: tree.texts.map(clean).filter(Boolean).slice(0, 12), ids: Object.fromEntries(elements.map(e => [e.id, { path: e.path, name: e.name, frame: { x: e.x, y: e.y, w: e.w, h: e.h } }])) } });
   return {
     app: tree.app,
     pid: tree.pid,
@@ -124,7 +125,7 @@ async function resolve(target, purpose, { app, withRisk = false } = {}) {
     if (!entry) throw new JevisError('STALE', `#${id[1]} bilinmiyor. Önce pencereyi oku (desktop_read).`);
     const front = await frontmost();
     const risk = withRisk ? (await jev.isRisky(PURPOSE[purpose](entry.name), { app: saved.app, window: saved.window })).p : null;
-    return { path: entry.path, name: entry.name, expect: entry.name, role: '', pid: saved.pid, bundleId: front.bundleId, context: saved.texts || [], pick: { confidence: 1, risk, ms: 0 } };
+    return { path: entry.path, name: entry.name, expect: entry.name, role: '', pid: saved.pid, bundleId: front.bundleId, context: saved.texts || [], frame: entry.frame, pick: { confidence: 1, risk, ms: 0 } };
   }
 
   // The window first; its menus too when the window has no confident match
@@ -139,7 +140,7 @@ async function resolve(target, purpose, { app, withRisk = false } = {}) {
     const alternatives = pick.alternatives.filter(a => a.index !== null).map(a => ({ id: r.elements[a.index].id, label: labels[a.index], p: pct(a.p) }));
     if (pick.index !== null && jev.isConfident(pick)) {
       const el = r.elements[pick.index];
-      return { path: el.path, name: el.name || el.subrole || el.role, expect: el.name, role: el.role, pid: r.pid, bundleId: r.bundleId, context: r.texts.slice(0, 12), pick };
+      return { path: el.path, name: el.name || el.subrole || el.role, expect: el.name, role: el.role, pid: r.pid, bundleId: r.bundleId, context: r.texts.slice(0, 12), frame: { x: el.x, y: el.y, w: el.w, h: el.h }, pick };
     }
     if (!best || (alternatives[0]?.p || 0) > (best.alternatives[0]?.p || 0)) best = { app: r.app, pick, alternatives };
   }
@@ -157,7 +158,12 @@ async function guard(el, riskP, actionText, app) {
   // document away. Without it Jev took that "Sil" for something harmless and the user was never asked.
   const said = el.context?.length ? `; pencerede: ${el.context.join(' · ').slice(0, 600)}` : '';
   if (await harmlessByKind(verdict, `${actionText} (uygulama: ${app}${said})`)) return null;
+  // while the question is open, the control it is about is circled on the screen
+  const mark = el.frame?.w && config().overlay?.confirmHighlight !== false
+    ? await overlay.draw({ shape: 'circle', rect: el.frame, note: 'Buna basmak istiyorum', seconds: 900 })
+    : null;
   const ok = await confirmAction(`${APP_NAME} şunu yapmak istiyor:\n\n${actionText}\n\nUygulama: ${app}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`);
+  if (mark) overlay.clear(mark);
   if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
   return { reason: verdict.reason };
 }
@@ -360,6 +366,24 @@ export async function screenshot({ app, fullScreen = false } = {}) {
 
 const SHOT_MAX_AGE_MS = 5 * 60 * 1000;
 
+/** A point of the last desktop_screenshot (its pixels) → global screen points. */
+export function shotToScreen(x, y) {
+  const shot = loadState().shot;
+  if (!shot || Date.now() - shot.at > SHOT_MAX_AGE_MS) throw new JevisError('NO_SHOT', 'Önce desktop_screenshot al; x ve y o görüntünün piksel koordinatları olmalı.');
+  if (!(x >= 0 && y >= 0 && x <= shot.image.w && y <= shot.image.h)) throw new JevisError('BAD_ARGS', `Nokta görüntünün dışında (görüntü ${shot.image.w}×${shot.image.h}).`);
+  const area = shot.area;
+  return { x: Math.round(area.x + (x * area.w) / shot.image.w), y: Math.round(area.y + (y * area.h) / shot.image.h) };
+}
+
+/** Where a control of an app's window is on the screen (for screen_draw); the app comes to the front first. */
+export async function frameOf(target, { app } = {}) {
+  await ensureTrusted();
+  if (app) await activate(app);
+  const el = await resolve(target, 'click', { app });
+  if (!el.frame?.w) throw new JevisError('NO_FRAME', `"${el.name}" öğesinin ekrandaki yeri bilinmiyor (kapalı bir menüdeki öğe olabilir).`);
+  return { rect: el.frame, name: el.name, app: (await frontmost().catch(() => ({}))).app };
+}
+
 /**
  * Clicks a point of the last screenshot (x, y in its pixels), for things the
  * accessibility tree doesn't show (canvas, games, custom-drawn apps).
@@ -431,7 +455,11 @@ export async function spaces() {
   const inside = (p, d) => p.x >= d.x && p.x < d.x + d.w && p.y >= d.y && p.y < d.y + d.h;
   return displays.map((d, i) => {
     // one shared set of desktops for all displays shows up as "Main"
-    const m = monitors.find(x => x['Display Identifier'] === d.uuid) || (d.main ? monitors.find(x => x['Display Identifier'] === 'Main') : null);
+    // a display's entry can be left empty after displays change: take the one that lists desktops
+    const has = x => x?.Spaces?.length;
+    const mine = monitors.find(x => x['Display Identifier'] === d.uuid);
+    const main = d.main ? monitors.find(x => x['Display Identifier'] === 'Main') : null;
+    const m = [mine, main].find(has) || mine || main;
     const list = (m?.Spaces || []).map(sp => ({ uuid: sp.uuid, fullscreen: sp.type === 4 }));
     const shown = wallpapers.find(w => inside(w, d) && list.some(sp => sp.uuid === w.uuid));
     let current = shown ? list.findIndex(sp => sp.uuid === shown.uuid) + 1 : null;
@@ -578,7 +606,7 @@ export async function focusWindow(app, which) {
   const away = !win && wanted && !/^\d+$/.test(wanted) ? await windowsElsewhere(pid, wanted) : [];
   if (away.length) {
     win = await walkToWindow(pid, wanted, away);
-    if (!win) throw new JevisError('NOT_FOUND', `"${which}" penceresi başka bir masaüstünde açık ama ona gidilemedi (masaüstleri arasında gezildi, geri dönüldü).`);
+    if (!win) throw new JevisError('NOT_FOUND', `"${which}" penceresi ekranda değil ve masaüstlerinin hiçbirinde bulunamadı: gizlenmiş ya da kapatılmış olabilir (masaüstleri gezildi, geri dönüldü).`);
   }
   if (!list.length && !win) throw new JevisError('NOT_FOUND', `${name} uygulamasının açık penceresi yok.`);
   if (!win) {

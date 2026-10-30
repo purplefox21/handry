@@ -109,7 +109,7 @@ export function buildApp() {
     JEVISPort: String(config().server.port || 4263)
   }));
   execFileSync('swiftc', ['-O', '-o', path.join(APP_PATH, 'Contents', 'MacOS', APP.name),
-    ...['Handry.swift', 'Listener.swift', 'Fox.swift', 'Permissions.swift'].map(f => path.join(ROOT, 'app', 'macos', f)),
+    ...['Handry.swift', 'Listener.swift', 'Fox.swift', 'Permissions.swift', 'Overlay.swift'].map(f => path.join(ROOT, 'app', 'macos', f)),
     '-framework', 'AppKit', '-framework', 'WebKit', '-framework', 'Carbon', '-framework', 'AVFoundation', '-framework', 'Speech', '-framework', 'CoreAudio'], { stdio: 'pipe' });
   execFileSync('codesign', ['--force', '--deep', '--sign', signingIdentity(), APP_PATH], { stdio: 'pipe' });
   return APP_PATH;

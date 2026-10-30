@@ -44,6 +44,8 @@ Tarayıcı
   shot [--full]                       Ekran görüntüsü (~/.jevis/shots)
   verify "<beklenti>"                 Sayfa bu durumda mı? (Jev karar verir)
   wait "<metin>"                      Metin görünene kadar bekle
+  show "<hedef>" [--desk --app=X] [--shape=arrow|circle|underline|box|note] [--note="…"] [--sec=N] | show --clear
+                                      Ekranda göster: tıklamadan ok, daire, alt çizgi, kutu (Handry.app çizer)
   login-window [adres]                Google gibi girişi engelleyen siteler için: Chrome profili bağlantısız açılır, girişi sen yaparsın
   code sms|gmail [--from=kelime] [--wait=sn] [--target="<alan>"]
                                       Telefona/e-postaya gelen son doğrulama kodunu oku (önce sorar)
@@ -111,6 +113,7 @@ const TOOL_COMMANDS = {
   'close-tab': () => ['browser_tabs', { action: 'close', tab: args.length ? args.join(' ') : undefined }],
   verify: () => ['browser_verify', { expectation: args.join(' ') }],
   wait: () => ['browser_wait', { text: args.join(' ') }],
+  show: () => (flags.has('--clear') ? ['screen_draw', { clear: true }] : ['screen_draw', { shape: flagValue('--shape') || 'arrow', [flags.has('--desk') ? 'desktop' : 'browser']: args.join(' '), app: flagValue('--app'), note: flagValue('--note'), seconds: Number(flagValue('--sec')) || undefined }]),
   'login-window': () => ['login_window', { url: args[0] }],
   code: () => ['verification_code', { source: args[0], from: flagValue('--from'), wait_sec: Number(flagValue('--wait')) || undefined, target: flagValue('--target') }],
   apps: () => ['desktop_apps', {}],
