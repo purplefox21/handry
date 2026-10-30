@@ -15,7 +15,7 @@ import { pickSpan } from './spans.js';
 
 const ROUTE = {
   type: 'choice',
-  instructions: 'The user gave Handry (a Mac assistant) the spoken or typed `command`. Which kind of command is it? Judge `command` by its own words only (not `previous`). Choose the single best option; pick needs_brain whenever it asks for more than one thing or does not say what to do.',
+  instructions: 'The user gave their Mac assistant the spoken or typed `command`. Which kind of command is it? Judge `command` by its own words only (not `previous`). Choose the single best option; pick needs_brain whenever it asks for more than one thing or does not say what to do.',
   criteria: {
     volume: 'Change the sound volume: set a level or percentage, or make it louder or quieter. In Turkish "sesi aç" means louder, not opening an app (e.g. "sesi yüzde 30 yap", "sesi kıs", "sesi biraz aç", "sesi sonuna kadar aç")',
     mute: 'Mute the sound or unmute it (e.g. "sessize al", "sesi geri aç")',
@@ -26,7 +26,7 @@ const ROUTE = {
     app_quit: 'Quit or close one Mac application',
     web_open: 'Open one website in the browser (e.g. "YouTube\'u aç", "github.com\'a git")',
     web_search: 'Search the web or YouTube for something (e.g. "Google\'da hava durumu ara")',
-    page_click: 'Click one visible thing (a link, tab or button) on the web page that is already open in the Handry browser; only a click',
+    page_click: 'Click one visible thing (a link, tab or button) on the web page that is already open in the browser the assistant uses; only a click',
     dark_mode: 'Switch between dark and light mode',
     lock_screen: 'Lock the screen now (not shutting down or sleeping the Mac)',
     screenshot: 'Take a screenshot of the whole screen',
@@ -40,12 +40,12 @@ const ROUTE = {
 // Asked in the same request: only a plain "do it now" goes down the fast path.
 const INTENT = {
   type: 'choice',
-  instructions: 'What is the user doing with `command`? `previous` is what Handry said to the user just before (empty if nothing recent).',
+  instructions: 'What is the user doing with `command`? `previous` is what the assistant said to the user just before (empty if nothing recent).',
   criteria: {
-    do_now: 'Telling Handry to do something on the Mac right now, or asking it to show something now (e.g. "sesi kıs", "Spotify\'ı aç", "ekranı kilitle", "şu an hangi şarkı çalıyor", "yarın takvimde ne var"); writing a note or a reminder text now counts even if the text mentions another day (e.g. "not al: yarın kargo gelecek")',
-    do_later: 'Telling Handry to do something at a later time or when something happens (e.g. "saat 3\'te ekranı kilitle", "10 dakika sonra hatırlat", "işler bitince bilgisayarı kapat")',
-    reply: 'Answering, correcting or clarifying what Handry said or asked in `previous` (e.g. "hayır öyle değil", "ikisi de", "kapatma, sadece kilitle"), or pointing back to something earlier without naming it (e.g. "bunu bir daha yap", "aynısını yap", "onu da", "tekrar dene")',
-    chat: 'Greeting, chatting, a complaint (e.g. "anlamadın", "cümleyi okumadın"), a question about Handry itself or about the conversation (e.g. "ne dedim sana", "neler yapabilirsin", "böyle bir becerin var mı"), or saying what not to do'
+    do_now: 'Telling the assistant to do something on the Mac right now, or asking it to show something now (e.g. "sesi kıs", "sesi sonuna kadar aç", "Spotify\'ı aç", "ekranı kilitle", "şu an hangi şarkı çalıyor", "yarın takvimde ne var"); writing a note or a reminder text now counts even if the text mentions another day (e.g. "not al: yarın kargo gelecek")',
+    do_later: 'Telling the assistant to do something at a later time or when something happens (e.g. "saat 3\'te ekranı kilitle", "10 dakika sonra hatırlat", "işler bitince bilgisayarı kapat")',
+    reply: 'Answering, correcting or clarifying what the assistant said or asked in `previous` (e.g. "hayır öyle değil", "ikisi de", "kapatma, sadece kilitle"), or pointing back to something earlier without naming it (e.g. "bunu bir daha yap", "aynısını yap", "onu da", "tekrar dene")',
+    chat: 'Greeting, chatting, a complaint (e.g. "anlamadın", "cümleyi okumadın"), a question about the assistant itself or about the conversation (e.g. "ne dedim sana", "neler yapabilirsin", "böyle bir becerin var mı"), or saying what not to do'
   }
 };
 
