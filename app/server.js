@@ -314,7 +314,7 @@ const server = http.createServer(async (req, res) => {
         .replaceAll('{{APP}}', APP.name).replaceAll('{{APP_DAT}}', APP.dative).replaceAll('{{APP_GEN}}', APP.genitive).replaceAll('{{FOX}}', FOX.name)
         .replaceAll('{{COPYRIGHT}}', COPYRIGHT).replaceAll('{{HANDLE}}', HANDLE).replaceAll('{{AUTHOR_URL}}', AUTHOR_URL).replaceAll('{{REPO_URL}}', REPO_URL)
         // the LinkedIn link only when there is one
-        .replace(/<span class="linkedin"[^>]*>[\s\S]*?<\/span>/, LINKEDIN_URL ? m => m.replaceAll('{{LINKEDIN_URL}}', LINKEDIN_URL) : '')
+        .replace(/<span class="linkedin"[^>]*>[\s\S]*?<\/span>/g, LINKEDIN_URL ? m => m.replaceAll('{{LINKEDIN_URL}}', LINKEDIN_URL) : '')
         .replace('</head>', `  <meta name="jevis-token" content="${SESSION_TOKEN}">\n  <meta name="app-brand" content="${brand}">\n</head>`);
       res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-store' });
       res.end(html);

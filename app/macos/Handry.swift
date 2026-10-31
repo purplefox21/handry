@@ -259,6 +259,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         let appItem = NSMenuItem()
         let appMenu = NSMenu(title: APP_NAME)
         appMenu.addItem(item(L("\(APP_NAME) Hakkında", "About \(APP_NAME)"), #selector(showAbout)))
+        if !LINKEDIN_URL.isEmpty { appMenu.addItem(item(L("purplefox'u LinkedIn'de Takip Et", "Follow purplefox on LinkedIn"), #selector(openLinkedIn))) }
         appMenu.addItem(.separator())
         appMenu.addItem(item(L("\(APP_NAME) Çubuğu   ⌥Space", "\(APP_NAME) Bar   ⌥Space"), #selector(toggleBar)))
         appMenu.addItem(item(L("Büyük Pencere", "\(APP_NAME) Window"), #selector(openWindow)))
@@ -331,6 +332,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         menu.addItem(languageMenuItem())
         menu.addItem(item(L("Sunucuyu Yeniden Başlat", "Restart Server"), #selector(restartServer)))
         menu.addItem(.separator())
+        if !LINKEDIN_URL.isEmpty { menu.addItem(item(L("purplefox'u LinkedIn'de Takip Et", "Follow purplefox on LinkedIn"), #selector(openLinkedIn))) }
         menu.addItem(item(L("\(APP_NAME) Hakkında", "About \(APP_NAME)"), #selector(showAbout)))
         menu.addItem(item(L("\(APP_ABL) Çık", "Quit \(APP_NAME)"), #selector(quit)))
         statusItem.menu = menu
@@ -986,6 +988,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         credits.append(NSAttributedString(string: L("\npaylaşırken @purplefox'u etiketle 💜", "\nand tag @purplefox when you share it 💜"), attributes: quiet))
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(options: [.applicationName: APP_NAME, .credits: credits])
+    }
+
+    @objc func openLinkedIn() {
+        if let url = URL(string: LINKEDIN_URL) { NSWorkspace.shared.open(url) }
     }
 
     /// A link that wants a new window (the credit in Settings) opens in the default browser.
