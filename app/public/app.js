@@ -500,7 +500,7 @@ async function loadBrains() {
 async function loadStatus() {
   const s = await (await api('/api/status')).json();
   const rows = [
-    [s.jev, T('Jev (karar modeli)', 'Jev (decision model)'), T('TypeSafe anahtarı yok (.env › JEV_KEY)', 'no TypeSafe key (.env › JEV_KEY)')],
+    [s.jev, T('Jev (karar modeli)', 'Jev (decision model)'), T("yok; Jev'siz çalışıyor (anahtar: .env › JEV_KEY)", 'none; working without it (key: .env › JEV_KEY)')],
     [s.claude, T('Claude Code (aboneliğin)', 'Claude Code (your subscription)'), T('claude komutu bulunamadı', 'the claude command was not found')],
     [s.chrome, `${APP_NAME} Chrome`, T('Chrome bulunamadı', 'Chrome was not found')],
     [s.voice, T('Ses tanıma (whisper)', 'Speech recognition (whisper)'), T('kurulu değil', 'not installed')]

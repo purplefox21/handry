@@ -30,12 +30,16 @@ export async function doctor() {
   const c = config();
 
   lines.push(ok('Node', process.version));
-  try {
-    const t = Date.now();
-    await jev.ask({ t: 'merhaba' }, { q: { type: 'noul', instructions: 'Is `t` a greeting?' } });
-    lines.push(ok('Jev (TypeSafe)', `${Date.now() - t} ms`));
-  } catch (err) {
-    lines.push(warn('Jev (TypeSafe)', err.message));
+  if (jev.jevOff()) {
+    lines.push(ok('Jev (TypeSafe)', T("yok; Jev'siz çalışıyor: öğeler kelimeyle bulunuyor, hızlı yol kurallarla (anahtar eklersen Jev'e geçer: .env › JEV_KEY)", 'none; working without it: elements are found by their words, the fast path by rules (add a key to switch to Jev: .env › JEV_KEY)')));
+  } else {
+    try {
+      const t = Date.now();
+      await jev.ask({ t: 'merhaba' }, { q: { type: 'noul', instructions: 'Is `t` a greeting?' } });
+      lines.push(ok('Jev (TypeSafe)', `${Date.now() - t} ms`));
+    } catch (err) {
+      lines.push(warn('Jev (TypeSafe)', err.message));
+    }
   }
 
   lines.push(fs.existsSync(c.browser.chromePath) ? ok('Chrome', c.browser.chromePath) : warn('Chrome', `${T('bulunamadı', 'not found')}: ${c.browser.chromePath}`));

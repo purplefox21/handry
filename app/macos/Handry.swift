@@ -79,21 +79,37 @@ final class BarPanel: NSPanel {
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 }
 
-/// The bar's black shape: it hangs from the top edge of the screen like the
-/// camera notch and grows out of it. The page sits under the notch, at the
-/// top; while the shape grows or shrinks the page keeps its size and is cut.
+/// The bar's shape: it hangs from the top edge of the screen like the camera
+/// notch and grows out of it. Dark frosted glass, so the page behind shows
+/// through; black at the top, where it meets the notch. The page sits under
+/// the notch; while the shape grows or shrinks the page keeps its size and is cut.
 final class IslandView: NSView {
     var top: CGFloat = 0 { didSet { relayout() } }        // the notch's height (0 without one)
     var pageHeight: CGFloat = BAR_HEIGHT { didSet { relayout() } }
     let page: NSView
     private let shape = CAShapeLayer()
+    private let glass = NSVisualEffectView()
+    private let shade = NSView()      // black at the notch, fading into the glass
+    private let fade = CAGradientLayer()
 
     init(page: NSView) {
         self.page = page
         super.init(frame: NSRect(x: 0, y: 0, width: BAR_WIDTH + 2 * BAR_EAR, height: BAR_HEIGHT))
         wantsLayer = true
-        layer?.backgroundColor = NSColor.black.cgColor
         layer?.mask = shape
+        glass.material = .hudWindow
+        glass.blendingMode = .behindWindow
+        glass.state = .active
+        glass.appearance = NSAppearance(named: .darkAqua)
+        glass.autoresizingMask = [.width, .height]
+        glass.frame = bounds
+        addSubview(glass)
+        shade.wantsLayer = true
+        fade.colors = [NSColor.black.cgColor, NSColor.black.cgColor, NSColor.black.withAlphaComponent(0).cgColor]
+        fade.startPoint = CGPoint(x: 0.5, y: 1)
+        fade.endPoint = CGPoint(x: 0.5, y: 0)
+        shade.layer = fade
+        addSubview(shade)
         addSubview(page)
         relayout()
     }
@@ -105,10 +121,24 @@ final class IslandView: NSView {
     }
 
     private func relayout() {
+        let outline = islandPath(width: bounds.width, height: bounds.height, ear: BAR_EAR, radius: min(22, bounds.height / 2))
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         shape.frame = bounds
-        shape.path = islandPath(width: bounds.width, height: bounds.height, ear: BAR_EAR, radius: min(22, bounds.height / 2))
+        shape.path = outline
+        // The blur behind the window is cut by its own mask, not by the layer's.
+        if bounds.width > 0, bounds.height > 0 {
+            glass.maskImage = NSImage(size: bounds.size, flipped: false) { _ in
+                NSColor.black.setFill()
+                NSBezierPath(cgPath: outline).fill()
+                return true
+            }
+        }
+        // (only under a notch: without one there is nothing black to meet)
+        let fadeHeight = top + 16
+        shade.isHidden = top == 0
+        shade.frame = NSRect(x: 0, y: bounds.height - fadeHeight, width: bounds.width, height: fadeHeight)
+        fade.locations = [0, NSNumber(value: Double(top / fadeHeight)), 1]
         CATransaction.commit()
         page.frame = NSRect(x: (bounds.width - BAR_WIDTH) / 2, y: bounds.height - top - pageHeight, width: BAR_WIDTH, height: pageHeight)
     }

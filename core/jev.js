@@ -1,11 +1,13 @@
 // The one place that talks to TypeSafe Jev, plus the ready-made judgments
 // Handry needs: which element to use, whether an action is risky, and whether
-// the page is in the expected state.
+// the page is in the expected state. Without Jev (no key, or turned off) the
+// same judgments come from core/nojev.js, made with words and rules.
 import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT, config } from './config.js';
 import { JevisError } from './errors.js';
 import { T } from './i18n.js';
+import * as local from './nojev.js';
 
 // JEVIS_JEV_URL points the client somewhere else (tests use a local stand-in).
 const API_URL = process.env.JEVIS_JEV_URL || 'https://api.typesafe.ai/v1/systemone';
@@ -26,6 +28,19 @@ export function getApiKey() {
   return apiKey;
 }
 
+const hasKey = () => { try { getApiKey(); return true; } catch { return false; } };
+
+/**
+ * Handry works without Jev: when there is no key, when config jev.enabled is false, or with JEVIS_JEV=off
+ * for one run (JEVIS_JEV=on insists on Jev). The judgments below then come from core/nojev.js.
+ */
+export function jevOff() {
+  if (process.env.JEVIS_JEV === 'off') return true;
+  if (process.env.JEVIS_JEV === 'on') return false;
+  if (config().jev?.enabled === false) return true;
+  return !hasKey();
+}
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // Busy (429, 529 "system_overloaded"), server errors and network failures are tried again after these waits.
@@ -41,6 +56,7 @@ const retryWait = (attempt, res) => {
  * (callers can then go on without it), JEV_ERROR for other failures.
  */
 export async function ask(state, questions) {
+  if (jevOff()) throw new JevisError('JEV_OFF', local.offNote());
   const started = Date.now();
   for (let attempt = 0; ; attempt++) {
     let res;
@@ -97,6 +113,7 @@ function choiceQuestion(entries) {
  * then the group winners compete in a second, small question.
  */
 export async function pickElement(instruction, labels, page = {}, { withRisk = false } = {}) {
+  if (jevOff()) return local.pickElement(instruction, labels, { withRisk });
   const max = config().jev.maxChoices;
   const state = { page, instruction };
   const indexed = labels.map((label, i) => [i, label]);
@@ -142,6 +159,7 @@ const OPTION_INSTRUCTIONS = 'Which option of `field` means the same as `wanted`?
 
 /** Picks the option that matches `wanted` (dropdown entries, tabs...). Same result shape as pickElement. */
 export async function pickOption(field, wanted, options) {
+  if (jevOff()) return local.pickOption(wanted, options);
   const criteria = Object.fromEntries(options.map((o, i) => [`e${i}`, o]));
   criteria.none = 'None of the options matches';
   const { answers, ms, usage } = await ask({ field, wanted }, { pick: { type: 'choice', instructions: OPTION_INSTRUCTIONS, criteria } });
@@ -158,6 +176,7 @@ export async function pickOption(field, wanted, options) {
 
 /** Does the page (url/title/text/alerts) show that `expectation` holds? */
 export async function checkState(expectation, page) {
+  if (jevOff()) return local.checkState(expectation, page);
   const { answers, ms } = await ask({ page, expectation }, {
     holds: {
       type: 'noul',
@@ -196,6 +215,7 @@ export async function actionKind(action) {
 
 /** Is this action risky? Used when no element pick happened (e.g. pressing Enter). */
 export async function isRisky(instruction, page = {}) {
+  if (jevOff()) return { p: local.riskOf(instruction), ms: 0 };
   const { answers, ms } = await ask({ page, instruction }, { risk: { type: 'noul', instructions: RISK_INSTRUCTIONS } });
   return { p: answers.risk?.noul ?? 0, ms };
 }

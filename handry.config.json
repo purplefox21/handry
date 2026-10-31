@@ -5,6 +5,7 @@
     "maxWaitSec": 120
   },
   "jev": {
+    "enabled": "auto",
     "model": "jev-latest",
     "autoThreshold": 0.85,
     "minTop": 0.6,

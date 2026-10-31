@@ -2,6 +2,7 @@
 // - does any part of it try to give orders to an AI agent? (prompt injection)
 // - is the page waiting for the user (login, 2FA code, CAPTCHA)?
 import * as jev from '../core/jev.js';
+import * as local from '../core/nojev.js';
 import { config } from '../core/config.js';
 import { APP_NAME } from '../core/brand.js';
 import { T } from '../core/i18n.js';
@@ -42,6 +43,8 @@ export async function guardPage({ url, title, text = '' }, { scan = true } = {})
   const chunks = scan && injectionScan && text ? chunksOf(text) : [];
   const questions = { needs_user: { type: 'noul', instructions: NEEDS_USER } };
   chunks.forEach((_, i) => { questions[`c${i}`] = { type: 'noul', instructions: INJECTION.replace('[N]', `[${i}]`) }; });
+  // Without Jev: well-known injection phrases and the words of login, code and CAPTCHA pages.
+  if (jev.jevOff()) return local.guardPage({ url, title, text }, chunks, hiddenMark());
 
   const { answers, ms } = await jev.ask({ page: { url, title, beginning: text.slice(0, 1200) }, chunks }, questions);
   const flagged = chunks.map((_, i) => (answers[`c${i}`]?.noul ?? 0) >= injectionThreshold);

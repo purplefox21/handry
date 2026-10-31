@@ -9,6 +9,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - Kullanıcıyla Türkçe konuş.
 - Değişiklikten önce ve sonra git commit al. Bir şeyi silmeden önce mutlaka commit olsun; kullanıcı fikrini değiştirebilir.
 - `.env` (JEV_KEY) asla commit edilmez ve içeriği ekrana yazdırılmaz.
+- Jev'siz mod (2026-10-31): Jev anahtarı yoksa (ya da config `jev.enabled: false`, tek çalıştırmada `JEVIS_JEV=off`) Handry aynı kararları `core/nojev.js` ile kelime ve kurallarla verir; `core/jev.js` kendiliğinden geçer. Jev'e soru ekleyen yeni bir yer yazarsan Jev'siz karşılığını da `core/nojev.js`'e ekle ve `node tests/nojev-e2e.mjs` ile dene.
 - Kullanıcı Claude'dan bir şey gizlenmesini istemiyor (2026-09-30): Claude sayfadaki değerleri, API anahtarlarını, indirilen dosyaları görebilir. Şifreler kolaylık için Anahtar Zinciri'nden doldurulur; kayıt dosyalarına (log) şifre yazılmaz.
 - İki dil (2026-10-31): Handry Türkçe ve İngilizce konuşur. Metin iki dilde, kullanıldığı yerde: Node'da `T('Türkçe', 'English')` (`core/i18n.js`), sayfalarda `common.js`'teki `T` ve `data-en` öznitelikleri, Swift'te `L("…", "…")`. Türkçe metni değiştirme (testler onunla eşleşiyor), İngilizcesini yanına ekle; `T()` modül sabitinde değil, metnin üretildiği anda çağrılır. Ayar config `language`: `tr` / `en` / `auto` (Mac'in dili; bu Mac'te Türkçe), `JEVIS_LANG` tek çalıştırmada ezer. Ayarlar'da ve menüde "Dil / Language"; uygulama dil değişince kendini sunucusuyla yeniden başlatır. Mac'in kendi dili (düğme ve menü adları) ayrı: `macLanguage()`.
 - Claude in Chrome önerme. Kullanıcı denedi ve reddetti: yavaş, şifre girmiyor.
@@ -62,7 +63,8 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - `node tests/app-e2e.mjs` → sohbet sunucusu: hızlı yol, Claude Code beyni, DURDUR, OpenAI uyumlu adaptör, arayüz, model seçimi (aboneliğinden iki kısa çalışma harcar)
 - `node tests/voice-e2e.mjs` → ses: whisper, sessizlik filtresi, sesli cevap (hoparlörsüz), arayüz kayıt kodu, mikrofon
 - `node tests/recipe-e2e.mjs` → tarifler: kaydet, beyinsiz oynat, değişkenler, beyne devretme
-- `node tests/router-e2e.mjs` → hızlı yol kararları ve niyet (51 Türkçe cümle, hiçbir şey yapmaz)
+- `node tests/router-e2e.mjs` → hızlı yol kararları ve niyet (51 Türkçe, 24 İngilizce cümle, hiçbir şey yapmaz)
+- `node tests/nojev-e2e.mjs` → Jev'siz mod (`JEVIS_JEV=off`, anahtar yokken de böyle): hızlı yol kuralları yazılırken bakılmayan 50 komutta, beyne gidecekler sızmıyor, öğe ve seçenek kelimeyle (Türkçe↔İngilizce), belirsizse tahmin yok, risk, sayfa durumu, sayfa bekçisi, doctor; uçtan uca sadece "hangi şarkı çalıyor" (okur). Diğer testler de `JEVIS_JEV=off` ile Jev'siz çalıştırılabilir
 - `node tests/fast-e2e.mjs` → hızlı yol uçtan uca: ses (eski seviyeye döner), Hesap Makinesi, YouTube, Google, sayfada tıklama
 - `node tests/spaces-e2e.mjs` → masaüstleri (Spaces): her ekranın masaüstleri ve gösterileni, sağa/sola ve numaralı geçiş, imlecin yerine dönmesi, başka masaüstündeki pencereyi listeleme ve oraya gitme (ekranı gerçekten değiştirir, sonunda her şeyi geri koyar; iki masaüstü yoksa ilgili kontrolleri atlar)
 - `node tests/overlay-e2e.mjs` → ekranda çizim: zemine göre renk, çizim dosyası ve temizleme, sıra sıra adımlar, Mac düğmesinin yeri erişilebilirlik ağacıyla, web düğmesinin yeri piksellerle (yeşil düğme), ekran görüntüsü noktası, onay beklerken daire (geçici JEVIS klasörü: gerçek ekrana çizmez; Hesap Makinesi ve ayrı bir Chrome açıp kapatır)

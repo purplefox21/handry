@@ -77,9 +77,11 @@ You (voice or text)
 
 **Jev picks, it doesn't write.** [TypeSafe Jev](https://typesafe.ai) is a "System 1" model: it takes a state and typed questions (pick one of these options, yes/no, a score) and answers with a calibrated probability. Handry uses it as a smart `if`/`switch`: which of these 300 elements is "Save", is this click risky, did the page change the way we wanted, is this command simple enough to skip the LLM. The brain decides *what* to do; Jev answers *where*; code does it.
 
+**No Jev key? It still works.** Without a key Handry makes the same calls with words and rules (`core/nojev.js`): an element is found by its words (Turkish and English words for the same button count as one; when two elements fit, the candidates go back to Claude, which picks one by `#id`), "is it risky?" is a word list (so it asks you a little more often), the fast path knows the common commands by rules and hands everything else to Claude, and the page guard catches well-known prompt-injection phrases and login, code and CAPTCHA pages by their words. Clicks are as fast or faster (no network call); what you lose is Jev's judgment on vague descriptions, the fast path for unusual phrasings, and learning tasks for later. With a key, Handry switches to Jev by itself.
+
 ## Safety
 
-- **Risky actions ask you first.** Sending, publishing, deleting, paying, buying, changing prices: a native macOS dialog opens. Nothing on a web page or in an LLM reply can answer it. If you say no, Handry stops and doesn't look for another way. Away from the Mac? If the dialog gets no answer for 20 seconds, the question comes to your phone as an iMessage with a 4-digit code: text back the code to approve, "hayır" to refuse. Only the bare code from your own number counts, and while the question is open the hands can't touch the screen, so nothing can type the code for you.
+- **Risky actions ask you first.** Sending, publishing, deleting, paying, buying, changing prices: a question card opens at the top of the screen, shown by a separate process (AppleScript's dialog if the card can't be built). It doesn't take the keyboard from the app you're in, and nothing on a web page or in an LLM reply can answer it: the answer is the button you click. If you say no, Handry stops and doesn't look for another way. Away from the Mac? If the dialog gets no answer for 20 seconds, the question comes to your phone as an iMessage with a 4-digit code: text back the code to approve, "hayır" to refuse. Only the bare code from your own number counts, and while the question is open the hands can't touch the screen, so nothing can type the code for you.
 - **"Always on this site"** can be chosen for a button that keeps getting flagged, but never for money, orders, deleting, or anything that goes out to other people (send, publish, post, share, invite, submit for review).
 - **Secrets stay in the Keychain.** Code types them into the field; the LLM never sees them and the logs never contain them. Each secret only works on the sites you allowed.
 - **Page content is data, not instructions.** Text that tries to direct the assistant is hidden from the brain.
@@ -93,7 +95,7 @@ You (voice or text)
 - Google Chrome
 - Xcode Command Line Tools (`xcode-select --install`), for the Swift helper and the app
 - [Claude Code](https://claude.com/claude-code) signed in with a Claude subscription (the default brain)
-- A TypeSafe Jev API key; Handry doesn't start without one yet
+- Optional: a TypeSafe Jev API key (smarter element picking, risk checks and fast path; Handry works without one)
 - Optional: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and a model for voice input
 
 ## Install
@@ -102,7 +104,7 @@ You (voice or text)
 git clone https://github.com/purplefox21/handry.git
 cd handry
 npm install
-echo "JEV_KEY=your-typesafe-key" > .env
+echo "JEV_KEY=your-typesafe-key" > .env   # optional: without it Handry works without Jev
 
 node cli.js doctor          # checks every part and says what is missing
 
@@ -151,6 +153,7 @@ node tests/mcp-smoke.mjs              # the MCP server and a form, end to end (u
 node tests/desktop-e2e.mjs            # Calculator and TextEdit, incl. the "delete?" confirmation
 node tests/site-permissions-e2e.mjs   # confirmations, "always on this site", new passwords, windows
 node tests/jev-resilience-e2e.mjs     # Jev busy or offline: retries, then Claude takes over
+node tests/nojev-e2e.mjs              # without Jev: fast-path rules on unseen commands, element picking, risk, page guard
 node tests/remote-approve-e2e.mjs     # approving from the phone (stand-in Messages database, nothing is sent)
 node tests/phone-e2e.mjs              # commands from the phone by iMessage, screenshots to the phone (nothing is sent)
 node tests/spaces-e2e.mjs             # desktops (Spaces) on the real screen; puts everything back
@@ -162,7 +165,7 @@ node tests/vscode-claude-e2e.mjs      # Claude Code in VS Code: finding sessions
 
 - Built as a personal tool and used every day. macOS only.
 - English and Turkish. With English voices "Hey Handry" isn't always heard yet (tried with macOS's synthetic voices, not a real one); push-to-talk (⌥⇧Space) always works.
-- Needs a TypeSafe Jev key. When Jev is busy, simple commands go to Claude instead of failing, but a fully Jev-free mode isn't there yet.
+- Works without a TypeSafe Jev key (see "No Jev key?" above); with one, it is smarter. The same tests without Jev (`JEVIS_JEV=off`): fast path 75/75 known commands and 50/50 unseen ones (none of the "ask Claude" ones taken), hard forms 9/9, the App Store-like page 26/27 even with Turkish descriptions of English buttons (the one left is a real tie, so it asks instead of guessing).
 - Approving and commanding from the phone need Full Disk Access for Handry.app (to read your messages to yourself from Messages); `node cli.js doctor` says whether they are on.
 - Not yet tried for real: the login window with an actual Google sign-in, reading codes from the real Gmail inbox and Messages database, and approving, commanding and getting screenshots on the phone with real iMessages (all covered by tests with stand-ins).
 

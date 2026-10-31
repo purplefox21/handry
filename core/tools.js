@@ -118,7 +118,7 @@ const macNames = () => {
 export const INSTRUCTIONS = `${APP_NAME} is the user's own assistant app on their Mac; these are its tools. They control the Mac and ${APP_NAME}'s own Chrome window (a separate Chrome profile; the user logs in to sites there once and stays logged in).
 How to work:
 - On a new page call browser_read first. It lists usable elements as "#id [role] name — nearby text {state}" plus the visible text.
-- Act with browser_click / browser_type / browser_select / browser_check / browser_upload. Describe the target with the exact words on the page, or pass the #id from the last browser_read. Jev (a fast judgment model) maps the description to the element in ~0.3 s.
+- Act with browser_click / browser_type / browser_select / browser_check / browser_upload. Describe the target with the exact words on the page, or pass the #id from the last browser_read. ${jev.jevOff() ? 'Jev is off here (no key): the description is matched by its words, so the exact words or, better, the #id work best.' : 'Jev (a fast judgment model) maps the description to the element in ~0.3 s.'}
 - If a tool answers that Jev is not sure, it lists candidates: pick one by #id instead of guessing.
 - After an action the result shows the new URL/title and any alerts. Use browser_verify for a quick yes/no check of the page state, browser_read again when the page changed a lot.
 - Use browser_screenshot only when the element list is not enough (visual layout, images, canvas): it is slower and costs more.

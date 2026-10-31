@@ -6,7 +6,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { ROOT, config, homeDir } from '../core/config.js';
-import { getApiKey } from '../core/jev.js';
+import { jevOff } from '../core/jev.js';
 import { findBinary } from '../brain/common.js';
 import { runCommand } from '../core/runner.js';
 import { listChats, peekChat, newChat, switchChat, deleteChat, IDLE_MS } from '../core/chats.js';
@@ -258,10 +258,8 @@ const ROUTES = {
   'GET /api/language': (req, res) => sendJson(res, 200, { language: lang(), setting: languageSetting(), mac: macLanguage() }),
   'POST /api/language': handleLanguage,
   'GET /api/status': (req, res) => {
-    let jev = true;
-    try { getApiKey(); } catch { jev = false; }
     sendJson(res, 200, {
-      jev,
+      jev: !jevOff(),
       claude: Boolean(findBinary('claude')),
       chrome: fs.existsSync(config().browser.chromePath),
       voice: sttStatus().ok

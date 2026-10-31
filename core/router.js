@@ -12,6 +12,7 @@ import { callTool } from './tools.js';
 import { installedApps, apps as runningApps } from '../hands/desktop.js';
 import { listLearned, learnedQuestion, matchLearned } from './learn.js';
 import { pickSpan } from './spans.js';
+import * as local from './nojev.js';
 import { T } from './i18n.js';
 
 const ROUTE = {
@@ -152,6 +153,8 @@ const needsUserNote = text => (String(text).includes('⚠️') ? T(' Sayfa giri�
 const pageTitle = text => text.match(/(?:Şu an|\bNow): (.+?) \(/)?.[1];
 
 export async function classify(command, learned = listLearned(), { previous = '' } = {}) {
+  // Without Jev the rules decide (core/nojev.js); learned tasks need Jev to match, so they wait.
+  if (jev.jevOff()) return local.classify(command, { previous, apps: installedApps(), siteIn });
   const question = learnedQuestion(learned);
   const { answers, ms } = await jev.ask({ command, previous }, { route: ROUTE, intent: INTENT, ...DETAILS, ...(question ? { learned: question } : {}) });
   return { route: answers.route?.choice || 'needs_brain', confidence: answers.route?.confidence ?? 0, intent: answers.intent?.choice || 'do_now', answers, ms };
@@ -283,7 +286,7 @@ export async function tryFast(command, onEvent, { previous = '' } = {}) {
       }
       case 'spotify_play': {
         const liked = (answers.liked?.noul ?? 0) >= 0.5;
-        const what = liked ? null : await pickSpan(command, 'What should be played: the name of the song, artist, album or playlist?');
+        const what = liked ? null : jev.jevOff() ? local.pickSpan(command, 'play') : await pickSpan(command, 'What should be played: the name of the song, artist, album or playlist?');
         if (!liked && !what) return { handled: false };
         return { handled: true, text: firstLine(await step(onEvent, 'spotify_play', liked ? { liked: true } : { what })) };
       }
@@ -291,7 +294,8 @@ export async function tryFast(command, onEvent, { previous = '' } = {}) {
         // "not al: …" / "take a note: …" gives the text after the colon, "add … to my notes" the words between; otherwise Jev picks it out.
         const body = command.match(/\bnot[^:]{0,30}:\s+(.+)$/i)?.[1]?.trim()
           || command.match(/^\s*(?:please\s+)?(?:add|put|write)\s+(.+?)\s+(?:to|in|into)\s+(?:my\s+|the\s+)?notes\s*[.!]?\s*$/i)?.[1]?.trim()
-          || await pickSpan(command, T('What is the text of the note to write down, without words like "not al" or "notlarıma ekle"?', 'What is the text of the note to write down, without words like "take a note" or "add to my notes"?'), { maxWords: 16 });
+          || (jev.jevOff() ? local.pickSpan(command, 'note') : null)
+          || (!jev.jevOff() && await pickSpan(command, T('What is the text of the note to write down, without words like "not al" or "notlarıma ekle"?', 'What is the text of the note to write down, without words like "take a note" or "add to my notes"?'), { maxWords: 16 }));
         if (!body) return { handled: false };
         return { handled: true, text: firstLine(await step(onEvent, 'notes_add', { text: body })) };
       }
