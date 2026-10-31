@@ -974,7 +974,8 @@ function valueCandidatesInFrame() {
   const visible = el => { const r = el.getBoundingClientRect(); return r.width > 1 && r.height > 1 && getComputedStyle(el).visibility !== 'hidden'; };
   const near = el => {
     for (let a = el, d = 0; a && d < 4; a = a.parentElement, d++) {
-      const own = clean([...(a.childNodes || [])].filter(n => n.nodeType === 3).map(n => n.textContent).join(' '));
+      // (not the element's own text: that is the value itself)
+      const own = d > 0 ? clean([...(a.childNodes || [])].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ')) : '';
       if (own && own.length < 120) return own;
       const prev = a.previousElementSibling;
       if (prev && clean(prev.innerText) && clean(prev.innerText).length < 120) return clean(prev.innerText);

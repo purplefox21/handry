@@ -68,7 +68,7 @@ const SAME = [
   ['haklar', 'rights'], ['oyunlar', 'games'], ['egitim', 'education'], ['verimlilik', 'productivity'], ['araclar', 'utilities', 'tools'],
   ['puan', 'degerlendirme', 'ratings', 'reviews'], ['satin alma', 'purchases'], ['mevcut', 'availability', 'available'], ['surumu', 'version'],
   ['degisiklik', 'degisiklikler', 'changes', 'change'], ['kaydedildi', 'kaydedilen', 'saved'], ['gonderildi', 'sent', 'submitted'], ['silindi', 'deleted'],
-  ['basarili', 'basariyla', 'success', 'successfully'], ['gerekli', 'required']
+  ['basarili', 'basariyla', 'success', 'successfully'], ['gerekli', 'required'], ['anahtar', 'anahtari', 'key'], ['belge', 'document'], ['metin', 'text']
 ];
 const SAME_AS = new Map();
 for (const group of SAME) for (const w of group) SAME_AS.set(w, new Set([...(SAME_AS.get(w) || []), ...group.filter(o => o !== w)]));
@@ -197,13 +197,32 @@ function targetOf(instruction) {
   return (at >= 0 ? s.slice(at + 2) : s).replace(/\s+\((?:a dropdown usually|a radio button is named)[^)]*\)\s*$/, '');
 }
 
-/** core/jev.js pickElement without Jev. */
-export function pickElement(instruction, labels, { withRisk = false } = {}) {
-  const target = targetOf(instruction);
+/** core/jev.js pickElement without Jev. page: { url, title } or a Mac window's { app, window, texts }. */
+export function pickElement(instruction, labels, { withRisk = false, page = {} } = {}) {
+  const form = String(instruction).match(/^Set the form field "(.*?)" to "(.*?)"/s);
+  const target = form ? form[1] : targetOf(instruction);
   const want = wantedWords(target);
   const kind = kindOf(instruction);
-  const pick = pickFrom(labels.map(l => scoreLabel(want, l, target, kind)));
-  if (withRisk) pick.risk = riskOf(`${instruction} ${pick.index !== null ? labels[pick.index] : ''}`);
+  let scores = labels.map(l => scoreLabel(want, l, target, kind));
+  if (form) {
+    // hands/browser.js fill: a text field or list named like the field, or the radio button / checkbox
+    // named like the answer, next to the field's question.
+    const choice = wantedWords(`${form[2]} ${form[1]}`);
+    scores = labels.map((l, i) => (/radio|check|switch|toggle/i.test(parseLabel(l).role) ? scoreLabel(choice, l, form[2], 'check') : scores[i]));
+  }
+  // The only field there is to type into (or list, or box) is the one meant when nothing else fits better.
+  if (kind !== 'click') {
+    const fit = { type: /text|search|input|area|combo|field|secure/i, select: /select|combo|list|popup|menu|button/i, check: /check|switch|radio|toggle/i }[kind];
+    const fitting = fit ? labels.map((l, i) => [i, fit.test(parseLabel(l).role)]).filter(([, ok]) => ok) : [];
+    if (fitting.length === 1 && scores[fitting[0][0]] < 0.6 && scores.every((s, i) => i === fitting[0][0] || s < 0.4)) scores[fitting[0][0]] = 0.6;
+  }
+  const pick = pickFrom(scores);
+  if (withRisk) {
+    const label = pick.index !== null ? labels[pick.index] : '';
+    // "Evet", "OK", "Continue": what they do is in the question around them ("Bu uygulamayı silmek istiyor musunuz?").
+    const around = GENERIC.test(parseLabel(label).name) ? ` ${page.title || ''} ${page.window || ''} ${[].concat(page.texts || []).join(' ')}` : '';
+    pick.risk = riskOf(`${instruction} ${label}${around}`);
+  }
   return pick;
 }
 
@@ -225,8 +244,10 @@ const COMMAND_WORDS = new Set(words(`
 // ---------------------------------------------------------------------------
 
 // Things that are hard to undo or that other people see. English words whole; Turkish verbs with their endings.
-const RISKY = /(?<![\p{L}])(?:(?:submit|send|post|publish|share|invite|transfer|pay|purchase|buy|checkout|order|subscribe|confirm|delete|remove|save|apply|update|reply|comment|tweet)(?![\p{L}])|(?:gönder|paylaş|yayınla|yayımla|davet et|satın al|sipariş|abone ol|onayla|kaldır|kaydet|güncelle|yanıtla|cevapla)\p{L}*|(?:öde|ödeme|sil|silin|silme|uygula|yorum yap)(?![\p{L}]))/iu;
+const RISKY = /(?<![\p{L}])(?:(?:submit|send|post|publish|share|invite|transfer|pay|purchase|buy|checkout|order|subscribe|confirm|delete|remove|save|apply|update|reply|comment|tweet)(?![\p{L}])|(?:gönder|paylaş|yayınla|yayımla|davet et|satın al|sipariş|abone ol|onayla|kaldır|kaydet|güncelle|yanıtla|cevapla)\p{L}*|sil(?:mek|me|in|iyor|ecek|eceğ|eyim|elim|ebilir|di)\p{L}*|kalıcı olarak|geri alınamaz|permanently|cannot be undone|can't be undone|irreversible|(?:öde|ödeme|sil|uygula|yorum yap)(?![\p{L}]))/iu;
 const HARMLESS = /(?<![\p{L}])(?:search|find|filter|ara|arama|bul|filtre|url|adres|address|go to)(?![\p{L}])/iu;
+// Buttons that only say yes: the question next to them says what they do.
+const GENERIC = /^\s*(?:yes|evet|ok|okay|tamam|continue|devam|devam et|confirm|onayla|accept|kabul|kabul et|proceed|ilerle|i agree|agree|done|bitti|go|apply|uygula)\s*[.!]?\s*$/iu;
 // Where pressing Enter sends something to other people.
 const OUTGOING = /(?<![\p{L}])(?:mesaj|message|yorum|comment|reply|yanıt|cevap|tweet|post|chat|sohbet|kime|alıcı|to)(?![\p{L}])/iu;
 

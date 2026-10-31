@@ -36,13 +36,18 @@ await call('browser_select', { target: 'Price', option: 'Free' }, (r, t) => t.in
 await call('browser_click', { target: 'Add for Review' }, (r, t) => r.isError && t.includes('izin vermedi'));
 await call('browser_verify', { expectation: 'The Name field contains MCP Test App' }, (r, t) => t.startsWith('Evet'));
 await call('browser_screenshot', {}, r => r.content.some(c => c.type === 'image' && c.data.length > 1000));
-await call('jev_ask', {
-  state: { reviews: ['Harika uygulama, çok beğendim', 'Sürekli çöküyor, param çöpe gitti'] },
-  questions: {
-    first_positive: { type: 'noul', instructions: 'Is `reviews[0]` positive?' },
-    second_positive: { type: 'noul', instructions: 'Is `reviews[1]` positive?' }
-  }
-}, (r, t) => { const a = JSON.parse(t).answers; return a.first_positive.noul > 0.5 && a.second_positive.noul < 0.5; });
+// Without Jev (no key, JEVIS_JEV=off) jev_ask is not offered.
+if (tools.some(t => t.name === 'jev_ask')) {
+  await call('jev_ask', {
+    state: { reviews: ['Harika uygulama, çok beğendim', 'Sürekli çöküyor, param çöpe gitti'] },
+    questions: {
+      first_positive: { type: 'noul', instructions: 'Is `reviews[0]` positive?' },
+      second_positive: { type: 'noul', instructions: 'Is `reviews[1]` positive?' }
+    }
+  }, (r, t) => { const a = JSON.parse(t).answers; return a.first_positive.noul > 0.5 && a.second_positive.noul < 0.5; });
+} else {
+  console.log("⏭️  jev_ask yok (Jev'siz)");
+}
 await call('handry_do', { command: 'şu an hangi şarkı çalıyor' }, (r, t) => !r.isError && t.startsWith('Yapıldı (hızlı yol'));
 await call('handry_do', { command: "Hacker News'i aç ve ilk 5 başlığı özetle" }, (r, t) => !r.isError && t.includes('kendi başına yapamıyor'));
 await call('olmayan_arac', {}, r => r.isError);

@@ -5,6 +5,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { TOOLS, INSTRUCTIONS, callTool } from '../core/tools.js';
+import { jevOff } from '../core/jev.js';
 import { MCP_NAME } from '../core/brand.js';
 
 // One Claude session = one run in the action log (the teach tool learns from it),
@@ -20,7 +21,8 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: TOOLS.map(({ name, description, inputSchema }) => ({ name, description: now(description), inputSchema }))
+  // jev_ask asks Jev directly: without Jev it is not offered.
+  tools: TOOLS.filter(t => !(t.name === 'jev_ask' && jevOff())).map(({ name, description, inputSchema }) => ({ name, description: now(description), inputSchema }))
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async request =>

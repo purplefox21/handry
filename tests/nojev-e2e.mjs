@@ -108,6 +108,13 @@ await check('Risk: gönder/öde/sil/kaydet sorulur, arama ve sıradan tıklama s
   return { ok: risky.every(x => x >= 0.5) && calm.every(x => x < 0.5), note: `riskli ${risky} · sakin ${calm}` };
 });
 
+await check('Risk: "Evet" düğmesi, silme soran pencerede sorulur; sıradan pencerede sorulmaz', async () => {
+  const dialog = ['[button] Hayır', '[button] Evet'];
+  const del = await jev.pickElement('Click or press: Evet', dialog, { app: 'Finder', window: 'Uyarı', texts: ['Bu öğeyi kalıcı olarak silmek istiyor musunuz?'] }, { withRisk: true });
+  const calm = await jev.pickElement('Click or press: Evet', dialog, { app: 'TextEdit', window: 'Uyarı', texts: ['Pencereyi büyütmek istiyor musunuz?'] }, { withRisk: true });
+  return { ok: del.risk >= 0.5 && calm.risk < 0.5, note: `silme ${del.risk}, sıradan ${calm.risk}` };
+});
+
 await check('Sayfa durumu: tırnaktaki yazı ve kelimeler sayfada mı', async () => {
   const page = { url: 'https://example.com', title: 'App', text: 'Changes saved. Your app is ready.' };
   const a = await jev.checkState('the page shows "Changes saved."', page);

@@ -113,7 +113,7 @@ function choiceQuestion(entries) {
  * then the group winners compete in a second, small question.
  */
 export async function pickElement(instruction, labels, page = {}, { withRisk = false } = {}) {
-  if (jevOff()) return local.pickElement(instruction, labels, { withRisk });
+  if (jevOff()) return local.pickElement(instruction, labels, { withRisk, page });
   const max = config().jev.maxChoices;
   const state = { page, instruction };
   const indexed = labels.map((label, i) => [i, label]);
