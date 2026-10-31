@@ -4,6 +4,7 @@
   "type": "module",
   "description": "Handry: a Mac assistant that uses your apps and Chrome for you, with Claude as the brain and TypeSafe Jev for fast decisions.",
   "author": "Berat Olekli (purplefox) (https://github.com/purplefox21)",
+  "license": "PolyForm-Shield-1.0.0",
   "homepage": "https://github.com/purplefox21/handry",
   "repository": { "type": "git", "url": "https://github.com/purplefox21/handry.git" },
   "scripts": {

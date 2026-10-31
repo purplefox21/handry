@@ -5,9 +5,13 @@ Handry was designed and built by Berat Olekli, who goes by purplefox, with
 Claude Code. The name Handry, the walking pixel-art hand, the fox Foxie and
 the code in this repository are his work.
 
-Any copy or work based on Handry has to keep this NOTICE file and the
-copyright lines at the top of the source files, and say that it comes from
-Handry by Berat Olekli (purplefox).
+Handry is licensed under the PolyForm Shield License 1.0.0 (LICENSE.md):
+anyone may use it, change it and share it, also at work, but not to provide
+a product that competes with it (selling it, or a copy or substitute of it,
+even for free). Any copy or work based on Handry has to keep the
+"Required Notice" line in LICENSE.md, this NOTICE file and the copyright
+lines at the top of the source files, and say that it comes from Handry by
+Berat Olekli (purplefox). For anything else, ask: https://github.com/purplefox21
 
 Third-party parts keep their own licenses: Playwright, the Model Context
 Protocol SDK, the Anthropic SDK and zod (see package.json and node_modules).

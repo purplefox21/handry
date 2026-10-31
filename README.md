@@ -185,6 +185,10 @@ PLAN.md    the project log (Turkish): goals, decisions, phases, measurements
 CLAUDE.md  notes for Claude when it works on this repo
 ```
 
+## License
+
+[PolyForm Shield 1.0.0](LICENSE.md). You can use Handry, change it and share it, also at work. You can't sell it or offer a product that competes with it (a copy, a fork, or a substitute, even a free one). Keep the `Required Notice` line, the [NOTICE](NOTICE) file and the copyright lines when you share it. For anything else, [ask me](https://github.com/purplefox21).
+
 ## Credits
 
 Handry is made by **Berat Olekli** ([purplefox](https://github.com/purplefox21)): the idea, the design, the walking hand and Foxie, and the code. © 2026 Berat Olekli (purplefox). Copies and work based on Handry keep the [NOTICE](NOTICE) file and the copyright lines at the top of the source files.
