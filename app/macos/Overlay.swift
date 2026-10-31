@@ -77,15 +77,17 @@ private final class Island {
     private let hand: CALayer
     private let wave = CAReplicatorLayer()
     private let notchWidth: CGFloat
-    private let height: CGFloat
+    private let height: CGFloat       // open: a little lower than the notch, so it is seen coming out of it
+    private let closedHeight: CGFloat // closed: the notch itself
     private let maxWidth: CGFloat
     private(set) var opened = false
 
     init(screen s: NSScreen) {
         let notch = notchOf(s)
         notchWidth = notch.width
-        height = notch.height > 0 ? notch.height : 22
-        hand = whiteHand(size: min(15, height - 6))
+        closedHeight = notch.height > 0 ? notch.height : 22
+        height = notch.height > 0 ? notch.height + 9 : max(s.frame.maxY - s.visibleFrame.maxY, 22) + 6
+        hand = whiteHand(size: min(15, height - 8))
         let core = notch.width > 0 ? notch.width : 8
         maxWidth = core + 2 * Island.wing + 2 * Island.ear
         let top = s.frame.height, y = top - height / 2
@@ -116,8 +118,9 @@ private final class Island {
 
     private func path(open: Bool) -> CGPath {
         let w = open ? maxWidth : (notchWidth > 0 ? notchWidth : 8) + 2 * Island.ear
-        let p = islandPath(width: w, height: height, ear: Island.ear, radius: min(12, height / 2))
-        var t = CGAffineTransform(translationX: (maxWidth - w) / 2, y: 0)
+        let h = open ? height : closedHeight
+        let p = islandPath(width: w, height: h, ear: Island.ear, radius: min(14, h / 2))
+        var t = CGAffineTransform(translationX: (maxWidth - w) / 2, y: height - h)
         return p.copy(using: &t) ?? p
     }
 
