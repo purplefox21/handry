@@ -858,12 +858,7 @@ final class FoxPet {
         }
     }
 
-    /// For trying it out (the menu): the ledges it sees now (read again soon after), and a hop onto a near one at once.
-    func ledgesNow() -> [Platform] {
-        ledgesAt = .distantPast
-        return visibleLedges()
-    }
-
+    /// From the menu: a hop onto a near ledge at once.
     func hopNow() {
         guard visible, mode != .air, mode != .held, mode != .jump else { return }
         let gap = { (p: Platform) in hypot(min(max(self.foot.x, p.x1), p.x2) - self.foot.x, p.y - self.foot.y) }

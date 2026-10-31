@@ -464,32 +464,6 @@ final class Overlay {
         }
     }
 
-    /// For trying the pet out: thin lines where it can stand (x1, x2, y in AppKit points), for a few seconds.
-    func flashLines(_ lines: [(CGFloat, CGFloat, CGFloat)], seconds: Double = 8) {
-        for s in screens {
-            guard let root = s.panel.contentView?.layer else { continue }
-            let f = s.screen.frame
-            let path = CGMutablePath()
-            for (x1, x2, y) in lines where y >= f.minY && y <= f.maxY && x2 >= f.minX && x1 <= f.maxX {
-                path.move(to: CGPoint(x: max(x1, f.minX) - f.minX, y: y - f.minY))
-                path.addLine(to: CGPoint(x: min(x2, f.maxX) - f.minX, y: y - f.minY))
-            }
-            guard !path.isEmpty else { continue }
-            let layer = CAShapeLayer()
-            layer.frame = CGRect(origin: .zero, size: f.size)
-            layer.path = path
-            layer.strokeColor = NSColor.systemPink.cgColor
-            layer.lineWidth = 2
-            layer.lineCap = .round
-            layer.shadowColor = NSColor.black.cgColor
-            layer.shadowOpacity = 0.5
-            layer.shadowRadius = 1.5
-            layer.shadowOffset = .zero
-            root.addSublayer(layer)
-            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { layer.removeFromSuperlayer() }
-        }
-    }
-
     // MARK: Drawings
 
     private func number(_ v: Any?) -> CGFloat { CGFloat((v as? NSNumber)?.doubleValue ?? 0) }
