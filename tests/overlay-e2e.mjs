@@ -109,7 +109,7 @@ try {
     const s = shown().at(-1);
     await new Promise(res => setTimeout(res, 400));
     // a screenshot of the computed place, a few points inside its edges: the button's green, nothing else
-    const avg = overlay.backgroundOf(s.rect, -5);
+    const avg = await overlay.backgroundOf(s.rect, -5);
     const green = avg && avg[1] > 150 && avg[0] < 60 && avg[2] < 130;
     return { ok: !r.isError && Boolean(green), note: `yer ${JSON.stringify(s?.rect)}, oradaki ortalama renk ${avg && avg.map(Math.round).join(',')}` };
   });

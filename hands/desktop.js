@@ -158,12 +158,13 @@ async function guard(el, riskP, actionText, app) {
   // document away. Without it Jev took that "Sil" for something harmless and the user was never asked.
   const said = el.context?.length ? `; pencerede: ${el.context.join(' · ').slice(0, 600)}` : '';
   if (await harmlessByKind(verdict, `${actionText} (uygulama: ${app}${said})`)) return null;
-  // while the question is open, the control it is about is circled on the screen
+  // while the question is open, the control it is about is circled on the screen (drawn alongside: the question never waits for it)
   const mark = el.frame?.w && config().overlay?.confirmHighlight !== false
-    ? await overlay.draw({ shape: 'circle', rect: el.frame, note: 'Buna basmak istiyorum', seconds: 900 })
+    ? overlay.draw({ shape: 'circle', rect: el.frame, note: 'Buna basmak istiyorum', seconds: 900 }).catch(() => null)
     : null;
   const ok = await confirmAction(`${APP_NAME} şunu yapmak istiyor:\n\n${actionText}\n\nUygulama: ${app}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`);
-  if (mark) overlay.clear(mark);
+  const drawn = await mark;
+  if (drawn) overlay.clear(drawn);
   if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
   return { reason: verdict.reason };
 }
@@ -215,6 +216,20 @@ export async function type(target, text, { app, submit = false } = {}) {
     await ax('key', 'return');
   }
   return { element: { name: el.name, role: el.role }, jev: { confidence: pct(el.pick.confidence), ms: el.pick.ms }, typed: text.length, method: res.method, approval, ...(await after(el.pid)) };
+}
+
+/** Presses a control by the accessibility path a read gave (expect: its name; a window that changed is not pressed). */
+export async function pressPath(elPath, { pid, expect = '' } = {}) {
+  notDuringDialog();
+  await ensureTrusted();
+  return ax('press', elPath, '--pid', pid, '--expect', expect);
+}
+
+/** Gives the keyboard focus to a control by the accessibility path a read gave. */
+export async function focusPath(elPath, { pid } = {}) {
+  notDuringDialog();
+  await ensureTrusted();
+  return ax('focus', elPath, '--pid', pid);
 }
 
 /**

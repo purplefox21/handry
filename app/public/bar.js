@@ -413,8 +413,8 @@ window.jevisBar = {
     answer.hidden = false;
     answer.classList.add('error');
     answer.textContent = `${ev.title}: ${ev.message}`;
-    // Timer notices and reminders are news, not a login Handry waits for.
-    const news = ev.title === 'Zamanlayıcı' || ev.title === 'Hatırlatma';
+    // Timer notices, reminders and Claude reports are news, not a login Handry waits for.
+    const news = ev.title === 'Zamanlayıcı' || ev.title === 'Hatırlatma' || ev.title === 'Claude';
     answer.classList.toggle('error', !news);
     foot.replaceChildren(el('span', null, news ? '' : `Bitirince ${APP_NAME} kendiliğinden devam eder.`));
     foot.hidden = news;

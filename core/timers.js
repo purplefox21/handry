@@ -2,7 +2,8 @@
 // 01:01'de ekranı kilitle", "VS Code'daki işler bitince bilgisayarı kapat",
 // "5 dakikada bir bak, indirme bitince uyut". A task has a time (at), a
 // condition (until) checked every `every` ms, or both, and one thing to do:
-// lock / sleep / restart / shutdown, a reminder, or a Handry command.
+// lock / sleep / restart / shutdown, a reminder, a Handry command, or a report
+// (a Claude Code session is done: its last answer goes to the user).
 // Conditions are checked by Handry itself, without an LLM: Claude Code's own
 // session status files, or the text of an app window or a Handry Chrome tab
 // (a plain "contains", or a yes/no by Jev).
@@ -22,6 +23,7 @@ import * as jev from './jev.js';
 import * as desktop from '../hands/desktop.js';
 import * as browser from '../hands/browser.js';
 import { claudeSessions, stateText } from '../hands/claude-sessions.js';
+import { sessionReport } from '../hands/files.js';
 import { power, POWER_NAMES } from '../hands/power.js';
 import { alertUser, resolveAlert, sendIMessage } from '../guard/notify.js';
 import { stopRequestedSince } from '../guard/stop.js';
@@ -32,7 +34,7 @@ const LATE_MS = 10 * MIN;
 const EXPIRES_MS = 24 * 60 * MIN;
 export const POWER = new Set(['lock', 'sleep', 'restart', 'shutdown']);
 const OFF = new Set(['restart', 'shutdown']);
-const ACTIONS = new Set([...POWER, 'remind', 'command']);
+const ACTIONS = new Set([...POWER, 'remind', 'command', 'report']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 export const TITLE = 'Zamanlayıcı'; // notices from here (the bar shows them without "Handry goes on by itself")
 
@@ -69,8 +71,8 @@ function whenText(t, kind = 'de') {
 }
 
 const HOLDING = { lock: 'kilitlemeyi', sleep: 'uyutmayı', restart: 'yeniden başlatmayı', shutdown: 'kapatmayı', remind: 'hatırlatmayı', command: 'işi' };
-const FUTURE = { lock: 'ekranı kilitleyeceğim', sleep: "Mac'i uyutacağım", restart: "Mac'i yeniden başlatacağım", shutdown: "Mac'i kapatacağım" };
-const whatText = job => (job.action === 'remind' ? `"${job.text}" diye hatırlat` : job.action === 'command' ? `"${job.text}" komutunu çalıştır` : POWER_NAMES[job.action]);
+const FUTURE = { lock: 'ekranı kilitleyeceğim', sleep: "Mac'i uyutacağım", restart: "Mac'i yeniden başlatacağım", shutdown: "Mac'i kapatacağım", report: 'sana son cevabını yazacağım' };
+const whatText = job => (job.action === 'remind' ? `"${job.text}" diye hatırlat` : job.action === 'command' ? `"${job.text}" komutunu çalıştır` : job.action === 'report' ? 'haber ver' : POWER_NAMES[job.action]);
 const futureText = job => (job.action === 'remind' ? `"${job.text}" diye hatırlatacağım` : job.action === 'command' ? `"${job.text}" komutunu çalıştıracağım` : FUTURE[job.action]);
 
 function conditionText(u) {
@@ -387,7 +389,10 @@ async function tick() {
       const patch = { lastCheck: now, lastNote: r.note, nextCheck: now + job.every };
       // A Claude session that needs an answer can't finish: tell the user once (an iMessage if they don't come).
       if (r.waiting?.length && !job.waitAlert) {
-        patch.waitAlert = alertUser(`${r.waiting.map(n => `"${n}"`).join(', ')} senden cevap bekliyor. O bitmeden ${HOLDING[job.action]} bekletiyorum.`, { title: TITLE, imessage: true, speak: false });
+        const who = r.waiting.map(n => `"${n}"`).join(', ');
+        patch.waitAlert = job.action === 'report'
+          ? alertUser(`${who} senden cevap bekliyor (VS Code'da).`, { title: 'Claude', imessage: true, speak: false })
+          : alertUser(`${who} senden cevap bekliyor. O bitmeden ${HOLDING[job.action]} bekletiyorum.`, { title: TITLE, imessage: true, speak: false });
       } else if (!r.waiting?.length && job.waitAlert) {
         resolveAlert(job.waitAlert);
         patch.waitAlert = null;
@@ -396,9 +401,10 @@ async function tick() {
         updateJob(job.id, { ...patch, metSince: null });
         continue;
       }
-      if (!job.metSince || now - job.metSince < stableMs()) {
+      const settle = job.action === 'report' ? Math.min(stableMs(), 20_000) : stableMs();
+      if (!job.metSince || now - job.metSince < settle) {
         const since = job.metSince || now;
-        updateJob(job.id, { ...patch, metSince: since, nextCheck: since + stableMs() });
+        updateJob(job.id, { ...patch, metSince: since, nextCheck: since + settle });
         continue;
       }
       updateJob(job.id, patch);
@@ -406,6 +412,16 @@ async function tick() {
     }
     fire(job);
   }
+}
+
+/** A Claude Code session is done: its last answer on the Handry bar, and by iMessage if the user doesn't come. */
+function report(job) {
+  const lines = job.until.claude.map(t => {
+    const last = t.sessionId ? sessionReport(t.sessionId)?.lastReply : '';
+    return `"${t.name}" (${t.project}) bitti.${last ? ` Son cevabı: ${last.length > 600 ? `${last.slice(0, 599)}…` : last}` : ''}`;
+  });
+  if (job.waitAlert) resolveAlert(job.waitAlert);
+  alertUser(lines.join('\n'), { title: 'Claude', imessage: true, speak: false });
 }
 
 function reasonOf(job) {
@@ -442,6 +458,7 @@ async function fire(job) {
     removeJob(job.id);
     if (POWER.has(job.action)) await power(job.action);
     else if (job.action === 'remind') alertUser(job.text, { title: 'Hatırlatma' });
+    else if (job.action === 'report') report(job);
     else if (runCommandFn) await runCommandFn(job.text, job);
     else {
       const { runCommand } = await import('./runner.js');

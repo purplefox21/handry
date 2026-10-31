@@ -697,12 +697,13 @@ async function guardRisk(page, item, riskP, actionText, loc = null) {
     pendingChanges.delete(page);
     return { reason: `${verdict.reason} · bu sitede hep izinli` };
   }
-  // while the question is open, the button it is about is circled on the screen
+  // while the question is open, the button it is about is circled on the screen (drawn alongside: the question never waits for it)
   const mark = loc && config().overlay?.confirmHighlight !== false
-    ? await rectOf(page, loc).then(r => overlay.draw({ shape: 'circle', rect: r, note: 'Buna basmak istiyorum', seconds: 900 }), () => null)
+    ? rectOf(page, loc).then(r => overlay.draw({ shape: 'circle', rect: r, note: 'Buna basmak istiyorum', seconds: 900 })).catch(() => null)
     : null;
   const ok = await confirmAction(`${APP_NAME} şunu yapmak istiyor:\n\n${actionText}${changed}\n\nSayfa: ${title}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`, { remember: rememberable(item.name) ? { host, name: item.name } : null });
-  if (mark) overlay.clear(mark);
+  const drawn = await mark;
+  if (drawn) overlay.clear(drawn);
   if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
   pendingChanges.delete(page); // approved: these are being saved now
   const shot = path.join(homeDir('logs', 'approved'), `${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`);

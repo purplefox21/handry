@@ -8,7 +8,8 @@
 // the app never reads half of it.
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
+import { promisify } from 'node:util';
 import { HOME, homeDir } from '../core/config.js';
 import { APP_NAME } from '../core/brand.js';
 
@@ -46,12 +47,13 @@ export function bestColor(bg) {
 }
 
 /** The average color of the screen around rect (screencapture; needs Screen Recording), or null. */
-export function backgroundOf(rect, pad = 24) {
-  const file = path.join(homeDir('tmp'), `under-${process.pid}.bmp`);
+export async function backgroundOf(rect, pad = 24) {
+  const file = path.join(homeDir('tmp'), `under-${process.pid}-${counter++}.bmp`);
   try {
     const r = [rect.x - pad, rect.y - pad, rect.w + 2 * pad, rect.h + 2 * pad].map(Math.round);
-    execFileSync('screencapture', ['-x', '-t', 'bmp', `-R${r.join(',')}`, file], { stdio: 'ignore', timeout: 4000 });
-    const b = fs.readFileSync(file);
+    // not blocking: a confirmation question opens while this runs
+    await promisify(execFile)('screencapture', ['-x', '-t', 'bmp', `-R${r.join(',')}`, file], { timeout: 4000 });
+    const b = await fs.promises.readFile(file);
     const start = b.readUInt32LE(10), w = b.readInt32LE(18), h = Math.abs(b.readInt32LE(22)), bytes = b.readUInt16LE(28) / 8;
     if (!w || !h || bytes < 3) return null;
     const stride = Math.ceil((w * bytes) / 4) * 4, step = Math.max(1, Math.floor(Math.sqrt((w * h) / 4000)));
@@ -93,21 +95,21 @@ function write(shapes) {
  * Draws a shape around rect ({ x, y, w, h }); returns its id (to clear it). color: 'auto' (default: the palette
  * color that stands out most from the screen under it), a palette name, or '#RRGGBB'.
  */
-function colorFor(color, rect) {
+async function colorFor(color, rect) {
   if (color === 'auto' || !color) {
-    const bg = process.env.JEVIS_TEST_OVERLAY_BG ? JSON.parse(process.env.JEVIS_TEST_OVERLAY_BG) : backgroundOf(rect);
+    const bg = process.env.JEVIS_TEST_OVERLAY_BG ? JSON.parse(process.env.JEVIS_TEST_OVERLAY_BG) : await backgroundOf(rect);
     return bg ? bestColor(bg) : PALETTE.violet;
   }
   return PALETTE[color] || color;
 }
 
-function shape({ shape: kind = 'arrow', rect, note, color, seconds }) {
+async function shape({ shape: kind = 'arrow', rect, note, color, seconds }) {
   return {
     id: `s${Date.now().toString(36)}${(counter++).toString(36)}`,
     kind: SHAPES.includes(kind) ? kind : 'arrow',
     rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.max(1, Math.round(rect.w)), h: Math.max(1, Math.round(rect.h)) },
     ...(note ? { text: String(note).slice(0, 80) } : {}),
-    color: colorFor(color, rect),
+    color: await colorFor(color, rect),
     seconds
   };
 }
@@ -118,7 +120,7 @@ const span = seconds => Math.min(Math.max(1, Number(seconds) || 5), 900);
 export async function draw({ shape: kind = 'arrow', rect, note, color = 'auto', seconds = 5 }) {
   const secs = span(seconds);
   // the file keeps it a little longer than it shows: the app counts the seconds from when it appears
-  const item = { ...shape({ shape: kind, rect, note, color, seconds: secs }), until: Date.now() + secs * 1000 + 3000 };
+  const item = { ...(await shape({ shape: kind, rect, note, color, seconds: secs })), until: Date.now() + secs * 1000 + 3000 };
   write([...shown(), item]);
   return item.id;
 }
@@ -131,10 +133,10 @@ export async function drawSteps(steps, { seconds = 5, color = 'auto' } = {}) {
   const secs = span(seconds);
   const group = `g${Date.now().toString(36)}${(counter++).toString(36)}`;
   const until = Date.now() + steps.length * (secs + 1) * 1000 + 5000;
-  const items = steps.map((st, i) => ({
-    ...shape({ ...st, color: st.color || color, note: `${i + 1}. ${st.note || ''}`.trim(), seconds: secs }),
+  const items = await Promise.all(steps.map(async (st, i) => ({
+    ...(await shape({ ...st, color: st.color || color, note: `${i + 1}. ${st.note || ''}`.trim(), seconds: secs })),
     group, order: i, until
-  }));
+  })));
   write([...shown(), ...items]);
   return items.map(x => x.id);
 }

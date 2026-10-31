@@ -28,6 +28,11 @@ Handry started as a way to stop filling in App Store Connect by hand (pricing, t
 **Later and when**
 - "In 10 minutes remind me…", "lock the screen at 3", "when the Claude Code sessions are done, shut down the Mac", "when this text shows up in that window, tell me". Checked by Handry itself, even after the chat is over.
 
+**Claude Code where you can watch it**
+- "Have Claude run the tests in jev": Handry opens the project's VS Code window, a new Claude Code tab with the task in its message box, checks the box really holds it and presses Send. Nothing runs hidden in the background; you can watch every step and step in.
+- It can also write to a session already open there (an answer to its question, the next task), and it tells you when a session is done or waits for you: on the Handry bar, and by iMessage with Claude's last answer if you don't come.
+- The first time, VS Code asks whether the Claude extension may open Handry's link. That answer is yours: Handry circles the Open button, tells you, and waits.
+
 **Files**
 - Search, read, open, move, rename, copy and trash files in your home folder. Nothing is deleted for good (it goes to the Trash), nothing is overwritten, bigger changes ask first, and the last change can be undone.
 
@@ -138,7 +143,7 @@ Measured on my Mac:
 
 ## Tests
 
-`tests/` has 31 end-to-end scripts that run against real Chrome, real Mac apps and the real Jev. Most use a throwaway Handry folder and their own Chrome profile, so your setup isn't touched; the comment at the top of each file says what it opens or changes. Most spend a few Jev calls, and `app-e2e` uses a little of your Claude subscription.
+`tests/` has 32 end-to-end scripts that run against real Chrome, real Mac apps and the real Jev. Most use a throwaway Handry folder and their own Chrome profile, so your setup isn't touched; the comment at the top of each file says what it opens or changes. Most spend a few Jev calls, and `app-e2e` uses a little of your Claude subscription.
 
 ```bash
 node tests/mcp-smoke.mjs              # the MCP server and a form, end to end (uses the Handry Chrome window)
@@ -149,6 +154,7 @@ node tests/remote-approve-e2e.mjs     # approving from the phone (stand-in Messa
 node tests/phone-e2e.mjs              # commands from the phone by iMessage, screenshots to the phone (nothing is sent)
 node tests/spaces-e2e.mjs             # desktops (Spaces) on the real screen; puts everything back
 node tests/overlay-e2e.mjs            # drawing on the screen: places checked against the accessibility tree and by pixels
+node tests/vscode-claude-e2e.mjs      # Claude Code in VS Code: finding sessions, "done" reports (--live opens a real Claude tab)
 ```
 
 ## Status and limits

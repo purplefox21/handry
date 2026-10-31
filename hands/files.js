@@ -160,7 +160,7 @@ export async function open(target, { app } = {}) {
 // ---------------------------------------------------------------------------
 
 const VSCODE = path.join(HOME, 'Library', 'Application Support', 'Code', 'User');
-const CLAUDE_PROJECTS = path.join(HOME, '.claude', 'projects');
+const CLAUDE_PROJECTS = process.env.JEVIS_CLAUDE_PROJECTS_DIR || path.join(HOME, '.claude', 'projects');
 const newest = files => Math.max(0, ...files.map(f => statOf(f)?.mtimeMs || 0));
 
 /** The first "cwd" in a Claude Code log. */
@@ -255,7 +255,8 @@ function sessionSummary(file) {
     try { e = JSON.parse(line); } catch { continue; }
     if (e.isSidechain || e.isMeta || e.isCompactSummary) continue;
     if (!started && e.timestamp) started = Date.parse(e.timestamp);
-    const text = textOf(e.message?.content).trim();
+    // what the user typed, without the blocks the editor adds in front of it (browser instructions, reminders, the open file)
+    const text = textOf(e.message?.content).replace(/<(browser_instruction|system-reminder|ide_selection|ide_opened_file)>[\s\S]*?<\/\1>/g, '').trim();
     if (!text) continue;
     if (e.type === 'user' && (e.origin?.kind === 'human' || e.origin === undefined) && !/^(<|\[Request interrupted|This session is being continued)/.test(text)) {
       if (prompts.at(-1)?.text !== text) prompts.push({ text, at: Date.parse(e.timestamp) });
@@ -273,6 +274,16 @@ function sessionSummary(file) {
     lastPrompts: prompts.slice(1).slice(-4).map(p => redact(oneLine(p.text, 240))),
     lastReply: replies.length ? redact(oneLine(replies.at(-1).text, 900)) : ''
   };
+}
+
+/** One Claude Code session's summary (title, requests, last answer) by its id, or null. */
+export function sessionReport(sessionId) {
+  if (!/^[\w-]+$/.test(String(sessionId))) return null;
+  for (const d of readdir(CLAUDE_PROJECTS)) {
+    const file = path.join(CLAUDE_PROJECTS, d, `${sessionId}.jsonl`);
+    if (statOf(file)) return sessionSummary(file);
+  }
+  return null;
 }
 
 /** What was done in a project: git history and the Claude Code sessions run in it. */

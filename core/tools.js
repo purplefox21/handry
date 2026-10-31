@@ -25,6 +25,7 @@ import { notesBlock, addNote, removeNote, notesFor, siteOf } from './sites.js';
 import * as vault from '../guard/vault.js';
 import { power } from '../hands/power.js';
 import { claudeSessions, formatSessions } from '../hands/claude-sessions.js';
+import * as vscodeClaude from '../hands/vscode-claude.js';
 import * as timers from './timers.js';
 import { totp } from '../guard/totp.js';
 import { setActivity, appOfTool } from './activity.js';
@@ -32,6 +33,14 @@ import { APP, APP_NAME, MCP_NAME } from './brand.js';
 
 // A tool returns MCP content; `meta` (the raw result) is only used for the log.
 const text = (t, meta) => ({ content: [{ type: 'text', text: t }], meta });
+
+/** Tells the user when a Claude Code session is done or needs an answer (one watch per session); returns a sentence for the result. */
+async function watchClaude(s, said) {
+  timers.cancelJobs(j => j.action === 'report' && j.until?.claude?.some(t => t.pid === s.pid));
+  timers.addJob({ action: 'report', until: { claude: [{ pid: s.pid, sessionId: s.sessionId, name: s.name, project: s.project }] }, every: 10_000, said, source: process.env.JEVIS_RUN_ID?.startsWith('mcp-') ? 'mcp' : 'jevis', chatId: process.env.JEVIS_CHAT_ID || null });
+  const running = await timers.ensureScheduler();
+  return running ? ' Bitince ya da senden cevap bekleyince haber vereceğim.' : ` (${APP_NAME} uygulaması açık değil; bitince haber veremem.)`;
+}
 
 // Aynı sayfa için "giriş gerekiyor mu" sorusu 1 dakika içinde tekrar sorulmaz (her tıklamada Jev'e gitmesin)
 const girisBakilan = new Map(); // url → son bakılan an
@@ -113,6 +122,7 @@ Forms: fill many fields with one browser_fill call instead of one browser_type/b
 For simple one-step commands (volume, music, open or quit an app, open a site, a web search, play on Spotify, a note, today's calendar) try ${MCP_NAME}_do first: ${APP_NAME}'s fast path does them in 1-3 s. If it answers that it needs thinking, do the task with the other tools.
 App shortcuts: spotify_play, music_play, notes_add / notes_find, reminders_add / reminders_list, calendar_events / calendar_add are faster and surer than clicking through those apps. The user's message ends with the current local date and time ("[Şu an: …]"); work out dates from it ("yarın 9'da", "cuma") as local "YYYY-MM-DDTHH:MM".
 Later and when: schedule_task does things later or when something happens, and ${APP_NAME} checks by itself (no LLM, even after the conversation ends): lock / sleep / restart / shut down the Mac, a reminder, or a ${APP_NAME} command, at a time, after some minutes, when the Claude Code sessions finish (claude_sessions shows them and their state), or when a text shows up in an app window or a ${APP_NAME} Chrome tab. Never wait inside a task with browser_wait / desktop_wait for more than a minute. scheduled_tasks lists them, cancel_scheduled cancels.
+Claude Code in a project: when the user wants Claude to do something in a project ("jev'de Claude'a testleri çalıştırt"), call claude_start: it runs in a new Claude tab in that project's VS Code window, where the user can watch it, never hidden in the background; claude_send writes to a session already open there (an answer to its question, the next task). Both tell the user when it is done or needs an answer (${APP_NAME} bar, iMessage with Claude's last answer).
 Files and projects: files_list / files_search / files_recent / files_read / files_open work on the file system directly (home folder only); use them instead of clicking through Finder. files_make_folder / files_move (also rename) / files_copy / files_trash change files: nothing is deleted for good (the Trash), nothing is overwritten, bigger steps ask the user, and files_undo turns the last change back. Before throwing things away or moving many, say what you will do in one sentence. For "what did we do in project X" use project_activity (git + Claude Code session logs); files_recent kind=projects finds the recently worked-on projects.`;
 
 export const TOOLS = [
@@ -1061,6 +1071,27 @@ export const TOOLS = [
     run: async () => {
       const list = claudeSessions();
       return text(formatSessions(list), { sessions: list.filter(s => !s.jevis) });
+    }
+  },
+  {
+    name: 'claude_start',
+    description: `Start Claude Code on a task where the user can watch it: the project's VS Code window comes to the front, a new Claude tab opens with the task in its message box, and ${APP_NAME} presses Send (never a hidden background run). project: a folder path or the name of a recent project ("jev"). task: what to tell Claude, in the user's words. notify (default true): when it is done or needs an answer, the user hears it on the ${APP_NAME} bar and by iMessage, with Claude's last answer.`,
+    inputSchema: obj({ project: { type: 'string' }, task: { type: 'string' }, notify: { type: 'boolean' } }, ['project', 'task']),
+    run: async ({ project, task, notify = true }) => {
+      const r = await vscodeClaude.startSession({ project, task });
+      const watch = notify && r.session ? await watchClaude(r.session, task) : '';
+      const which = r.session ? `"${r.session.name}" oturumu` : 'yeni bir Claude sekmesi';
+      return text(`VS Code'da (${r.window}) ${which} açıldı, görev gönderildi.${watch}${notify && !r.session ? ' Oturum ayırt edilemedi; bitince haber veremeyeceğim (claude_sessions ile bakılabilir).' : ''}`, { dir: r.dir, session: r.session });
+    }
+  },
+  {
+    name: 'claude_send',
+    description: `Write to a Claude Code session open in VS Code (claude_sessions lists them): an answer to its question or the next task. Its tab comes to the front, the text goes into its message box and ${APP_NAME} presses Send. session: its name, project or id. notify as in claude_start.`,
+    inputSchema: obj({ session: { type: 'string' }, text: { type: 'string' }, notify: { type: 'boolean' } }, ['session', 'text']),
+    run: async ({ session, text: words, notify = true }) => {
+      const r = await vscodeClaude.sendToSession({ session, text: words });
+      const watch = notify ? await watchClaude(r.session, words) : '';
+      return text(`"${r.session.name}" oturumuna yazıldı ve gönderildi (VS Code: ${r.window}).${watch}`, { session: r.session });
     }
   },
   {

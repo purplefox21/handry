@@ -44,7 +44,7 @@ function commandCounter() {
 }
 
 /**
- * [{ pid, sessionId, name, project, where, state: 'working'|'waiting'|'idle',
+ * [{ pid, sessionId, name, project, cwd, where, state: 'working'|'waiting'|'idle',
  *    waitingFor, commands, since, jevis }] — newest change first. `jevis` marks
  * Handry's own brain runs.
  */
@@ -65,6 +65,7 @@ export function claudeSessions() {
       sessionId: s.sessionId || '',
       name: s.name || project,
       project,
+      cwd: (s.cwd || '').normalize('NFC'),
       where: WHERE[s.entrypoint] || s.entrypoint || '',
       state,
       waitingFor: s.waitingFor || '',
