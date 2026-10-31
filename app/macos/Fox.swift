@@ -858,6 +858,22 @@ final class FoxPet {
         }
     }
 
+    /// For trying it out (the menu): the ledges it sees now (read again soon after), and a hop onto a near one at once.
+    func ledgesNow() -> [Platform] {
+        ledgesAt = .distantPast
+        return visibleLedges()
+    }
+
+    func hopNow() {
+        guard visible, mode != .air, mode != .held, mode != .jump else { return }
+        let gap = { (p: Platform) in hypot(min(max(self.foot.x, p.x1), p.x2) - self.foot.x, p.y - self.foot.y) }
+        guard let target = visibleLedges().filter({ abs($0.y - foot.y) > 20 }).sorted(by: { gap($0) < gap($1) }).prefix(5).randomElement() else { return }
+        let x = min(max(foot.x, target.x1 + 20 * scale), target.x2 - 20 * scale)
+        targetX = nil
+        thenAt = nil
+        if mode == .sleep || anim == "sleep" || anim == "lie_down" { play("wake_up", mode: .special) { self.jump(to: target, x: x) } } else { jump(to: target, x: x) }
+    }
+
     /// Leaps onto what Handry clicks: its top edge becomes a ledge for a while.
     private func leap(onto rect: CGRect) {
         guard mode != .air, mode != .jump, let main = NSScreen.screens.first else { return }

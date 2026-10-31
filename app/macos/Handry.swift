@@ -384,6 +384,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         toggle.tag = 910
         menu.addItem(toggle)
         menu.addItem(item(L("Uyut", "Sleep"), #selector(foxSleep)))
+        // to try it out: where it can stand inside windows, and a hop onto one now
+        menu.addItem(item(L("Rafları Göster", "Show Ledges"), #selector(showLedges)))
+        menu.addItem(item(L("Şimdi Zıpla", "Hop Now"), #selector(hopNow)))
         menu.addItem(.separator())
         for (title, value) in [(L("Küçük", "Small"), 0.5), (L("Orta", "Medium"), 1.0), (L("Büyük", "Large"), 1.5)] {
             let size = item(title, #selector(foxSize(_:)))
@@ -410,6 +413,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     }
 
     @objc func foxSleep() { fox?.sleepNow() }
+    @objc func showLedges() { overlay?.flashLines((fox?.ledgesNow() ?? []).map { ($0.x1, $0.x2, $0.y) }) }
+    @objc func hopNow() { fox?.hopNow() }
 
     /// The island at the notch that shows what Handry is doing: always there, only while it works, or never.
     /// Drawings stay either way.
