@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Emergency stop: a flag file every tool checks before acting. It expires on
 // its own so a forgotten stop doesn't block tomorrow's work.
 import fs from 'node:fs';

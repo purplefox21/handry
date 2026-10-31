@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Scheduled tasks and watches: "3 saat sonra bilgisayarı kapat", "saat
 // 01:01'de ekranı kilitle", "VS Code'daki işler bitince bilgisayarı kapat",
 // "5 dakikada bir bak, indirme bitince uyut". A task has a time (at), a

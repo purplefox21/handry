@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Learned tasks end to end: a brain run is learned with its details as
 // variables, the same task with other details replays without the brain,
 // other tasks and questions still go to the brain, invented texts are not

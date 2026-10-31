@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Approving from the phone by iMessage. A fake Messages database in a temp
 // folder stands in for ~/Library/Messages/chat.db (the real one is never
 // opened) and iMessages are only recorded, not sent. Checks: the question

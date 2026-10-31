@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Handry, Handry's app (the name comes from core/brand.js): starts the Handry
 // server and shows it three ways:
 //   - the bar: a compact field that drops from the top of the screen
@@ -66,6 +67,9 @@ let APP_ACC = info["AppAccusative"] as? String ?? "\(APP_NAME)'yu"
 let APP_ABL = info["AppAblative"] as? String ?? "\(APP_NAME)'dan"
 let APP_GEN = info["AppGenitive"] as? String ?? "\(APP_NAME)'nun"
 let WAKE_LABEL = info["WakeLabel"] as? String ?? "Hey Handry"
+// Who made it (core/brand.js, via Info.plist).
+let CREDIT = info["HandryAuthor"] as? String ?? "Berat Olekli (purplefox)"
+let AUTHOR_URL = info["HandryAuthorURL"] as? String ?? "https://github.com/purplefox21"
 let BAR_WIDTH: CGFloat = 640
 let BAR_HEIGHT: CGFloat = 54
 let BAR_EAR: CGFloat = 10
@@ -249,7 +253,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         let main = NSMenu()
         let appItem = NSMenuItem()
         let appMenu = NSMenu(title: APP_NAME)
-        appMenu.addItem(NSMenuItem(title: L("\(APP_NAME) Hakkında", "About \(APP_NAME)"), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+        appMenu.addItem(item(L("\(APP_NAME) Hakkında", "About \(APP_NAME)"), #selector(showAbout)))
         appMenu.addItem(.separator())
         appMenu.addItem(item(L("\(APP_NAME) Çubuğu   ⌥Space", "\(APP_NAME) Bar   ⌥Space"), #selector(toggleBar)))
         appMenu.addItem(item(L("Büyük Pencere", "\(APP_NAME) Window"), #selector(openWindow)))
@@ -322,6 +326,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         menu.addItem(languageMenuItem())
         menu.addItem(item(L("Sunucuyu Yeniden Başlat", "Restart Server"), #selector(restartServer)))
         menu.addItem(.separator())
+        menu.addItem(item(L("\(APP_NAME) Hakkında", "About \(APP_NAME)"), #selector(showAbout)))
         menu.addItem(item(L("\(APP_ABL) Çık", "Quit \(APP_NAME)"), #selector(quit)))
         statusItem.menu = menu
     }
@@ -955,6 +960,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     }
 
     @objc func checkPermissions() { permissions.show() }
+
+    /// The About window: the name, who made it (Berat Olekli, purplefox) and where it lives; the copyright line
+    /// comes from Info.plist.
+    @objc func showAbout() {
+        let center = NSMutableParagraphStyle()
+        center.alignment = .center
+        let credits = NSMutableAttributedString(string: "\(L("Yapan", "Made by")) \(CREDIT)\n", attributes: [.font: NSFont.systemFont(ofSize: 11, weight: .medium), .foregroundColor: NSColor.labelColor, .paragraphStyle: center])
+        credits.append(NSAttributedString(string: AUTHOR_URL.replacingOccurrences(of: "https://", with: ""), attributes: [.font: NSFont.systemFont(ofSize: 11), .link: URL(string: AUTHOR_URL) as Any, .paragraphStyle: center]))
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: APP_NAME, .credits: credits])
+    }
+
+    /// A link that wants a new window (the credit in Settings) opens in the default browser.
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if let url = navigationAction.request.url, ["http", "https"].contains(url.scheme) { NSWorkspace.shared.open(url) }
+        return nil
+    }
 
     @objc func restartServer() {
         let old = server

@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // One-time codes the user gets by SMS or e-mail ("we sent you a code"):
 // the newest fresh one is read for the user so they don't have to look at the
 // phone. Only the code and who sent it come back, never other messages.

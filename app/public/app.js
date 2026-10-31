@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Handry chat UI (the big window). Shared pieces live in common.js. Everything
 // shown here can come from web pages or tools: untrusted text always goes
 // through textContent, never innerHTML.

@@ -1,6 +1,7 @@
 # Handry ✋
 
 **A Mac assistant that uses your apps and Chrome for you.**
+*By Berat Olekli ([purplefox](https://github.com/purplefox21)).*
 You talk or type. Claude plans the steps, TypeSafe Jev picks the right button in about a third of a second, and Handry's own code clicks, types and checks the result. It asks you before anything risky.
 
 <!-- Demo GIF / video goes here -->
@@ -185,6 +186,8 @@ CLAUDE.md  notes for Claude when it works on this repo
 ```
 
 ## Credits
+
+Handry is made by **Berat Olekli** ([purplefox](https://github.com/purplefox21)): the idea, the design, the walking hand and Foxie, and the code. © 2026 Berat Olekli (purplefox). Copies and work based on Handry keep the [NOTICE](NOTICE) file and the copyright lines at the top of the source files.
 
 Built with [Claude Code](https://claude.com/claude-code). Uses [TypeSafe Jev](https://typesafe.ai) for fast decisions and [Playwright](https://playwright.dev) to drive Chrome.
 

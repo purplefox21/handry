@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Handry without Jev: the same judgments made here, with words and rules, for
 // people who have no Jev key (core/jev.js switches to these by itself; see
 // jevOff there). Quick and free, but plainer than Jev:

@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Locking, sleeping, restarting or shutting down the Mac through the Apple
 // menu, the way the user would click it (Accessibility is enough, no other
 // permission). "Sistemi Kapat…" and "Yeniden Başlat…" bring up macOS's own

@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Faz 10 end to end: login alerts (and the iMessage a minute later, recorded
 // instead of sent), browser_sessions against a local site with a login,
 // browser_fill, Claude teaching Handry (handry_teach → handry_do without a

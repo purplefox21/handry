@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Handry MCP server (stdio). Any MCP client — Claude Code, Codex, Gemini CLI —
 // gets the same hands. stdout belongs to the protocol: never print to it.
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -6,7 +7,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { TOOLS, INSTRUCTIONS, callTool } from '../core/tools.js';
 import { jevOff } from '../core/jev.js';
-import { MCP_NAME } from '../core/brand.js';
+import { MCP_NAME, HANDLE } from '../core/brand.js';
 
 // One Claude session = one run in the action log (the teach tool learns from it),
 // unless Handry started this server for one of its own runs.
@@ -16,7 +17,7 @@ process.env.JEVIS_RUN_ID ||= `mcp-${Date.now().toString(36)}`;
 const now = text => (typeof text === 'function' ? text() : text);
 
 const server = new Server(
-  { name: MCP_NAME, version: '0.3.0' },
+  { name: MCP_NAME, version: '0.3.0', title: `${MCP_NAME} · by ${HANDLE}` },
   { capabilities: { tools: {} }, instructions: now(INSTRUCTIONS) }
 );
 

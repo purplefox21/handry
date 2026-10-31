@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Drawing on the screen (screen_draw), checked without drawing on the real
 // screen: a throwaway Handry folder, so the app's ~/.jevis/overlay.json is
 // never touched. Checks: the color that stands out on a background; a drawing

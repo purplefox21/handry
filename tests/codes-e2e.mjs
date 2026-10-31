@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Codes and the login window. Codes: the text parser (Turkish and English
 // messages), the Messages database (a fake chat.db in a temp folder; the real
 // one is never opened), the Gmail inbox (a page that looks like Gmail's rows),

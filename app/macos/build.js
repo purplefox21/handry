@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Builds the app (Handry's menu bar app: the bar, the window and the pet on
 // screen) into dist/<name>.app with its icons and both pets' sprites (the hand,
 // drawn by app/hand/make.mjs, and the fox), signs it, and installs it into
@@ -9,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ROOT, config } from '../../core/config.js';
-import { APP, FOX, WAKE_LABEL, WAKE_SOURCE } from '../../core/brand.js';
+import { APP, FOX, WAKE_LABEL, WAKE_SOURCE, COPYRIGHT, CREDIT, AUTHOR_URL } from '../../core/brand.js';
 import { T } from '../../core/i18n.js';
 
 export const APP_PATH = path.join(ROOT, 'dist', `${APP.name}.app`);
@@ -86,6 +87,9 @@ export function buildApp() {
   for (const [id, dir] of Object.entries(PETS)) fs.cpSync(dir, path.join(APP_PATH, 'Contents', 'Resources', 'pets', id), { recursive: true });
   fs.writeFileSync(path.join(APP_PATH, 'Contents', 'Info.plist'), plist({
     CFBundleIdentifier: BUNDLE_ID,
+    NSHumanReadableCopyright: COPYRIGHT,
+    HandryAuthor: CREDIT,
+    HandryAuthorURL: AUTHOR_URL,
     CFBundleName: APP.name,
     CFBundleDisplayName: APP.name,
     CFBundleExecutable: APP.name,

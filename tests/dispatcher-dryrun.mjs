@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Checks Jev's decisions and the argument extraction of jev-dispatcher.js
 // without touching the Mac (dryRun). Usage: node tests/dispatcher-dryrun.mjs
 import { dispatchCommand } from '../jev-dispatcher.js';

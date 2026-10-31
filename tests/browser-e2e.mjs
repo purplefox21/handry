@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // End-to-end test of the browser hands against a local App Store Connect-like
 // page, with real Chrome and real Jev. Usage: node tests/browser-e2e.mjs
 import fs from 'node:fs';

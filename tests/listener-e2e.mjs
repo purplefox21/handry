@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // "Hey Handry" (and the older "Hey Foxie" / "Hey Fox") and live speech in the app (Handry.app), without a microphone: phrases are
 // spoken by macOS (Yelda) into files and run through the app's own listener
 // (Handry --test-listener), the same steps the microphone goes through. Then

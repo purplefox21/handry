@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Secrets live in the macOS Keychain (service "jevis"). Handry reads them only
 // to type them into a field: the value is never returned to the brain or
 // written to logs. Each secret lists the sites it may be typed on, so a fake

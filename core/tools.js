@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Every Handry tool, defined once: JSON Schema input + handler. The MCP server,
 // the CLI and the API-based brains all go through callTool(), so the stop
 // switch, the action log and the page guard apply everywhere.
@@ -29,7 +30,7 @@ import * as vscodeClaude from '../hands/vscode-claude.js';
 import * as timers from './timers.js';
 import { totp } from '../guard/totp.js';
 import { setActivity, appOfTool } from './activity.js';
-import { APP, APP_NAME, MCP_NAME } from './brand.js';
+import { APP, APP_NAME, MCP_NAME, CREDIT } from './brand.js';
 import { T, macLanguage } from './i18n.js';
 
 // A tool returns MCP content; `meta` (the raw result) is only used for the log.
@@ -115,7 +116,7 @@ const macNames = () => {
 };
 
 // Worked out once at startup (the MCP server and the brains read it once): in the language Handry speaks then.
-export const INSTRUCTIONS = `${APP_NAME} is the user's own assistant app on their Mac; these are its tools. They control the Mac and ${APP_NAME}'s own Chrome window (a separate Chrome profile; the user logs in to sites there once and stays logged in).
+export const INSTRUCTIONS = `${APP_NAME} (made by ${CREDIT}) is the user's own assistant app on their Mac; these are its tools. They control the Mac and ${APP_NAME}'s own Chrome window (a separate Chrome profile; the user logs in to sites there once and stays logged in).
 How to work:
 - On a new page call browser_read first. It lists usable elements as "#id [role] name — nearby text {state}" plus the visible text.
 - Act with browser_click / browser_type / browser_select / browser_check / browser_upload. Describe the target with the exact words on the page, or pass the #id from the last browser_read. ${jev.jevOff() ? 'Jev is off here (no key): the description is matched by its words, so the exact words or, better, the #id work best.' : 'Jev (a fast judgment model) maps the description to the element in ~0.3 s.'}

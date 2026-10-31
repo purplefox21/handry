@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // The compact Handry bar. Handry.app shows it on a floating panel at the top of
 // the screen (⌥Space, or "Hey Handry"); it talks to the app through
 // window.webkit.messageHandlers.bar and the app calls window.jevisBar.

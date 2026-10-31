@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Browser hands: drives the user's installed Chrome (with a separate Handry
 // profile) through Playwright. Jev decides which element an instruction means;
 // risky clicks go through the confirmation dialog first.

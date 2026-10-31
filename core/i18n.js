@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Handry speaks Turkish or English. The setting is config "language": "tr",
 // "en", or "auto" (the default: Turkish when the Mac's own first language is
 // Turkish, English otherwise); JEVIS_LANG=tr|en overrides it for one run

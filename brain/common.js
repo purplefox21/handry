@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Shared pieces of the brain adapters. Every adapter reports progress with the
 // same events so the chat UI doesn't care which LLM is thinking:
 //   { type: 'text', text }                    words from the brain

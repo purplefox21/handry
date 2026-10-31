@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // "Bu sitede hep", new passwords and new windows, end to end.
 // - Site permissions: a button the user said "always" to is not asked again on that site (and only there);
 //   money, orders and deleting are never remembered; site_permissions lists and removes them.

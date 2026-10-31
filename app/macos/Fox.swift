@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // The pet that lives on the screen, on a borderless, see-through panel: the
 // hand that walks on its fingers (app/hand/sprites, drawn by app/hand/make.mjs)
 // or Foxie, a pixel-art red fox (app/foxie/sprites, the user's Blender → pixel

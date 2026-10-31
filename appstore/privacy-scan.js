@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Scans a mobile app's source for SDKs and permissions and drafts the App
 // Store "App Privacy" answers. Deterministic: no LLM, nothing leaves the Mac.
 // Usage: node appstore/privacy-scan.js <app-folder> [--json]

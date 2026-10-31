@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Chats. Everything said to Handry goes into the current chat, whether it
 // comes from the bar, the big window, voice or the terminal. Each chat has
 // its own Claude session, so follow-ups ("bunu", "bi daha dene") are

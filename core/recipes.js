@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Recipes: a successful run saved as its tool steps, replayed later without
 // a brain (Jev still finds each element, so small page changes don't break
 // it). Steps may use {{variables}} and "ask_brain" steps for the parts that

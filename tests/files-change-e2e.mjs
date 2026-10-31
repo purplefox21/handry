@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Changing files through the tools: new folder, move / rename, copy, to the
 // Trash, undo; the places that are refused; the questions asked first (and
 // "no" meaning nothing happens); no screen touches while a confirmation

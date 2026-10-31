@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Handry's island at the top of each screen (black, out of the camera notch on
 // Macs that have one; a small black tab at the top edge on the others) and the
 // lines Handry draws to show something: an arrow out of the notch, a circle, an

@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Files and projects through the tool layer: folder listing with Turkish
 // folder names, reading texts (secrets masked, key files and paths outside
 // the home folder refused), search, recently used apps and projects, what

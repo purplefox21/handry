@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Desktop hands: any Mac app through its accessibility tree (bin/jevis-ax).
 // Same idea as the browser: list the controls, let Jev pick the one the
 // instruction means, press it. Terminals and app-quitting keys need consent.

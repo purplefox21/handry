@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Runs one user command: a recipe ("tarif: isim"), the Jev fast path, or the
 // chosen brain. Shared by the chat server and the CLI (`do`, `listen --do`).
 import { config, saveState } from './config.js';

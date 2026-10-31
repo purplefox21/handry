@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Claude Code sessions the user can watch, instead of Claude running in the
 // background: Handry brings the project's VS Code window to the front, opens
 // a new tab of the Claude Code extension with the task already in its message

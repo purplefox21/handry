@@ -1,10 +1,11 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // `node cli.js doctor`: checks every part of Handry and says what to fix.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ROOT, config, expandHome } from './config.js';
-import { APP_NAME, MCP_NAME } from './brand.js';
+import { APP_NAME, MCP_NAME, COPYRIGHT } from './brand.js';
 import { T } from './i18n.js';
 import * as jev from './jev.js';
 import { listBrains } from '../brain/index.js';
@@ -26,7 +27,7 @@ async function reachable(url) {
 }
 
 export async function doctor() {
-  const lines = [];
+  const lines = [`${APP_NAME} · ${COPYRIGHT}`, ''];
   const c = config();
 
   lines.push(ok('Node', process.version));

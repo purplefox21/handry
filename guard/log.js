@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Action log: one JSON line per tool call in ~/.jevis/logs/YYYY-MM-DD.jsonl,
 // written by the code (not told by an AI): when, who (the app itself — bar,
 // window, voice, a timer, the terminal — or which Claude Code session), which

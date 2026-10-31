@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Notes about websites, left by Claude for next time ("the TTL menu on
 // GoDaddy only opens after the record row is clicked"). They live in
 // ~/.jevis/sites/<domain>.json and come back whenever Handry reads a page of

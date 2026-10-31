@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Harder desktop cases through the tool layer: a Chromium app (Spotify) read
 // through its accessibility switch, clicking by screenshot pixels
 // (Calculator), waiting for text, and switching between two windows of one

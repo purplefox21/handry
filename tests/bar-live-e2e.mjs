@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // The compact bar in the real Handry.app, driven like a person would: ⌥Space,
 // type a harmless command, Enter. Checks that the command arrived from the
 // bar, that the app the user was in stayed in front (the bar doesn't steal

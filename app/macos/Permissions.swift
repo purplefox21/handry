@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // The app's permissions window: every macOS permission it uses, one row each,
 // with a live ✅/❌ and a button that brings up macOS's own question or opens
 // the right page of System Settings. It opens by itself on the first launch

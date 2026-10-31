@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Files and projects: folders, search, recently used files and apps
 // (Spotlight), recently worked-on projects (VS Code + Claude Code) and what
 // was done in a project (git + Claude Code session logs), and careful changes

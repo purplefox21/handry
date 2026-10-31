@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Draws Handry, the hand that walks on its fingers, as pixel art: a little 3D
 // hand (rounded cones for the fingers, ellipsoids for the palm, a purple cuff)
 // is posed for every frame and ray-cast straight from the side into a small

@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Pieces of a command ("select, don't generate"): every run of a few words,
 // so Jev can pick the exact words that name something (a song, a note's
 // text, a search) instead of an LLM writing them.

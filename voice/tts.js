@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Spoken replies with macOS `say`, in a Turkish (voice.ttsVoice) or English
 // (voice.ttsVoiceEn) voice by Handry's language. Only a short summary is read
 // aloud; the full answer stays on screen.

@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Commands from the phone by iMessage. The user texts themselves "Handry, sesi
 // kıs" / "Handry, turn the volume down" (or "Hey Handry …"); Handry does it like
 // a command from the bar and texts the answer back ("Handry: …"). "Handry ekranı

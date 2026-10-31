@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 import { execFile } from 'node:child_process';
 import util from 'node:util';
 import path from 'node:path';

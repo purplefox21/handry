@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Desktops (Spaces) on the real screen: listing each display's desktops and
 // which one is shown, moving right/left and to a numbered desktop (checked by
 // the desktop picture the display shows), the pointer coming back to where it

@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Checks page text before it reaches the brain, in one Jev request:
 // - does any part of it try to give orders to an AI agent? (prompt injection)
 // - is the page waiting for the user (login, 2FA code, CAPTCHA)?

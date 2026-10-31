@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Handry app server: the chat UI, the Jev playground proxy and the run API.
 // Listens on 127.0.0.1 only and every /api call needs the per-start token.
 import http from 'node:http';
@@ -13,7 +14,7 @@ import { listChats, peekChat, newChat, switchChat, deleteChat, IDLE_MS } from '.
 import { listBrains } from '../brain/index.js';
 import { requestStop } from '../guard/stop.js';
 import { startScheduler, sortedJobs, jobView, cancelJobs } from '../core/timers.js';
-import { APP, FOX, WAKE_LABEL } from '../core/brand.js';
+import { APP, FOX, WAKE_LABEL, CREDIT, COPYRIGHT, HANDLE, AUTHOR_URL } from '../core/brand.js';
 import { recentActions } from '../guard/log.js';
 import { undo as undoFiles } from '../hands/files.js';
 import { sttStatus, transcribe, stripWake } from '../voice/stt.js';
@@ -253,7 +254,7 @@ const ROUTES = {
     sendJson(res, 200, { ok: true });
   },
   // "Is this really our server?" The app asks before reusing whatever answers on its port.
-  'GET /api/ping': (req, res) => sendJson(res, 200, { jevis: true, name: APP_NAME, pid: process.pid }),
+  'GET /api/ping': (req, res) => sendJson(res, 200, { jevis: true, name: APP_NAME, by: CREDIT, pid: process.pid }),
   // What Handry speaks now, what was chosen ("auto" follows the Mac), and the Mac's own language.
   'GET /api/language': (req, res) => sendJson(res, 200, { language: lang(), setting: languageSetting(), mac: macLanguage() }),
   'POST /api/language': handleLanguage,
@@ -306,11 +307,12 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     if (ext === '.html') {
-      // The app's name (core/brand.js) goes into the page: {{APP}}, {{APP_DAT}}, {{FOX}}, and a meta tag for the scripts
+      // The app's name (core/brand.js) goes into the page: {{APP}}, {{APP_DAT}}, {{FOX}}, who made it ({{COPYRIGHT}}, {{HANDLE}}), and a meta tag for the scripts
       // (with the language the page shows: common.js puts in the English texts).
       const brand = encodeURIComponent(JSON.stringify({ ...APP, fox: FOX.name, wake: WAKE_LABEL, lang: lang(), language: languageSetting() }));
       const html = fs.readFileSync(filePath, 'utf-8')
         .replaceAll('{{APP}}', APP.name).replaceAll('{{APP_DAT}}', APP.dative).replaceAll('{{APP_GEN}}', APP.genitive).replaceAll('{{FOX}}', FOX.name)
+        .replaceAll('{{COPYRIGHT}}', COPYRIGHT).replaceAll('{{HANDLE}}', HANDLE).replaceAll('{{AUTHOR_URL}}', AUTHOR_URL)
         .replace('</head>', `  <meta name="jevis-token" content="${SESSION_TOKEN}">\n  <meta name="app-brand" content="${brand}">\n</head>`);
       res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-store' });
       res.end(html);

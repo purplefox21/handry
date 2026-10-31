@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Commands from the phone by iMessage, and sending to the phone. A fake
 // Messages database in a temp folder stands in for ~/Library/Messages/chat.db
 // (the real one is never opened); iMessages are only recorded, not sent; a

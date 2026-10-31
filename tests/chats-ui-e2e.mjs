@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Chats in the chat window and the bar, through a real server (throwaway
 // Handry home) driven with Handry's own browser hands: a command in the window,
 // one in the bar that the window then shows, "yeni sohbet", and going back

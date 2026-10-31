@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // What the assistant is doing, for the pet on the screen (the hand or the fox): the app reads
 // ~/.jevis/activity.json a few times a second. thinking (Claude is planning),
 // tool (with the app it works in, so the pet can run under its window), done,

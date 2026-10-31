@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // What to draw on the screen for Handry.app's drawing layer (app/macos/Overlay.swift):
 // lines that appear by themselves out of the dot under the notch: an arrow, a
 // circle, an underline, a box, and a short note. Places are global top-left

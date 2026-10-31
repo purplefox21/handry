@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // İki adımlı doğrulama kodu (TOTP, RFC 6238): kasadaki anahtardan 6 haneli kod üretir.
 // Anahtar "JBSWY3DPEHPK3PXP" gibi base32 ya da otpauth://totp/...?secret=... bağlantısı olabilir.
 // Kod sadece alana yazılır, beyne (LLM'e) gösterilmez.

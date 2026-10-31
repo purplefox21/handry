@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Brain: Claude Code in print mode on the user's subscription. Handry tools
 // come in through MCP; only those tools are allowed.
 import { spawn } from 'node:child_process';

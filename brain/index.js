@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Brain registry: which LLMs can drive Handry, and whether each is usable now.
 import * as claudeCode from './claude-code.js';
 import * as anthropic from './anthropic.js';

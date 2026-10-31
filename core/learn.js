@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Learned tasks. When the brain finishes a command, its successful steps
 // become a recipe of their own (~/.jevis/learned). Words of the command that
 // the steps used (search words, a name, a price) become variables; Jev judges

@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // The one place that talks to TypeSafe Jev, plus the ready-made judgments
 // Handry needs: which element to use, whether an action is risky, and whether
 // the page is in the expected state. Without Jev (no key, or turned off) the

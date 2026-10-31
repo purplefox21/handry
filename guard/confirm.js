@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Asks the user before risky actions with a dialog of its own process (Handry's
 // card, guard/dialog/main.swift, or AppleScript's dialog), so nothing on a web
 // page or in an LLM reply can answer it: the answer is the button clicked.

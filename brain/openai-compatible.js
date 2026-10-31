@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Brain: any OpenAI-compatible chat API with function calling — OpenAI,
 // Ollama (http://127.0.0.1:11434/v1), LM Studio, OpenRouter… Configure base
 // URL, key variable and model in handry.config.json › brain.providers.

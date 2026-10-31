@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Handry's ears. Listener turns speech into text while it is spoken (Apple's
 // on-device recognizer, Turkish or English by the app's language), notices
 // when a phrase has ended (a short silence), keeps the phrase as a 16 kHz WAV

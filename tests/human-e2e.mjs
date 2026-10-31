@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Does Handry move and type like a person when asked to, and stay fast when
 // not? Real Chrome in its own profile and port (the Handry Chrome you use is
 // not touched); a page records every mouse and key event, and the test checks

@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Handry's own question window, in place of AppleScript's "display dialog":
 // a small dark glass card at the top of the screen, under the camera notch
 // (or under Handry's bar when it is open). Like osascript it is its own

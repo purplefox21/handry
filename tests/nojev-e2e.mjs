@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Handry without Jev (JEVIS_JEV=off; the same as having no key): the fast
 // path's rules on commands they were not written from (and what must go to the
 // brain), finding elements and options by their words, risk, "does the page

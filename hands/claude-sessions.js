@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Claude Code sessions running on this Mac (VS Code, terminal, the Claude
 // app). Claude Code keeps ~/.claude/sessions/<pid>.json up to date with each
 // session's status: "busy" while it works, "waiting" when it needs the user

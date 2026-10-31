@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Timers, watches and power commands, and the fast path not acting on chat.
 // Works in a throwaway Handry home with made-up Claude Code sessions; locking,
 // shutting down and iMessages are only written down (JEVIS_TEST_POWER /

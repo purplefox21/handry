@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Claude Code in VS Code, where the user can watch it (claude_start /
 // claude_send), and being told when a session is done. Works in a throwaway
 // Handry home with made-up Claude Code sessions and transcripts; notices and

@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Fast path v2 end to end: simple commands run without a brain, quickly.
 // Restores the volume it changes; opens/closes Calculator; uses the Handry Chrome.
 // Usage: node tests/fast-e2e.mjs

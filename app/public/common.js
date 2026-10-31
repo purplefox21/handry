@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Shared by the chat page (app.js) and the compact bar (bar.js): talking to
 // the Handry server, how each tool call reads to a person, small DOM helpers
 // and the audio helpers for whisper. Untrusted text always goes through

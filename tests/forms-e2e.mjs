@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Harder web forms, from a real GoDaddy DNS session: a styled box over an
 // invisible native <select>, custom lists next to a tree menu with the same
 // names, #ids that must survive a failed action, a long page, and

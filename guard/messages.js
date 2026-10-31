@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // The Messages database on this Mac (~/Library/Messages/chat.db), read only:
 // one-time codes the user got by SMS (hands/codes.js) and approvals the user
 // texted back from the phone (guard/remote-approve.js). Reading it needs Full

@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Phase 3 guards end to end: Keychain secrets with allowed sites, log redaction,
 // login/2FA detection, wait_for_user, prompt-injection hiding, emergency stop,
 // per-site confirm rules and approval screenshots.

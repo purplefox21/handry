@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Starts the Handry MCP server like Claude Code does (stdio) and calls its tools.
 // Usage: node tests/mcp-smoke.mjs
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';

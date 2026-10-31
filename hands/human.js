@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Human-like input for Chrome pages. The pointer glides along a curve (slow
 // start, fast middle, slow landing), a click has a short hold, and text
 // arrives key by key at a typing pace. Sites that judge "is this a person?"

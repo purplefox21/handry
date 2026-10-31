@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Start Handry at login through a LaunchAgent. Off unless the user turns it on.
 import fs from 'node:fs';
 import os from 'node:os';

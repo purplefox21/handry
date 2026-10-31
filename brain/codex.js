@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Brain: OpenAI Codex CLI (ChatGPT subscription) in exec mode, with Handry as
 // an MCP server. Experimental: written from Codex's non-interactive docs and
 // not tested on this Mac (Codex isn't installed here).

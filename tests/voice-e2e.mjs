@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Phase 6 voice end to end without using the speakers: Turkish speech is made
 // with `say -o` (to a file), transcribed through the app API, run as a
 // command; the page's own recording code (downsample + WAV) is exercised in

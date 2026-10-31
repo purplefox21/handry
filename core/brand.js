@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // The app's name in one place. What the user sees (Handry: on the screen a
 // hand that walks on its fingers), what it answers to ("Hey Handry"; "Hey
 // Foxie" / "Hey Fox" still work, from when the pet was the fox, which can
@@ -8,6 +9,12 @@
 // keeps the old name JEVIS where changing it would break things: ~/.jevis,
 // the Keychain service "jevis" (saved passwords), the JEVIS_* variables.
 export const APP_NAME = 'Handry';
+/** Who made it: Berat Olekli, purplefox. Shown in the About window, Settings, the CLI, the MCP server, README and NOTICE. */
+export const AUTHOR = 'Berat Olekli';
+export const HANDLE = 'purplefox';
+export const AUTHOR_URL = 'https://github.com/purplefox21';
+export const CREDIT = `${AUTHOR} (${HANDLE})`;
+export const COPYRIGHT = `© 2026 ${CREDIT}`;
 /** How the name is said, for its Turkish endings: "Hendri" → Handry'ye, Handry'nin. */
 export const APP_SOUND = 'hendri';
 /** The other pet's name (the fox; the menu can show it instead of the hand). */

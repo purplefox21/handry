@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Draws the app icon, 1024×1024, from the hand's icon art (app/hand/icon/art.png,
 // 64×64, drawn by app/hand/make.mjs): the art scaled up pixel for pixel (no
 // smoothing, 11 screen pixels each) on a deep purple rounded square (purpfox's

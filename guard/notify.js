@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Getting the user's attention when Handry needs them (a login, a 2FA code, a
 // CAPTCHA, an answer): a macOS notification, Handry saying it out loud, the
 // Handry bar dropping down with the message (Handry.app watches

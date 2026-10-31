@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // App shortcuts: Spotify through the fast path for real (plays the top
 // search result and the Liked Songs, then pauses again if nothing was
 // playing before), AppleScript syntax of the Music / Notes / Reminders /

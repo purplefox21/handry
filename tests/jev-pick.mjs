@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 import fs from 'node:fs';
 const key = fs.readFileSync(new URL('../.env', import.meta.url),'utf8').match(/JEV_KEY=(.+)/)[1].trim();
 // App Store Connect benzeri bir sayfadaki tıklanabilir öğeler (sahte ama gerçekçi)

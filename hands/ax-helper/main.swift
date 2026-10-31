@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // jevis-ax: Handry desktop helper. Reads an app's accessibility tree and
 // presses, types, clicks, scrolls and sends key combos. Prints one JSON object.
 //

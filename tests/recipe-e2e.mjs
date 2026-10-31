@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Phase 7 recipes end to end: record a run from the action log, replay it
 // without a brain, variables, hand-off to a brain when a step fails, an
 // ask_brain step, and "tarif: …" through the chat API. Test recipes are removed.

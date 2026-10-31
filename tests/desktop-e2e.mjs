@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Desktop hands end to end through the tool layer: Calculator, TextEdit
 // (menu, typing, "save changes?" dialog), safety checks, screenshot, and a
 // read-only look at an Electron app. Opens and closes Calculator and TextEdit.

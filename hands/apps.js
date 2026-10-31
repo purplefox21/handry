@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // App shortcuts. Spotify: open a search or Liked Songs and press its play
 // button through the accessibility tree (no Apple Events permission needed).
 // Music, Notes, Reminders and Calendar: AppleScript, with user text passed as

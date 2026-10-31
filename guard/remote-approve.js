@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Approving from the phone. When the Mac's confirmation dialog gets no answer
 // for a while (confirm.remoteAfterSec), the user gets an iMessage with a
 // 4-digit code. Texting back exactly that code approves; "hayır" (or "no") refuses.

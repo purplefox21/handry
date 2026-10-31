@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

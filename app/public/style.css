@@ -1,3 +1,4 @@
+/* Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry */
 /* Handry — the chat window. Quiet and colorless: in Handry.app it sits on
    frosted glass (html.native: the page has no background of its own), light
    or dark with the system. Red only for what went wrong. */
@@ -197,6 +198,12 @@ html:not(.native) .topbar { background: color-mix(in srgb, var(--bg) 82%, transp
 .sg-text { font-size: 12.5px; color: var(--text-2); justify-self: start; }
 .welcome-keys { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; margin-top: 24px; font-size: 11.5px; color: var(--text-3); }
 .welcome-keys span { white-space: nowrap; }
+/* Who made it (core/brand.js): quiet, under the keys and at the end of Settings. */
+.welcome-credit, .credit { font-size: 11px; color: var(--text-3); letter-spacing: 0.02em; }
+.welcome-credit { margin-top: 14px; }
+.credit { margin-top: auto; padding-top: 12px; border-top: var(--hair) solid var(--border); }
+.welcome-credit a, .credit a { color: var(--text-2); text-decoration: none; }
+.welcome-credit a:hover, .credit a:hover { color: var(--text); }
 kbd {
   display: inline-block;
   min-width: 19px;

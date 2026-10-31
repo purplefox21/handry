@@ -1,8 +1,9 @@
 #!/usr/bin/env node
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Handry komut satırı. Bütün komutlar callTool'dan geçer: acil durdurma,
 // eylem kaydı ve sayfa bekçisi burada da geçerli.
 import { callTool } from './core/tools.js';
-import { APP_NAME } from './core/brand.js';
+import { APP_NAME, COPYRIGHT } from './core/brand.js';
 import { T } from './core/i18n.js';
 import * as browser from './hands/browser.js';
 import * as vault from './guard/vault.js';
@@ -23,7 +24,7 @@ import { speak } from './voice/tts.js';
 import { config, homeDir } from './core/config.js';
 import path from 'node:path';
 
-const help = () => T(`${APP_NAME} komutları
+const help = () => `${APP_NAME} · ${COPYRIGHT}\n\n` + T(`${APP_NAME} komutları
 
 Komut ver (hızlı yol ya da beyin)
   do "<komut>" [--new] [--brain=claude-code] [--model=claude-sonnet-5-5] [--effort=high] [--no-fast] [--say]

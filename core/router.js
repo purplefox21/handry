@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Fast path: Jev decides in one request what kind of command this is and the
 // details it needs (volume level, music action…), and whether it is a task
 // Handry learned before (core/learn.js). Simple commands then run straight

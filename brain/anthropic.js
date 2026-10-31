@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Brain: Claude through the Anthropic API (needs ANTHROPIC_API_KEY). Tools run
 // in-process through callTool. Refusal fallbacks are on: a declined request is
 // retried server-side on a fallback model.

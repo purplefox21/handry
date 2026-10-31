@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // The timer list in the chat window and the bar, in a headless Chrome against
 // its own server (throwaway Handry home, made-up Claude Code sessions). Nothing
 // shows on screen and nothing makes a sound: reminders, shutdowns and iMessages

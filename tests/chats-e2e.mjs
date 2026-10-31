@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Chats and their Claude sessions, with a stand-in brain that records what it
 // is sent: the session continues, what Handry did without Claude is told to it
 // ("Sen yokken…"), the screen goes with every message, the session is

@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 import readline from 'node:readline';
 import { dispatchCommand } from './jev-dispatcher.js';
 

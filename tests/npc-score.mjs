@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 import fs from 'node:fs';
 const key = fs.readFileSync(new URL('../.env', import.meta.url),'utf8').match(/JEV_KEY=(.+)/)[1].trim();
 const scene = "Oyuncu bir kalenin kapısında. Kapıda uykulu ama iri bir muhafız var. Oyuncunun cebinde birkaç bakır para ve bir ekmek var.";

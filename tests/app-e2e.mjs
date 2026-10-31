@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Phase 5 end to end: app server API (fast path, Claude Code brain, busy
 // guard, stop), the OpenAI-compatible adapter against a mock server, the chat
 // UI and the compact bar, both driven through Handry's own browser hands.

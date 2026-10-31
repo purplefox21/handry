@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Speech to text with whisper.cpp, on this Mac (no audio leaves it).
 import fs from 'node:fs';
 import os from 'node:os';

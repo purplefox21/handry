@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Fast path v2: does Jev send simple commands down the fast path (and the
 // right one) and everything else to the brain? Decisions only, nothing runs.
 // Turkish commands, then English ones (with JEVIS_LANG=en).

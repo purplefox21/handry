@@ -1,3 +1,4 @@
+// Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // When Jev is busy or unreachable: calls are tried again with a growing wait (and
 // a Retry-After is honoured up to 3 s), then fail as JEV_DOWN; a bad request
 // fails at once as JEV_ERROR; the fast path hands the command to the brain
