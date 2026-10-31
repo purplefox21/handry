@@ -47,10 +47,10 @@ Handry started as a way to stop filling in App Store Connect by hand (pricing, t
 - Speaks English or Turkish: the window, the bar, the menu, spoken answers, confirmations and phone messages. It follows your Mac's language; Settings › Language or the menu bar menu › Language switches it.
 - "Hey Handry", push-to-talk, spoken answers.
 - A bar that grows out of the camera notch (⌥Space, or a click on the notch) and a frosted-glass chat window.
-- A small pixel-art hand that walks on its fingers across your screen and shows what Handry is doing.
+- A small pixel-art hand that walks on its fingers across your screen and shows what Handry is doing: it hops onto buttons, text boxes and headings inside your windows, and leaps onto whatever Handry clicks (the click never waits for it).
 
 **Shows instead of doing, when you ask "where?" or "how?"**
-- Lines appear on your screen without clicking anything: an arrow out of a soft light at the camera notch, a circle, an underline, a box, with a short label. The color is picked to stand out from what is under it. Several places come one after another ("1. first here", "2. then here"), and they go as soon as you click or type.
+- Lines appear on your screen without clicking anything: an arrow out of the camera notch, a circle, an underline, a box, with a short label. The color is picked to stand out from what is under it. Several places come one after another ("1. first here", "2. then here"), and they go as soon as you click or type.
 - While a risky step waits for your OK, the button it is about is circled.
 
 **From your phone**
