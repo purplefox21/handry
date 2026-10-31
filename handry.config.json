@@ -1,4 +1,5 @@
 {
+  "language": "auto",
   "captcha": {
     "key": "",
     "maxWaitSec": 120

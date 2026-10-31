@@ -48,6 +48,11 @@ export function config() {
   return cached;
 }
 
+/** Forgets the merged config, so the next config() reads the files again (after a setting was saved). */
+export function resetConfig() {
+  cached = undefined;
+}
+
 /** Small persistent key/value state shared by CLI runs (e.g. the current tab) */
 export function loadState() {
   return readJson(path.join(HOME, 'state.json'));
