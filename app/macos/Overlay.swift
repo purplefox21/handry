@@ -69,16 +69,16 @@ private func whiteHand(size: CGFloat) -> CALayer {
 }
 
 /// The island on one screen. Closed, it is exactly the notch (so it can't be seen) and then fades out.
-/// Working, it hangs a little lower than the notch and has a wing on each side: a small wave on the left,
-/// Handry's hand on the right. Resting on a notch only a small tongue with the hand hangs from the notch's
-/// middle: the wings would cover the app's menus, which sit on both sides of it (a screen without a notch
-/// has room in the middle of its menu bar, so there the wings stay out, faint).
+/// Out, it hangs a little lower than the notch, so it is seen coming out of it. Working, it has a wing on
+/// each side: a small wave on the left, Handry's hand on the right. Resting on a notch only a narrow wing
+/// with the hand is out, on the right, so less of the app's menus is covered (a screen without a notch has
+/// room in the middle of its menu bar, so there both wings stay out, faint).
 private final class Island {
     enum Mood { case resting, working, waiting, done, failed }
     private enum Form { case closed, hand, full }
     static let ear: CGFloat = 7
     static let wing: CGFloat = 30
-    static let tongue = CGSize(width: 30, height: 16)
+    static let restWing: CGFloat = 24
     let root = CALayer()
     private let shape = CAShapeLayer()
     private let hand: CALayer
@@ -102,7 +102,7 @@ private final class Island {
         top = s.frame.height
         let y = top - height / 2
         root.frame = CGRect(origin: .zero, size: s.frame.size)
-        shape.frame = CGRect(x: notch.mid - maxWidth / 2, y: top - max(height, closedHeight + Island.tongue.height), width: maxWidth, height: max(height, closedHeight + Island.tongue.height))
+        shape.frame = CGRect(x: notch.mid - maxWidth / 2, y: top - height, width: maxWidth, height: height)
         shape.fillColor = NSColor.black.cgColor
         shape.path = path(.closed)
         shape.opacity = 0
@@ -126,30 +126,26 @@ private final class Island {
         root.addSublayer(wave)
     }
 
-    /// The outline for a form, in the layer (which is as wide as the island at its widest, the notch in its
-    /// middle, and as tall as its lowest form).
+    /// The outline for a form, in the layer (which is as wide and tall as the island at its biggest, the notch
+    /// in its middle).
     private func path(_ form: Form) -> CGPath {
         let core = notchWidth > 0 ? notchWidth : 8
-        let half: CGFloat, h: CGFloat
+        let left: CGFloat, right: CGFloat, h: CGFloat
         switch form {
-        case .closed: (half, h) = (core / 2, closedHeight)
-        case .hand: (half, h) = (Island.tongue.width / 2, closedHeight + Island.tongue.height)
-        case .full: (half, h) = (core / 2 + Island.wing, height)
+        case .closed: (left, right, h) = (core / 2, core / 2, closedHeight)
+        case .hand: (left, right, h) = (core / 2, core / 2 + Island.restWing, height)
+        case .full: (left, right, h) = (core / 2 + Island.wing, core / 2 + Island.wing, height)
         }
-        let p = islandPath(width: 2 * half + 2 * Island.ear, height: h, ear: Island.ear, radius: min(form == .hand ? 9 : 14, h / 2))
-        var t = CGAffineTransform(translationX: maxWidth / 2 - half - Island.ear, y: lowest - h)
+        let p = islandPath(width: left + right + 2 * Island.ear, height: h, ear: Island.ear, radius: min(14, h / 2))
+        var t = CGAffineTransform(translationX: maxWidth / 2 - left - Island.ear, y: height - h)
         return p.copy(using: &t) ?? p
     }
 
-    private var lowest: CGFloat { max(height, closedHeight + Island.tongue.height) }
-
-    /// Where the hand's wrist goes: on the right wing, or in the tongue under the notch.
+    /// Where the hand's wrist goes: in the middle of the right wing (the narrow one while resting).
     private func handPlace(_ form: Form) -> CGPoint {
         let size = hand.bounds.height
-        let center = form == .hand
-            ? CGPoint(x: mid, y: top - closedHeight - Island.tongue.height / 2)
-            : CGPoint(x: mid + (notchWidth > 0 ? notchWidth : 8) / 2 + Island.wing / 2, y: top - height / 2)
-        return CGPoint(x: center.x, y: center.y - size * 0.35)
+        let wing = form == .hand ? Island.restWing : Island.wing
+        return CGPoint(x: mid + (notchWidth > 0 ? notchWidth : 8) / 2 + wing / 2, y: top - height / 2 - size * 0.35)
     }
 
     /// Where a click opens (or closes) the bar, from the screen's bottom-left: what can be seen of the island.
@@ -159,7 +155,7 @@ private final class Island {
         if barOpen && notchWidth > 0 { return CGRect(x: mid - core / 2, y: top - closedHeight, width: core, height: closedHeight) }
         switch form {
         case .closed: return .zero
-        case .hand: return CGRect(x: mid - Island.tongue.width / 2 - 4, y: top - closedHeight - Island.tongue.height, width: Island.tongue.width + 8, height: closedHeight + Island.tongue.height)
+        case .hand: return CGRect(x: mid - core / 2, y: top - height, width: core + Island.restWing + Island.ear, height: height)
         case .full: return CGRect(x: mid - maxWidth / 2, y: top - height, width: maxWidth, height: height)
         }
     }
