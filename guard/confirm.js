@@ -1,9 +1,10 @@
-// Asks the user before risky actions with a native macOS dialog. The dialog is
-// shown by the OS, so nothing on a web page or in an LLM reply can answer it.
+// Asks the user before risky actions with a dialog of its own process (Handry's
+// card, guard/dialog/main.swift, or AppleScript's dialog), so nothing on a web
+// page or in an LLM reply can answer it: the answer is the button clicked.
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFile } from 'node:child_process';
-import { config, HOME } from '../core/config.js';
+import { execFile, execFileSync } from 'node:child_process';
+import { config, HOME, ROOT } from '../core/config.js';
 import { APP_NAME } from '../core/brand.js';
 import { T } from '../core/i18n.js';
 import { actionKind } from '../core/jev.js';
@@ -31,6 +32,54 @@ export function dialogOpen() {
   } catch {
     return false;
   }
+}
+
+// Handry's card: built from its source the first time (about a second), again when the source changes.
+const DIALOG_SOURCE = path.join(ROOT, 'guard', 'dialog', 'main.swift');
+const DIALOG = path.join(ROOT, 'bin', 'handry-dialog');
+let cardBroken = false;
+function cardHelper() {
+  if (cardBroken || process.env.JEVIS_DIALOG === 'apple') return null;
+  try {
+    if (!fs.existsSync(DIALOG) || fs.statSync(DIALOG).mtimeMs < fs.statSync(DIALOG_SOURCE).mtimeMs) {
+      fs.mkdirSync(path.dirname(DIALOG), { recursive: true });
+      execFileSync('swiftc', ['-O', '-o', DIALOG, DIALOG_SOURCE], { stdio: 'pipe', timeout: 120000 });
+    }
+    return DIALOG;
+  } catch {
+    cardBroken = true;
+    return null;
+  }
+}
+
+/**
+ * Shows a question (kind "confirm") or a "do it, then press OK" note ("wait") and calls done with the
+ * button pressed, "timeout", or '' when it was closed some other way. buttons: the "no" first, the main
+ * one last. Handry's card when it can be built; AppleScript's dialog otherwise, or when the card can't
+ * open. Returns { kill }.
+ */
+function showDialog(kind, heading, text, seconds, buttons, done) {
+  let child = null, killed = false;
+  const apple = () => {
+    const script = [
+      'on run argv',
+      `set r to display dialog (item 1 of argv) with title (item 3 of argv) buttons {${buttons.map(b => `"${b}"`).join(', ')}}${kind === 'confirm' ? ` default button "${buttons[0]}"` : ''} cancel button "${buttons[0]}" with icon ${kind === 'confirm' ? 'caution' : 'note'} giving up after ((item 2 of argv) as integer)`,
+      'if gave up of r then return "timeout"',
+      'return button returned of r',
+      'end run'
+    ].join('\n');
+    child = execFile('osascript', ['-e', script, text, String(seconds), heading], (err, stdout) => { if (!killed) done(err ? '' : stdout.trim()); });
+  };
+  const card = cardHelper();
+  if (!card) apple();
+  else {
+    child = execFile(card, [kind, heading, text, String(seconds), ...buttons], (err, stdout) => {
+      if (killed) return;
+      if (err) return apple();
+      done(stdout.trim());
+    });
+  }
+  return { kill: () => { killed = true; child?.kill(); } };
 }
 
 const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -99,14 +148,7 @@ export async function confirmAction(message, { timeoutSec = config().confirm.tim
   const waitSec = phone ? Math.max(1, Number(config().confirm.remoteTimeoutSec) || 600) : timeoutSec;
   // remember: { host, name } — a third button, "Bu sitede hep": the same button on this site is not asked again
   const yes = T('Evet', 'Yes'), no = T('Hayır', 'No'), always = T('Bu sitede hep', 'Always on this site');
-  const buttons = remember ? `{"${no}", "${always}", "${yes}"}` : `{"${no}", "${yes}"}`;
-  const script = [
-    'on run argv',
-    `set r to display dialog (item 1 of argv) with title (item 3 of argv) buttons ${buttons} default button "${no}" cancel button "${no}" with icon caution giving up after ((item 2 of argv) as integer)`,
-    'if gave up of r then return "timeout"',
-    'return button returned of r',
-    'end run'
-  ].join('\n');
+  const buttons = remember ? [no, always, yes] : [no, yes];
   markDialog(waitSec);
   return new Promise(resolve => {
     let done = false, dialog = null, remote = null, timer = null;
@@ -120,9 +162,8 @@ export async function confirmAction(message, { timeoutSec = config().confirm.tim
       resolve(ok);
     };
     if (dialogShown) {
-      dialog = execFile('osascript', ['-e', script, message, String(waitSec), APP_NAME], (err, stdout) => {
+      dialog = showDialog('confirm', APP_NAME, message, waitSec, buttons, answer => {
         if (done) return;
-        const answer = err ? '' : stdout.trim();
         if (answer === always && remember) allowOnSite(remember.host, remember.name);
         finish(answer === yes || answer === always, answer === 'timeout' ? 'timeout' : 'mac');
       });
@@ -173,13 +214,6 @@ export function waitForUser(message, { timeoutSec = config().guard.waitForUserTi
   if (process.env.JEVIS_TEST_CONFIRM === 'deny') return Promise.resolve('cancel');
   // No default button: an Enter meant for the web page must not say "done".
   const cancel = T('Vazgeç', 'Cancel'), okButton = T('Tamam', 'OK');
-  const script = [
-    'on run argv',
-    `set r to display dialog (item 1 of argv) with title (item 3 of argv) buttons {"${cancel}", "${okButton}"} cancel button "${cancel}" with icon note giving up after ((item 2 of argv) as integer)`,
-    'if gave up of r then return "timeout"',
-    'return button returned of r',
-    'end run'
-  ].join('\n');
   const text = `${message}\n\n${until
     ? T('Bitirince kendiliğinden devam ederim; istersen "Tamam"a da basabilirsin.', 'I go on by myself when you\'re done; you can also press "OK".')
     : T('Bitince "Tamam"a bas.', 'Press "OK" when you\'re done.')}`;
@@ -198,10 +232,9 @@ export function waitForUser(message, { timeoutSec = config().guard.waitForUserTi
     // Tests: no dialog at all, only the page can end the wait.
     if (process.env.JEVIS_TEST_CONFIRM !== 'watch') {
       markDialog(timeoutSec);
-      dialog = execFile('osascript', ['-e', script, text, String(timeoutSec), T(`${APP_NAME} seni bekliyor`, `${APP_NAME} is waiting for you`)], (err, stdout) => {
+      dialog = showDialog('wait', T(`${APP_NAME} seni bekliyor`, `${APP_NAME} is waiting for you`), text, timeoutSec, [cancel, okButton], answer => {
         if (finished) return;
-        if (err) return finish('cancel');
-        finish(stdout.trim() === 'timeout' ? 'timeout' : 'done');
+        finish(answer === 'timeout' ? 'timeout' : answer === okButton ? 'done' : 'cancel');
       });
     }
     // until(): checked at once, then every second; true when the page shows the user is done.

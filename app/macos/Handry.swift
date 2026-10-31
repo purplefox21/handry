@@ -66,14 +66,52 @@ let APP_ACC = info["AppAccusative"] as? String ?? "\(APP_NAME)'yu"
 let APP_ABL = info["AppAblative"] as? String ?? "\(APP_NAME)'dan"
 let APP_GEN = info["AppGenitive"] as? String ?? "\(APP_NAME)'nun"
 let WAKE_LABEL = info["WakeLabel"] as? String ?? "Hey Handry"
-let BAR_WIDTH: CGFloat = 680
-let BAR_HEIGHT: CGFloat = 58
+let BAR_WIDTH: CGFloat = 640
+let BAR_HEIGHT: CGFloat = 54
+let BAR_EAR: CGFloat = 10
 
 /// A panel that can take typing without making Handry the active app, so the
 /// app the user was in stays "in front" for commands like "bunu kapat".
+/// It may sit over the menu bar (it hangs from the top edge of the screen).
 final class BarPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
+}
+
+/// The bar's black shape: it hangs from the top edge of the screen like the
+/// camera notch and grows out of it. The page sits under the notch, at the
+/// top; while the shape grows or shrinks the page keeps its size and is cut.
+final class IslandView: NSView {
+    var top: CGFloat = 0 { didSet { relayout() } }        // the notch's height (0 without one)
+    var pageHeight: CGFloat = BAR_HEIGHT { didSet { relayout() } }
+    let page: NSView
+    private let shape = CAShapeLayer()
+
+    init(page: NSView) {
+        self.page = page
+        super.init(frame: NSRect(x: 0, y: 0, width: BAR_WIDTH + 2 * BAR_EAR, height: BAR_HEIGHT))
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.black.cgColor
+        layer?.mask = shape
+        addSubview(page)
+        relayout()
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        relayout()
+    }
+
+    private func relayout() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        shape.frame = bounds
+        shape.path = islandPath(width: bounds.width, height: bounds.height, ear: BAR_EAR, radius: min(22, bounds.height / 2))
+        CATransaction.commit()
+        page.frame = NSRect(x: (bounds.width - BAR_WIDTH) / 2, y: bounds.height - top - pageHeight, width: BAR_WIDTH, height: pageHeight)
+    }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindowDelegate, WKScriptMessageHandler, NSMenuDelegate {
@@ -87,6 +125,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     var webView: WKWebView!
     var bar: BarPanel!
     var barWeb: WKWebView!
+    var island: IslandView!
+    var barScreen: NSScreen?
+    var barClosing = false
+    var barClosingAt = Date.distantPast
     var barBusy = false
     var barReady = false
     var wakeItems: [NSMenuItem] = []
@@ -110,6 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         registerHotKeys()
         makeFox()
         overlay = Overlay()
+        overlay?.onNotchClick = { [weak self] in self?.notchClicked() }
         watchActivity()
         showBar(mode: "type")
         loadWhenReady()
@@ -141,9 +184,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     /// launch macOS may be asking for folder access, so it waits patiently.
     func loadWhenReady() {
         let waiting = """
-        <meta name="color-scheme" content="light dark">
-        <body style="font:15px -apple-system;margin:0;display:flex;align-items:center;gap:10px;height:\(Int(BAR_HEIGHT))px;padding:0 18px;color:#8e8e93;background:transparent">
-        <b style="color:CanvasText;font-weight:600">\(L("\(APP_NAME) başlıyor…", "\(APP_NAME) is starting…"))</b> \(L("macOS bir izin soruyorsa <b>İzin Ver</b>'e bas.", "If macOS asks for a permission, click <b>Allow</b>."))</body>
+        <meta name="color-scheme" content="dark">
+        <body style="font:14px -apple-system;margin:0;display:flex;align-items:center;gap:10px;height:\(Int(BAR_HEIGHT))px;padding:0 20px;color:rgba(255,255,255,.5);background:transparent">
+        <b style="color:#f5f5f7;font-weight:500">\(L("\(APP_NAME) başlıyor…", "\(APP_NAME) is starting…"))</b> \(L("macOS bir izin soruyorsa <b>İzin Ver</b>'e bas.", "If macOS asks for a permission, click <b>Allow</b>."))</body>
         """
         barReady = false
         barWeb.loadHTMLString(waiting, baseURL: nil)
@@ -489,14 +532,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
     // MARK: Big window
 
+    /// The chat window: frosted glass (the desktop shows through, blurred) with the page on it. The title bar
+    /// is see-through too; the page starts under it, so that strip stays the window's handle.
     func buildWindow() {
         let config = WKWebViewConfiguration()
-        webView = WKWebView(frame: .zero, configuration: config)
+        // the page's own background goes, so the glass shows (style.css: html.native)
+        config.userContentController.addUserScript(WKUserScript(source: "document.documentElement.classList.add('native')", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        let frame = NSRect(x: 0, y: 0, width: 920, height: 760)
+        let titleBar: CGFloat = 28
+        webView = WKWebView(frame: NSRect(x: 0, y: 0, width: frame.width, height: frame.height - titleBar), configuration: config)
+        webView.setValue(false, forKey: "drawsBackground")
+        webView.autoresizingMask = [.width, .height]
         webView.uiDelegate = self
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 920, height: 760),
-                          styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
+        let glass = NSVisualEffectView(frame: frame)
+        glass.material = .sidebar
+        glass.blendingMode = .behindWindow
+        glass.state = .followsWindowActiveState
+        glass.addSubview(webView)
+        window = NSWindow(contentRect: frame,
+                          styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = APP_NAME
-        window.contentView = webView
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.contentView = glass
         window.delegate = self
         window.isReleasedWhenClosed = false
         window.center()
@@ -550,26 +608,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     func buildBar() {
         let config = WKWebViewConfiguration()
         config.userContentController.add(self, name: "bar")
-        let frame = NSRect(x: 0, y: 0, width: BAR_WIDTH, height: BAR_HEIGHT)
-        barWeb = WKWebView(frame: frame, configuration: config)
+        barWeb = WKWebView(frame: NSRect(x: 0, y: 0, width: BAR_WIDTH, height: BAR_HEIGHT), configuration: config)
         barWeb.setValue(false, forKey: "drawsBackground")
-        barWeb.autoresizingMask = [.width, .height]
         barWeb.uiDelegate = self
-        let glass = NSVisualEffectView(frame: frame)
-        glass.material = .popover
-        glass.blendingMode = .behindWindow
-        glass.state = .active
-        glass.wantsLayer = true
-        glass.layer?.cornerRadius = 16
-        glass.layer?.cornerCurve = .continuous
-        glass.layer?.masksToBounds = true
-        glass.addSubview(barWeb)
-        bar = BarPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        bar.contentView = glass
+        island = IslandView(page: barWeb)
+        bar = BarPanel(contentRect: island.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        bar.contentView = island
         bar.isOpaque = false
         bar.backgroundColor = .clear
         bar.hasShadow = true
-        bar.level = .floating
+        // over the menu bar, which it hangs across
+        bar.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
         bar.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         bar.hidesOnDeactivate = false
         bar.isReleasedWhenClosed = false
@@ -577,40 +626,88 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         bar.delegate = self
     }
 
-    /// Top middle of the screen the mouse is on, just under the menu bar.
-    func placeBar(height: CGFloat) {
+    /// Where the bar is, open or closed into the notch, on the screen it was opened on: hanging from the
+    /// top edge, under the notch's middle (the middle of the screen when there is no notch).
+    func barFrame(open: Bool) -> NSRect {
+        let screen = barScreen ?? NSScreen.main ?? NSScreen.screens[0]
+        let notch = notchOf(screen)
+        let width = open ? BAR_WIDTH + 2 * BAR_EAR : max(notch.width, 120) + 2 * BAR_EAR
+        let height = open ? island.top + island.pageHeight : max(notch.height, 1)
+        return NSRect(x: screen.frame.minX + notch.mid - width / 2, y: screen.frame.maxY - height, width: width, height: height)
+    }
+
+    /// The screen the mouse is on; the bar comes out of its notch.
+    func pickBarScreen() {
         let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
-        let area = screen.visibleFrame
-        bar.setFrame(NSRect(x: area.midX - BAR_WIDTH / 2, y: area.maxY - 10 - height, width: BAR_WIDTH, height: height), display: true)
+        barScreen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? NSScreen.screens[0]
+        island.top = barScreen.map { notchOf($0).height } ?? 0
+    }
+
+    /// Grows the bar out of the notch (or just puts it in front when it is already out).
+    func openBar() {
+        if bar.isVisible && !barClosing { return }
+        if !bar.isVisible {
+            pickBarScreen()
+            bar.setFrame(barFrame(open: false), display: false)
+            barWeb.alphaValue = 0
+        }
+        barClosing = false
+        bar.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.34
+            ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.25, 1)
+            bar.animator().setFrame(barFrame(open: true), display: true)
+            barWeb.animator().alphaValue = 1
+        }, completionHandler: { [weak self] in
+            self?.bar.invalidateShadow()
+            self?.writeBarState()
+        })
     }
 
     func showBar(mode: String) {
-        if !bar.isVisible { placeBar(height: max(bar.frame.height, BAR_HEIGHT)) }
-        bar.orderFrontRegardless()
+        openBar()
         bar.makeKey()
         bar.makeFirstResponder(barWeb)
         barWeb.evaluateJavaScript("window.jevisBar && window.jevisBar.show('\(mode)')")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.writeBarState() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.writeBarState() }
     }
 
     /// ~/.jevis/bar.json: whether the bar is up and takes the keyboard (tests read it).
     func writeBarState() {
-        let state: [String: Any] = ["visible": bar.isVisible, "key": bar.isKeyWindow, "appActive": NSApp.isActive, "busy": barBusy, "at": Date().timeIntervalSince1970]
+        let state: [String: Any] = ["visible": bar.isVisible && !barClosing, "key": bar.isKeyWindow, "appActive": NSApp.isActive, "busy": barBusy, "at": Date().timeIntervalSince1970]
         if let data = try? JSONSerialization.data(withJSONObject: state) {
             try? data.write(to: URL(fileURLWithPath: "\(HOME)/.jevis/bar.json"))
         }
     }
 
+    /// Shrinks the bar back into the notch, then takes it away.
     func hideBar() {
-        guard bar.isVisible else { return }
-        bar.orderOut(nil)
+        guard bar.isVisible, !barClosing else { return }
+        barClosing = true
+        barClosingAt = Date()
         barWeb.evaluateJavaScript("window.jevisBar && window.jevisBar.hidden()")
-        writeBarState()
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.24
+            ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.4, 0, 0.8, 0.6)
+            bar.animator().setFrame(barFrame(open: false), display: true)
+            barWeb.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            guard let self, self.barClosing else { return }
+            self.barClosing = false
+            self.bar.orderOut(nil)
+            self.writeBarState()
+        })
     }
 
     @objc func toggleBar() {
-        if bar.isVisible { hideBar() } else { showBar(mode: "type") }
+        if bar.isVisible && !barClosing { hideBar() } else { showBar(mode: "type") }
+    }
+
+
+    /// A click on the notch opens the bar, or closes it. The click itself first takes the keyboard from the
+    /// bar, which starts closing it; a bar that began closing just now was open when the click came.
+    func notchClicked() {
+        if bar.isVisible && (!barClosing || Date().timeIntervalSince(barClosingAt) < 0.3) { hideBar() } else { showBar(mode: "type") }
     }
 
     // Clicking elsewhere hides the bar, unless it is working or listening.
@@ -624,10 +721,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         switch type {
         case "height":
             guard let h = body["value"] as? Double, h > 20 else { return }
-            let height = min(CGFloat(h), 520)
-            let top = bar.frame.maxY
-            bar.setFrame(NSRect(x: bar.frame.minX, y: top - height, width: BAR_WIDTH, height: height), display: true)
-            bar.invalidateShadow()
+            island.pageHeight = min(CGFloat(h), 520)
+            guard bar.isVisible, !barClosing else { return }
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.2
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                bar.animator().setFrame(barFrame(open: true), display: true)
+            }, completionHandler: { [weak self] in self?.bar.invalidateShadow() })
         case "hide":
             hideBar()
         case "openMain":
@@ -669,8 +769,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     }
 
     func showBarPassive() {
-        if !bar.isVisible { placeBar(height: max(bar.frame.height, BAR_HEIGHT)) }
-        bar.orderFrontRegardless()
+        openBar()
         hideBarLater(30)
     }
 
@@ -696,7 +795,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             NSSound(named: "Tink")?.play()
             self?.showBar(mode: "voice")
         }
-        listener.onStart = { [weak self] in self?.sendVoice(["type": "start"]) }
+        listener.onStart = { [weak self] in
+            // a small tap on the trackpad (felt only with a finger on it)
+            NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+            self?.sendVoice(["type": "start"])
+        }
+        listener.onLevel = { [weak self] v in
+            self?.barWeb.evaluateJavaScript("window.jevisBar && window.jevisBar.level(\(v))")
+        }
         listener.onPartial = { [weak self] text in self?.sendVoice(["type": "partial", "text": text]) }
         listener.onFinal = { [weak self] text, wav, woke in
             NSSound(named: "Pop")?.play()

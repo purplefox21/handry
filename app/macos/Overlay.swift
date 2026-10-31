@@ -1,14 +1,16 @@
-// Handry's dot at the top of each screen (just under the camera notch on Macs
-// that have one; smaller, under the menu bar, on the others) and the lines
-// Handry draws to show something: an arrow out of the dot, a circle, an
+// Handry's island at the top of each screen (black, out of the camera notch on
+// Macs that have one; a small black tab at the top edge on the others) and the
+// lines Handry draws to show something: an arrow out of the notch, a circle, an
 // underline, a box, a short note. The lines appear by themselves (no pen).
 // Nothing here takes clicks.
 // A drawing goes when its time is up or as soon as the user clicks or types
 // (after a short moment, so it isn't gone before it was seen). Several places
 // can come one after another (a sequence: the next one when the last goes).
-// What to draw comes from ~/.jevis/overlay.json (hands/overlay.js); the dot
-// follows ~/.jevis/activity.json: soft violet when idle, pulsing while Handry
-// works, orange when it waits for the user, a green or red blink at the end.
+// What to draw comes from ~/.jevis/overlay.json (hands/overlay.js); the island
+// follows ~/.jevis/activity.json: hidden in the notch while Handry rests, a
+// little wider while it works (a small wave on the left, Handry's white hand on
+// the right). No colored lights (they look like the camera's): the hand waves
+// when Handry waits for the user, hops once when it is done, shakes on an error.
 import Cocoa
 import QuartzCore
 
@@ -17,11 +19,231 @@ private final class OverlayPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+/// The camera notch of a screen: its middle (from the screen's left edge), width and height; width and height
+/// are 0 on a screen without one.
+func notchOf(_ s: NSScreen) -> (mid: CGFloat, width: CGFloat, height: CGFloat) {
+    if #available(macOS 12.0, *), s.safeAreaInsets.top > 0, let l = s.auxiliaryTopLeftArea, let r = s.auxiliaryTopRightArea {
+        return ((l.maxX + r.minX) / 2 - s.frame.minX, r.minX - l.maxX, s.safeAreaInsets.top)
+    }
+    return (s.frame.width / 2, 0, 0)
+}
+
+/// The outline of something hanging from the top edge of the screen, the way the notch does: flat along the
+/// edge, with small inward curves where it meets it, and round lower corners. In a w × h box, origin bottom-left.
+func islandPath(width w: CGFloat, height h: CGFloat, ear: CGFloat, radius: CGFloat) -> CGPath {
+    let e = max(0, min(ear, h / 2, w / 4))
+    let r = max(0, min(radius, (w - 2 * e) / 2, h - e))
+    let p = CGMutablePath()
+    p.move(to: CGPoint(x: 0, y: h))
+    p.addLine(to: CGPoint(x: w, y: h))
+    p.addQuadCurve(to: CGPoint(x: w - e, y: h - e), control: CGPoint(x: w - e, y: h))
+    p.addLine(to: CGPoint(x: w - e, y: r))
+    p.addArc(tangent1End: CGPoint(x: w - e, y: 0), tangent2End: CGPoint(x: e, y: 0), radius: r)
+    p.addLine(to: CGPoint(x: e + r, y: 0))
+    p.addArc(tangent1End: CGPoint(x: e, y: 0), tangent2End: CGPoint(x: e, y: h), radius: r)
+    p.addLine(to: CGPoint(x: e, y: h - e))
+    p.addQuadCurve(to: CGPoint(x: 0, y: h), control: CGPoint(x: e, y: h))
+    p.closeSubpath()
+    return p
+}
+
+/// The menu bar's hand (menubar.png, a template image), white: a layer masked by it. Without the image, a white dot.
+private func whiteHand(size: CGFloat) -> CALayer {
+    let hand = CALayer()
+    hand.bounds = CGRect(x: 0, y: 0, width: size, height: size)
+    hand.backgroundColor = NSColor.white.cgColor
+    if let url = Bundle.main.url(forResource: "menubar", withExtension: "png"), let image = NSImage(contentsOf: url),
+       let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+        let mask = CALayer()
+        mask.frame = hand.bounds
+        mask.contents = cg
+        mask.contentsGravity = .resizeAspect
+        hand.mask = mask
+    } else {
+        hand.bounds = CGRect(x: 0, y: 0, width: 6, height: 6)
+        hand.cornerRadius = 3
+    }
+    return hand
+}
+
+/// The island on one screen. Resting, it is exactly the notch (so it can't be seen) and then fades out;
+/// working, it grows a wing on each side: a small wave on the left, Handry's hand on the right.
+private final class Island {
+    enum Mood { case working, waiting, done, failed }
+    static let ear: CGFloat = 7
+    static let wing: CGFloat = 30
+    let root = CALayer()
+    private let shape = CAShapeLayer()
+    private let hand: CALayer
+    private let wave = CAReplicatorLayer()
+    private let notchWidth: CGFloat
+    private let height: CGFloat
+    private let maxWidth: CGFloat
+    private(set) var opened = false
+
+    init(screen s: NSScreen) {
+        let notch = notchOf(s)
+        notchWidth = notch.width
+        height = notch.height > 0 ? notch.height : 22
+        hand = whiteHand(size: min(15, height - 6))
+        let core = notch.width > 0 ? notch.width : 8
+        maxWidth = core + 2 * Island.wing + 2 * Island.ear
+        let top = s.frame.height, y = top - height / 2
+        root.frame = CGRect(origin: .zero, size: s.frame.size)
+        shape.frame = CGRect(x: notch.mid - maxWidth / 2, y: top - height, width: maxWidth, height: height)
+        shape.fillColor = NSColor.black.cgColor
+        shape.path = path(open: false)
+        shape.opacity = 0
+        root.addSublayer(shape)
+        let side = core / 2 + Island.wing / 2
+        hand.anchorPoint = CGPoint(x: 0.5, y: 0.15) // the wrist: it waves from there
+        hand.position = CGPoint(x: notch.mid + side, y: y - hand.bounds.height * 0.35)
+        hand.opacity = 0
+        root.addSublayer(hand)
+        let bar = CALayer()
+        bar.frame = CGRect(x: 0, y: 0, width: 2.4, height: 10)
+        bar.backgroundColor = NSColor.white.cgColor
+        bar.cornerRadius = 1.2
+        bar.transform = CATransform3DMakeScale(1, 0.4, 1)
+        wave.instanceCount = 3
+        wave.instanceTransform = CATransform3DMakeTranslation(4.2, 0, 0)
+        wave.instanceDelay = 0.15
+        wave.addSublayer(bar)
+        wave.frame = CGRect(x: notch.mid - side - 5, y: y - 5, width: 11, height: 10)
+        wave.opacity = 0
+        root.addSublayer(wave)
+    }
+
+    private func path(open: Bool) -> CGPath {
+        let w = open ? maxWidth : (notchWidth > 0 ? notchWidth : 8) + 2 * Island.ear
+        let p = islandPath(width: w, height: height, ear: Island.ear, radius: min(12, height / 2))
+        var t = CGAffineTransform(translationX: (maxWidth - w) / 2, y: 0)
+        return p.copy(using: &t) ?? p
+    }
+
+    private func fade(_ layer: CALayer, to value: Float, delay: Double = 0, duration: Double = 0.18) {
+        let a = CABasicAnimation(keyPath: "opacity")
+        a.fromValue = layer.presentation()?.opacity ?? layer.opacity
+        a.toValue = value
+        a.beginTime = CACurrentMediaTime() + delay
+        a.duration = duration
+        a.fillMode = .backwards
+        layer.opacity = value
+        layer.add(a, forKey: "fade")
+    }
+
+    /// What the hand does: still while Handry works, waving while it waits for the user, one hop when it is
+    /// done, a shake on an error.
+    private func move(_ mood: Mood) {
+        hand.removeAnimation(forKey: "move")
+        let delay = opened ? 0 : 0.3
+        switch mood {
+        case .working:
+            return
+        case .waiting:
+            let a = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+            a.values = [0, 0.38, -0.12, 0.38, 0, 0]
+            a.keyTimes = [0, 0.15, 0.3, 0.45, 0.6, 1]
+            a.duration = 1.6
+            a.repeatCount = .infinity
+            a.beginTime = CACurrentMediaTime() + delay
+            hand.add(a, forKey: "move")
+        case .done:
+            let a = CAKeyframeAnimation(keyPath: "transform.translation.y")
+            a.values = [0, 3.5, 0, 1.2, 0]
+            a.duration = 0.55
+            a.beginTime = CACurrentMediaTime() + delay
+            hand.add(a, forKey: "move")
+        case .failed:
+            let a = CAKeyframeAnimation(keyPath: "transform.translation.x")
+            a.values = [0, -2.5, 2.5, -2, 2, 0]
+            a.duration = 0.45
+            a.beginTime = CACurrentMediaTime() + delay
+            hand.add(a, forKey: "move")
+        }
+    }
+
+    /// open: the wings are out. mood: what the hand does (and whether the wave moves).
+    func set(open: Bool, mood: Mood) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        let waving = mood == .working
+        if open { move(mood) }
+        let bar = wave.sublayers?.first
+        if waving, bar?.animation(forKey: "wave") == nil {
+            let a = CABasicAnimation(keyPath: "transform.scale.y")
+            a.fromValue = 0.35
+            a.toValue = 1
+            a.duration = 0.45
+            a.autoreverses = true
+            a.repeatCount = .infinity
+            a.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            bar?.add(a, forKey: "wave")
+        } else if !waving {
+            bar?.removeAnimation(forKey: "wave")
+        }
+        if open {
+            fade(wave, to: waving ? 0.9 : 0.35, delay: opened ? 0 : 0.18)
+        }
+        guard open != opened else { return }
+        opened = open
+        let grow = CASpringAnimation(keyPath: "path")
+        grow.fromValue = shape.presentation()?.path ?? shape.path
+        grow.toValue = path(open: open)
+        if open {
+            grow.damping = 15
+            grow.stiffness = 210
+            grow.duration = grow.settlingDuration
+            shape.removeAnimation(forKey: "fade")
+            shape.opacity = 1
+            if notchWidth == 0 { fade(shape, to: 1, duration: 0.2) }
+            fade(hand, to: 0.92, delay: 0.18)
+        } else {
+            grow.damping = 30
+            grow.stiffness = 300
+            grow.duration = 0.3
+            fade(hand, to: 0, duration: 0.12)
+            fade(wave, to: 0, duration: 0.12)
+            // the notch hides the closed island; then it goes for good (a screen without a notch fades it at once)
+            fade(shape, to: 0, delay: notchWidth > 0 ? 0.3 : 0, duration: notchWidth > 0 ? 0.01 : 0.25)
+        }
+        shape.path = path(open: open)
+        shape.add(grow, forKey: "grow")
+    }
+}
+
+/// The panel over the notch. It may take a click without making Handry the active app (a panel that can't
+/// become key would activate it), so the app the user was in stays in front.
+private final class NotchPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
+/// The notch itself (on a screen without one, the middle of the top edge): a click there opens or closes the bar.
+private final class NotchTarget: NSView {
+    var onClick: () -> Void = {}
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) {
+        onClick()
+        // give the keyboard back: an invisible panel must not keep it
+        DispatchQueue.main.async { [weak w = window] in
+            guard let w, w.isKeyWindow else { return }
+            w.orderOut(nil)
+            w.orderFrontRegardless()
+        }
+    }
+}
+
 final class Overlay {
+    /// A click on the notch.
+    var onNotchClick: () -> Void = {}
+    private var targets: [NSPanel] = []
+
     private struct Screen {
         let panel: NSPanel
         let screen: NSScreen
-        let dot: CAShapeLayer
+        let island: Island
         let dotCenter: CGPoint
     }
 
@@ -47,7 +269,7 @@ final class Overlay {
         get { UserDefaults.standard.object(forKey: "overlayDot") as? Bool ?? true }
         set {
             UserDefaults.standard.set(newValue, forKey: "overlayDot")
-            for s in screens { s.dot.isHidden = !newValue }
+            for s in screens { s.island.root.isHidden = !newValue }
         }
     }
 
@@ -66,24 +288,20 @@ final class Overlay {
         for id in Array(drawn.keys) where now - (shownAt[id] ?? now) > 800 { remove(id) }
     }
 
-    /// Where the light sits: on the lower edge of the camera notch (the notch has no pixels, so half of it is
-    /// hidden and it looks like light coming out of the notch), or under the menu bar when there is none.
-    /// Returns its center and size.
-    static func dotPlace(_ s: NSScreen) -> (CGPoint, CGSize) {
-        let w = s.frame.width, h = s.frame.height
-        if #available(macOS 12.0, *), s.safeAreaInsets.top > 0 {
-            var mid = w / 2
-            if let l = s.auxiliaryTopLeftArea, let r = s.auxiliaryTopRightArea { mid = (l.maxX + r.minX) / 2 - s.frame.minX }
-            return (CGPoint(x: mid, y: h - s.safeAreaInsets.top), CGSize(width: 46, height: 9))
-        }
+    /// Where arrows start: the middle of the camera notch's lower edge, or under the menu bar when there is none.
+    static func dotPlace(_ s: NSScreen) -> CGPoint {
+        let notch = notchOf(s)
+        if notch.height > 0 { return CGPoint(x: notch.mid, y: s.frame.height - notch.height) }
         let bar = s.frame.maxY - s.visibleFrame.maxY
-        return (CGPoint(x: w / 2, y: h - max(bar, 22)), CGSize(width: 34, height: 7))
+        return CGPoint(x: notch.mid, y: s.frame.height - max(bar, 22))
     }
 
     /// One click-through layer per screen (again when screens change).
     private func build() {
         for s in screens { s.panel.orderOut(nil) }
+        for t in targets { t.orderOut(nil) }
         screens = []
+        targets = []
         drawn = [:]
         expires = [:]
         occupied = [:]
@@ -105,20 +323,28 @@ final class Overlay {
             view.wantsLayer = true
             panel.contentView = view
             panel.setFrame(screen.frame, display: false)
-            let (center, size) = Overlay.dotPlace(screen)
-            let dot = CAShapeLayer()
-            dot.path = CGPath(roundedRect: CGRect(x: -size.width / 2, y: -size.height / 2, width: size.width, height: size.height), cornerWidth: size.height / 2, cornerHeight: size.height / 2, transform: nil)
-            dot.position = center
-            dot.fillColor = NSColor.systemPurple.cgColor
-            dot.opacity = 0.5
-            dot.shadowColor = NSColor.systemPurple.cgColor
-            dot.shadowRadius = 6
-            dot.shadowOpacity = 0
-            dot.shadowOffset = .zero
-            dot.isHidden = !dotShown
-            view.layer?.addSublayer(dot)
+            let island = Island(screen: screen)
+            island.root.isHidden = !dotShown
+            view.layer?.addSublayer(island.root)
             panel.orderFrontRegardless()
-            screens.append(Screen(panel: panel, screen: screen, dot: dot, dotCenter: center))
+            screens.append(Screen(panel: panel, screen: screen, island: island, dotCenter: Overlay.dotPlace(screen)))
+            // the click target: see-through, but it takes the click (over the bar too, so a second click closes it)
+            let notch = notchOf(screen)
+            let size = NSSize(width: notch.width > 0 ? notch.width : 68, height: notch.height > 0 ? notch.height : 22)
+            let rect = NSRect(x: screen.frame.minX + notch.mid - size.width / 2, y: screen.frame.maxY - size.height, width: size.width, height: size.height)
+            let target = NotchPanel(contentRect: rect, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            target.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 2)
+            target.isOpaque = false
+            target.backgroundColor = .clear
+            target.hasShadow = false
+            target.ignoresMouseEvents = false
+            target.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+            let catcher = NotchTarget(frame: NSRect(origin: .zero, size: size))
+            catcher.onClick = { [weak self] in self?.onNotchClick() }
+            target.contentView = catcher
+            target.setFrame(rect, display: false)
+            target.orderFrontRegardless()
+            targets.append(target)
         }
         dotState = ""
         readActivity()
@@ -157,31 +383,8 @@ final class Overlay {
         }
         guard state != dotState else { return }
         dotState = state
-        let color: NSColor = state == "attention" ? .systemOrange : state == "done" ? .systemGreen : state == "error" ? .systemRed : .systemPurple
-        for s in screens {
-            s.dot.removeAllAnimations()
-            s.dot.fillColor = color.cgColor
-            s.dot.shadowColor = color.cgColor
-            if state == "busy" || state == "attention" {
-                s.dot.opacity = 1
-                s.dot.shadowOpacity = 0.9
-                let glow = CABasicAnimation(keyPath: "shadowRadius")
-                glow.fromValue = 3
-                glow.toValue = 11
-                let light = CABasicAnimation(keyPath: "opacity")
-                light.fromValue = 0.55
-                light.toValue = 1
-                let pulse = CAAnimationGroup()
-                pulse.animations = [glow, light]
-                pulse.duration = 0.8
-                pulse.autoreverses = true
-                pulse.repeatCount = .infinity
-                s.dot.add(pulse, forKey: "pulse")
-            } else {
-                s.dot.opacity = state == "idle" ? 0.5 : 1
-                s.dot.shadowOpacity = state == "idle" ? 0 : 0.8
-            }
-        }
+        let mood: Island.Mood = state == "attention" ? .waiting : state == "done" ? .done : state == "error" ? .failed : .working
+        for s in screens { s.island.set(open: state != "idle", mood: mood) }
         if state == "done" || state == "error" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
                 if self?.dotState == state { self?.setDot("idle") }

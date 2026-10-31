@@ -22,6 +22,8 @@ final class Listener {
     var onFinal: (_ text: String, _ wav: URL?, _ woke: Bool) -> Void = { _, _, _ in }
     var onCancel: () -> Void = {}
     var onError: (String) -> Void = { _ in }
+    /// How loud the voice is while listening for a command, 0…1, about 25 times a second (the bar's wave).
+    var onLevel: (Float) -> Void = { _ in }
 
     /// Seconds of silence that end a phrase.
     var endSilence = 0.9
@@ -53,6 +55,7 @@ final class Listener {
     private var finishing = false
     private var wakeEnd: Double?       // where "Hey Foxie" ends in the phrase audio (seconds)
     private var wakeWords = 2          // how many words "Hey Foxie" took in the text
+    private var levelAt = -1.0
 
     /// "Hey Foxie" and how the recognizer may write it (core/brand.js, via Info.plist).
     static let wakePattern = try! NSRegularExpression(
@@ -274,6 +277,11 @@ final class Listener {
             }
         case .active:
             feed(buffer, pcm)
+            if clock - levelAt >= 0.04 {
+                levelAt = clock
+                let v = min(1, max(0, (db - noiseFloor - 6) / 30))
+                DispatchQueue.main.async { self.onLevel(v) }
+            }
             if finishing { return }
             let elapsed = clock - phraseStart
             if pushToTalk {

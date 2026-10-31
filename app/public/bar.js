@@ -400,6 +400,10 @@ window.jevisBar = {
         break;
     }
   },
+  // How loud the voice is while listening (0…1): the mark's bars follow it.
+  level(v) {
+    $('mark').style.setProperty('--lv', Math.max(0, Math.min(1, Number(v) || 0)).toFixed(2));
+  },
   // A tool needs the user (a login, a code). Shown without taking the keyboard.
   attention(ev) {
     if (ev.type === 'resolved') {
