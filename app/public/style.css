@@ -155,7 +155,7 @@ html:not(.native) .topbar { background: color-mix(in srgb, var(--bg) 82%, transp
   color: var(--text-3);
   transition: background 0.15s, color 0.15s;
 }
-.icon-btn:hover { background: var(--surface-3); color: var(--text); }
+.icon-btn:hover, .icon-btn.active { background: var(--surface-3); color: var(--text); }
 
 /* ---------- Chat ---------- */
 .chat { flex: 1; overflow-y: auto; scroll-behavior: smooth; }
@@ -380,10 +380,11 @@ kbd {
 .composer-hint { max-width: 740px; margin: 6px auto 0; text-align: center; font-size: 11px; color: var(--text-3); }
 
 /* ---------- Drawers: glass panels from the right ---------- */
-.scrim { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, 0.06); animation: fade 0.15s; }
+/* Under the top bar (--topbar-h, set by app.js), so its buttons stay clickable and close the drawer again. */
+.scrim { position: fixed; inset: var(--topbar-h, 56px) 0 0 0; z-index: 20; background: rgba(0, 0, 0, 0.06); animation: fade 0.15s; }
 .drawer {
   position: fixed;
-  top: 8px;
+  top: calc(var(--topbar-h, 56px) + 6px);
   right: 8px;
   bottom: 8px;
   z-index: 30;

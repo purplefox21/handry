@@ -420,7 +420,7 @@ stopBtn.addEventListener('click', async () => {
 
 $('newChatBtn').addEventListener('click', () => startNewChat().catch(err => toast(err.message)));
 $('newChatInDrawer').addEventListener('click', () => startNewChat().catch(err => toast(err.message)));
-$('chatsBtn').addEventListener('click', () => openDrawer('chatsDrawer'));
+$('chatsBtn').addEventListener('click', () => toggleDrawer('chatsDrawer'));
 
 document.querySelectorAll('.suggestion').forEach(card => card.addEventListener('click', () => {
   if (card.dataset.open === 'recipes') openDrawer('recipesDrawer');
@@ -566,11 +566,22 @@ langSwitch.addEventListener('click', e => {
 
 let openDrawerId = null;
 
+// Drawers open under the top bar, so the button that opened one stays in reach to close it again.
+const DRAWER_BUTTONS = { settingsDrawer: 'settingsBtn', timersDrawer: 'timersBtn', logDrawer: 'logBtn', recipesDrawer: 'recipesBtn', chatsDrawer: 'chatsBtn' };
+const topbar = document.querySelector('.topbar');
+new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-h', `${topbar.offsetHeight}px`)).observe(topbar);
+
+function markDrawerButton(id, on) {
+  const button = DRAWER_BUTTONS[id] && $(DRAWER_BUTTONS[id]);
+  if (button) { button.classList.toggle('active', on); button.setAttribute('aria-expanded', String(on)); }
+}
+
 function openDrawer(id) {
   closeDrawer();
   openDrawerId = id;
   $('scrim').hidden = false;
   $(id).hidden = false;
+  markDrawerButton(id, true);
   if (id === 'timersDrawer') { renderTimers(); refreshTimers(); }
   if (id === 'logDrawer') loadLog().catch(err => toast(err.message));
   if (id === 'recipesDrawer') loadRecipes();
@@ -582,13 +593,20 @@ function closeDrawer() {
   if (!openDrawerId) return;
   $(openDrawerId).hidden = true;
   $('scrim').hidden = true;
+  markDrawerButton(openDrawerId, false);
   openDrawerId = null;
 }
 
-$('settingsBtn').addEventListener('click', () => openDrawer('settingsDrawer'));
-$('timersBtn').addEventListener('click', () => openDrawer('timersDrawer'));
-$('logBtn').addEventListener('click', () => openDrawer('logDrawer'));
-$('recipesBtn').addEventListener('click', () => openDrawer('recipesDrawer'));
+/** A top bar button: opens its drawer, or closes it when it is the one open. */
+function toggleDrawer(id) {
+  if (openDrawerId === id) closeDrawer();
+  else openDrawer(id);
+}
+
+$('settingsBtn').addEventListener('click', () => toggleDrawer('settingsDrawer'));
+$('timersBtn').addEventListener('click', () => toggleDrawer('timersDrawer'));
+$('logBtn').addEventListener('click', () => toggleDrawer('logDrawer'));
+$('recipesBtn').addEventListener('click', () => toggleDrawer('recipesDrawer'));
 $('scrim').addEventListener('click', closeDrawer);
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeDrawer));
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });

@@ -7,10 +7,12 @@
 // (after a short moment, so it isn't gone before it was seen). Several places
 // can come one after another (a sequence: the next one when the last goes).
 // What to draw comes from ~/.jevis/overlay.json (hands/overlay.js); the island
-// follows ~/.jevis/activity.json: hidden in the notch while Handry rests, a
-// little wider while it works (a small wave on the left, Handry's white hand on
-// the right). No colored lights (they look like the camera's): the hand waves
-// when Handry waits for the user, hops once when it is done, shakes on an error.
+// follows ~/.jevis/activity.json: wider and a little lower than the notch, a
+// small wave on the left and Handry's white hand on the right, both faint and
+// still while Handry rests. No colored lights (they look like the camera's):
+// the wave moves while it works, the hand waves when Handry waits for the
+// user, hops once when it is done, shakes on an error. Menu › the island:
+// always there, only while Handry works, or never. A click on it opens the bar.
 import Cocoa
 import QuartzCore
 
@@ -66,40 +68,48 @@ private func whiteHand(size: CGFloat) -> CALayer {
     return hand
 }
 
-/// The island on one screen. Resting, it is exactly the notch (so it can't be seen) and then fades out;
-/// working, it grows a wing on each side: a small wave on the left, Handry's hand on the right.
+/// The island on one screen. Closed, it is exactly the notch (so it can't be seen) and then fades out.
+/// Working, it hangs a little lower than the notch and has a wing on each side: a small wave on the left,
+/// Handry's hand on the right. Resting on a notch only a small tongue with the hand hangs from the notch's
+/// middle: the wings would cover the app's menus, which sit on both sides of it (a screen without a notch
+/// has room in the middle of its menu bar, so there the wings stay out, faint).
 private final class Island {
-    enum Mood { case working, waiting, done, failed }
+    enum Mood { case resting, working, waiting, done, failed }
+    private enum Form { case closed, hand, full }
     static let ear: CGFloat = 7
     static let wing: CGFloat = 30
+    static let tongue = CGSize(width: 30, height: 16)
     let root = CALayer()
     private let shape = CAShapeLayer()
     private let hand: CALayer
     private let wave = CAReplicatorLayer()
-    private let notchWidth: CGFloat
-    private let height: CGFloat       // open: a little lower than the notch, so it is seen coming out of it
-    private let closedHeight: CGFloat // closed: the notch itself
-    private let maxWidth: CGFloat
-    private(set) var opened = false
+    let notchWidth: CGFloat
+    let height: CGFloat       // out: a little lower than the notch, so it is seen coming out of it
+    let closedHeight: CGFloat // closed: the notch itself
+    let maxWidth: CGFloat
+    private let mid: CGFloat, top: CGFloat
+    private var form = Form.closed
 
     init(screen s: NSScreen) {
         let notch = notchOf(s)
         notchWidth = notch.width
         closedHeight = notch.height > 0 ? notch.height : 22
         height = notch.height > 0 ? notch.height + 9 : max(s.frame.maxY - s.visibleFrame.maxY, 22) + 6
-        hand = whiteHand(size: min(15, height - 8))
+        hand = whiteHand(size: 12)
         let core = notch.width > 0 ? notch.width : 8
         maxWidth = core + 2 * Island.wing + 2 * Island.ear
-        let top = s.frame.height, y = top - height / 2
+        mid = notch.mid
+        top = s.frame.height
+        let y = top - height / 2
         root.frame = CGRect(origin: .zero, size: s.frame.size)
-        shape.frame = CGRect(x: notch.mid - maxWidth / 2, y: top - height, width: maxWidth, height: height)
+        shape.frame = CGRect(x: notch.mid - maxWidth / 2, y: top - max(height, closedHeight + Island.tongue.height), width: maxWidth, height: max(height, closedHeight + Island.tongue.height))
         shape.fillColor = NSColor.black.cgColor
-        shape.path = path(open: false)
+        shape.path = path(.closed)
         shape.opacity = 0
         root.addSublayer(shape)
         let side = core / 2 + Island.wing / 2
         hand.anchorPoint = CGPoint(x: 0.5, y: 0.15) // the wrist: it waves from there
-        hand.position = CGPoint(x: notch.mid + side, y: y - hand.bounds.height * 0.35)
+        hand.position = handPlace(.full)
         hand.opacity = 0
         root.addSublayer(hand)
         let bar = CALayer()
@@ -116,12 +126,42 @@ private final class Island {
         root.addSublayer(wave)
     }
 
-    private func path(open: Bool) -> CGPath {
-        let w = open ? maxWidth : (notchWidth > 0 ? notchWidth : 8) + 2 * Island.ear
-        let h = open ? height : closedHeight
-        let p = islandPath(width: w, height: h, ear: Island.ear, radius: min(14, h / 2))
-        var t = CGAffineTransform(translationX: (maxWidth - w) / 2, y: height - h)
+    /// The outline for a form, in the layer (which is as wide as the island at its widest, the notch in its
+    /// middle, and as tall as its lowest form).
+    private func path(_ form: Form) -> CGPath {
+        let core = notchWidth > 0 ? notchWidth : 8
+        let half: CGFloat, h: CGFloat
+        switch form {
+        case .closed: (half, h) = (core / 2, closedHeight)
+        case .hand: (half, h) = (Island.tongue.width / 2, closedHeight + Island.tongue.height)
+        case .full: (half, h) = (core / 2 + Island.wing, height)
+        }
+        let p = islandPath(width: 2 * half + 2 * Island.ear, height: h, ear: Island.ear, radius: min(form == .hand ? 9 : 14, h / 2))
+        var t = CGAffineTransform(translationX: maxWidth / 2 - half - Island.ear, y: lowest - h)
         return p.copy(using: &t) ?? p
+    }
+
+    private var lowest: CGFloat { max(height, closedHeight + Island.tongue.height) }
+
+    /// Where the hand's wrist goes: on the right wing, or in the tongue under the notch.
+    private func handPlace(_ form: Form) -> CGPoint {
+        let size = hand.bounds.height
+        let center = form == .hand
+            ? CGPoint(x: mid, y: top - closedHeight - Island.tongue.height / 2)
+            : CGPoint(x: mid + (notchWidth > 0 ? notchWidth : 8) / 2 + Island.wing / 2, y: top - height / 2)
+        return CGPoint(x: center.x, y: center.y - size * 0.35)
+    }
+
+    /// Where a click opens (or closes) the bar, from the screen's bottom-left: what can be seen of the island.
+    /// With the bar open over a notch, the notch itself (the bar's empty top), so a click there closes it.
+    func clickRect(barOpen: Bool) -> CGRect {
+        let core = notchWidth > 0 ? notchWidth : 8
+        if barOpen && notchWidth > 0 { return CGRect(x: mid - core / 2, y: top - closedHeight, width: core, height: closedHeight) }
+        switch form {
+        case .closed: return .zero
+        case .hand: return CGRect(x: mid - Island.tongue.width / 2 - 4, y: top - closedHeight - Island.tongue.height, width: Island.tongue.width + 8, height: closedHeight + Island.tongue.height)
+        case .full: return CGRect(x: mid - maxWidth / 2, y: top - height, width: maxWidth, height: height)
+        }
     }
 
     private func fade(_ layer: CALayer, to value: Float, delay: Double = 0, duration: Double = 0.18) {
@@ -135,13 +175,12 @@ private final class Island {
         layer.add(a, forKey: "fade")
     }
 
-    /// What the hand does: still while Handry works, waving while it waits for the user, one hop when it is
-    /// done, a shake on an error.
-    private func move(_ mood: Mood) {
+    /// What the hand does: still while Handry rests or works, waving while it waits for the user, one hop
+    /// when it is done, a shake on an error.
+    private func move(_ mood: Mood, delay: Double) {
         hand.removeAnimation(forKey: "move")
-        let delay = opened ? 0 : 0.3
         switch mood {
-        case .working:
+        case .resting, .working:
             return
         case .waiting:
             let a = CAKeyframeAnimation(keyPath: "transform.rotation.z")
@@ -166,13 +205,15 @@ private final class Island {
         }
     }
 
-    /// open: the wings are out. mood: what the hand does (and whether the wave moves).
+    /// open: the island is out (resting or not). mood: what the hand does, whether the wave moves, and
+    /// whether the wave's wing is out at all.
     func set(open: Bool, mood: Mood) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
+        let was = form
+        let next: Form = !open ? .closed : (mood == .resting && notchWidth > 0) ? .hand : .full
         let waving = mood == .working
-        if open { move(mood) }
         let bar = wave.sublayers?.first
         if waving, bar?.animation(forKey: "wave") == nil {
             let a = CABasicAnimation(keyPath: "transform.scale.y")
@@ -187,21 +228,34 @@ private final class Island {
             bar?.removeAnimation(forKey: "wave")
         }
         if open {
-            fade(wave, to: waving ? 0.9 : 0.35, delay: opened ? 0 : 0.18)
+            let delay = was == .closed ? 0.18 : 0
+            move(mood, delay: delay + 0.12)
+            fade(hand, to: mood == .resting ? 0.5 : 0.92, delay: delay)
+            fade(wave, to: next == .full ? (waving ? 0.9 : 0.35) : 0, delay: next == .full && was != .full ? 0.18 : 0, duration: next == .full ? 0.18 : 0.1)
         }
-        guard open != opened else { return }
-        opened = open
+        guard next != was else { return }
+        form = next
+        if next != .closed && hand.position != handPlace(next) {
+            let slide = CABasicAnimation(keyPath: "position")
+            slide.fromValue = was == .closed ? handPlace(next) : (hand.presentation()?.position ?? hand.position)
+            slide.toValue = handPlace(next)
+            slide.duration = 0.3
+            slide.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.25, 1)
+            hand.position = handPlace(next)
+            hand.add(slide, forKey: "slide")
+        }
         let grow = CASpringAnimation(keyPath: "path")
         grow.fromValue = shape.presentation()?.path ?? shape.path
-        grow.toValue = path(open: open)
-        if open {
+        grow.toValue = path(next)
+        if next != .closed {
             grow.damping = 15
             grow.stiffness = 210
             grow.duration = grow.settlingDuration
-            shape.removeAnimation(forKey: "fade")
-            shape.opacity = 1
-            if notchWidth == 0 { fade(shape, to: 1, duration: 0.2) }
-            fade(hand, to: 0.92, delay: 0.18)
+            if was == .closed {
+                shape.removeAnimation(forKey: "fade")
+                shape.opacity = 1
+                if notchWidth == 0 { fade(shape, to: 1, duration: 0.2) }
+            }
         } else {
             grow.damping = 30
             grow.stiffness = 300
@@ -211,7 +265,7 @@ private final class Island {
             // the notch hides the closed island; then it goes for good (a screen without a notch fades it at once)
             fade(shape, to: 0, delay: notchWidth > 0 ? 0.3 : 0, duration: notchWidth > 0 ? 0.01 : 0.25)
         }
-        shape.path = path(open: open)
+        shape.path = path(next)
         shape.add(grow, forKey: "grow")
     }
 }
@@ -241,13 +295,16 @@ private final class NotchTarget: NSView {
 final class Overlay {
     /// A click on the notch.
     var onNotchClick: () -> Void = {}
-    private var targets: [NSPanel] = []
+    private var islandShown = false
+    /// Handry's bar is open (on a screen without a notch it covers the island's place, so that click is off).
+    var barOpen = false { didSet { updateTargets() } }
 
     private struct Screen {
         let panel: NSPanel
         let screen: NSScreen
         let island: Island
         let dotCenter: CGPoint
+        let target: NSPanel // takes a click on the island
     }
 
     private var screens: [Screen] = []
@@ -264,15 +321,31 @@ final class Overlay {
     private var activityStamp: Date?
     private var activityAt: Double = 0
     private var dotState = ""
+    private var dotMode = ""
     private var timer: Timer?
     private let overlayFile = "\(HOME)/.jevis/overlay.json"
     private let activityFile = "\(HOME)/.jevis/activity.json"
 
-    var dotShown: Bool {
-        get { UserDefaults.standard.object(forKey: "overlayDot") as? Bool ?? true }
+    /// When the island shows: "always", "working" (only while Handry works) or "never". Before there was a
+    /// choice, the dot could only be turned off ("overlayDot": false), which is "never" now.
+    var islandMode: String {
+        get {
+            if let m = UserDefaults.standard.string(forKey: "islandMode"), ["always", "working", "never"].contains(m) { return m }
+            return (UserDefaults.standard.object(forKey: "overlayDot") as? Bool ?? true) ? "always" : "never"
+        }
         set {
-            UserDefaults.standard.set(newValue, forKey: "overlayDot")
-            for s in screens { s.island.root.isHidden = !newValue }
+            UserDefaults.standard.set(newValue, forKey: "islandMode")
+            readActivity()
+        }
+    }
+
+    /// Only what can be seen of the island takes clicks; with the island in, the notch is just the notch.
+    private func updateTargets() {
+        for s in screens {
+            let rect = s.island.clickRect(barOpen: barOpen)
+            let on = islandShown && rect.width > 0 && (notchOf(s.screen).height > 0 || !barOpen)
+            if on { s.target.setFrame(rect.offsetBy(dx: s.screen.frame.minX, dy: s.screen.frame.minY), display: false) }
+            s.target.ignoresMouseEvents = !on
         }
     }
 
@@ -302,9 +375,8 @@ final class Overlay {
     /// One click-through layer per screen (again when screens change).
     private func build() {
         for s in screens { s.panel.orderOut(nil) }
-        for t in targets { t.orderOut(nil) }
+        for s in screens { s.target.orderOut(nil) }
         screens = []
-        targets = []
         drawn = [:]
         expires = [:]
         occupied = [:]
@@ -327,29 +399,25 @@ final class Overlay {
             panel.contentView = view
             panel.setFrame(screen.frame, display: false)
             let island = Island(screen: screen)
-            island.root.isHidden = !dotShown
             view.layer?.addSublayer(island.root)
             panel.orderFrontRegardless()
-            screens.append(Screen(panel: panel, screen: screen, island: island, dotCenter: Overlay.dotPlace(screen)))
-            // the click target: see-through, but it takes the click (over the bar too, so a second click closes it)
-            let notch = notchOf(screen)
-            let size = NSSize(width: notch.width > 0 ? notch.width : 68, height: notch.height > 0 ? notch.height : 22)
-            let rect = NSRect(x: screen.frame.minX + notch.mid - size.width / 2, y: screen.frame.maxY - size.height, width: size.width, height: size.height)
-            let target = NotchPanel(contentRect: rect, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            // the click target: see-through, as big as what can be seen of the island (updateTargets)
+            let target = NotchPanel(contentRect: NSRect(x: screen.frame.minX, y: screen.frame.maxY - 1, width: 1, height: 1), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
             target.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 2)
             target.isOpaque = false
             target.backgroundColor = .clear
             target.hasShadow = false
-            target.ignoresMouseEvents = false
+            target.ignoresMouseEvents = true
             target.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-            let catcher = NotchTarget(frame: NSRect(origin: .zero, size: size))
+            let catcher = NotchTarget(frame: NSRect(x: 0, y: 0, width: 1, height: 1))
+            catcher.autoresizingMask = [.width, .height]
             catcher.onClick = { [weak self] in self?.onNotchClick() }
             target.contentView = catcher
-            target.setFrame(rect, display: false)
             target.orderFrontRegardless()
-            targets.append(target)
+            screens.append(Screen(panel: panel, screen: screen, island: island, dotCenter: Overlay.dotPlace(screen), target: target))
         }
         dotState = ""
+        dotMode = ""
         readActivity()
     }
 
@@ -384,10 +452,14 @@ final class Overlay {
         case "error": state = "error"
         default: state = "idle"
         }
-        guard state != dotState else { return }
+        let mode = islandMode
+        guard state != dotState || mode != dotMode else { return }
         dotState = state
-        let mood: Island.Mood = state == "attention" ? .waiting : state == "done" ? .done : state == "error" ? .failed : .working
-        for s in screens { s.island.set(open: state != "idle", mood: mood) }
+        dotMode = mode
+        islandShown = mode == "always" || (mode == "working" && state != "idle")
+        let mood: Island.Mood = state == "attention" ? .waiting : state == "done" ? .done : state == "error" ? .failed : state == "busy" ? .working : .resting
+        for s in screens { s.island.set(open: islandShown, mood: mood) }
+        updateTargets()
         if state == "done" || state == "error" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
                 if self?.dotState == state { self?.setDot("idle") }

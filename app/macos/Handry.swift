@@ -285,7 +285,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         menu.addItem(item(L("⛔ Acil Durdur   ⌥Esc", "⛔ Emergency Stop   ⌥Esc"), #selector(emergencyStop)))
         menu.addItem(.separator())
         menu.addItem(foxMenuItem())
-        menu.addItem(dotItem())
+        menu.addItem(islandMenuItem())
         menu.addItem(.separator())
         menu.addItem(item(L("Tarayıcıda Aç", "Open in Browser"), #selector(openInBrowser)))
         menu.addItem(item(L("İzinler…", "Permissions…"), #selector(checkPermissions)))
@@ -369,17 +369,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
     @objc func foxSleep() { fox?.sleepNow() }
 
-    /// "Üstteki Nokta": the dot under the notch (or the menu bar) that shows what Handry is doing. Drawings stay either way.
-    func dotItem() -> NSMenuItem {
-        let it = item(L("Üstteki Nokta", "Dot at the Top"), #selector(toggleDot(_:)))
-        it.state = (UserDefaults.standard.object(forKey: "overlayDot") as? Bool ?? true) ? .on : .off
-        return it
+    /// The island at the notch that shows what Handry is doing: always there, only while it works, or never.
+    /// Drawings stay either way.
+    func islandMenuItem() -> NSMenuItem {
+        let root = NSMenuItem(title: L("Çentikteki Ada", "Island at the Notch"), action: nil, keyEquivalent: "")
+        let menu = NSMenu()
+        menu.delegate = self
+        let mode = overlay?.islandMode ?? "always"
+        for (value, title) in [("always", L("Hep", "Always")), ("working", L("Sadece çalışırken", "Only while working")), ("never", L("Hiç", "Never"))] {
+            let choice = item(title, #selector(chooseIsland(_:)))
+            choice.representedObject = value
+            choice.tag = 915
+            choice.state = value == mode ? .on : .off
+            menu.addItem(choice)
+        }
+        root.submenu = menu
+        return root
     }
 
-    @objc func toggleDot(_ sender: NSMenuItem) {
-        let on = !(overlay?.dotShown ?? true)
-        overlay?.dotShown = on
-        sender.state = on ? .on : .off
+    @objc func chooseIsland(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? String else { return }
+        overlay?.islandMode = value
     }
 
     /// The other pet: the old one leaves the screen, the new one comes out where the old one was.
@@ -467,6 +477,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         for entry in menu.items where entry.tag == 913 { entry.title = petMenuTitle }
         for entry in menu.items where entry.tag == 911 { entry.state = abs(Double(fox?.scale ?? 0) - (entry.representedObject as? Double ?? -1)) < 0.01 ? .on : .off }
         // the language can also have been changed in the window's Settings
+        for entry in menu.items where entry.tag == 915 { entry.state = entry.representedObject as? String == overlay?.islandMode ? .on : .off }
         if menu.items.contains(where: { $0.tag == 914 }) {
             let setting = languageSetting()
             for entry in menu.items where entry.tag == 914 { entry.state = entry.representedObject as? String == setting ? .on : .off }
@@ -652,6 +663,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             barWeb.alphaValue = 0
         }
         barClosing = false
+        overlay?.barOpen = true
         bar.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.34
@@ -694,6 +706,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         }, completionHandler: { [weak self] in
             guard let self, self.barClosing else { return }
             self.barClosing = false
+            self.overlay?.barOpen = false
             self.bar.orderOut(nil)
             self.writeBarState()
         })
