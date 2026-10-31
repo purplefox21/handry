@@ -124,8 +124,9 @@
   },
   "voice": {
     "model": "~/.jevis/models/ggml-large-v3-turbo-q5_0.bin",
-    "language": "tr",
+    "language": "auto",
     "ttsVoice": "Yelda",
+    "ttsVoiceEn": "Samantha",
     "maxSpokenChars": 320,
     "recordSeconds": 6
   }

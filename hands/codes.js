@@ -6,7 +6,9 @@
 // E-mail: the Gmail inbox in the Handry Chrome (the user is logged in there).
 import { config } from '../core/config.js';
 import { JevisError } from '../core/errors.js';
-import { APPLE_EPOCH, APPROVAL_MARK, decodeAttributedBody, messagesDb, query, toAppleNs } from '../guard/messages.js';
+import { T } from '../core/i18n.js';
+import { APP_NAME } from '../core/brand.js';
+import { APPLE_EPOCH, decodeAttributedBody, isApprovalRequest, messagesDb, query, toAppleNs } from '../guard/messages.js';
 import * as browser from './browser.js';
 
 export { decodeAttributedBody };
@@ -40,8 +42,8 @@ export async function findSmsCode({ withinMin = 5, from, db = messagesDb() } = {
   const rows = await query(`SELECT m.date AS date, COALESCE(m.text,'') AS text, hex(m.attributedBody) AS body, COALESCE(h.id,'') AS sender FROM message m LEFT JOIN handle h ON h.ROWID = m.handle_id WHERE m.is_from_me = 0 AND m.date > ${cutoff} ORDER BY m.date DESC LIMIT 40;`, db);
   for (const r of rows) {
     const body = r.text || decodeAttributedBody(r.body);
-    // Handry's own approval request carries a code too (texting yourself can show it as received)
-    if (body.startsWith(APPROVAL_MARK)) continue;
+    // Handry's own approval request carries a code too (texting yourself can show it as received), in either language
+    if (isApprovalRequest(body)) continue;
     if (!matchesFrom(from, r.sender, body)) continue;
     const code = extractCode(body);
     if (code) return { code, from: clean(r.sender), ageSec: Math.max(0, Math.round(Date.now() / 1000 - (r.date / 1e9 + APPLE_EPOCH))) };
@@ -90,7 +92,7 @@ function inboxRowsInPage() {
 export async function findGmailCode({ withinMin = 5, from, url = config().codes?.gmailUrl || 'https://mail.google.com/mail/u/0/#inbox' } = {}) {
   const rows = await browser.withTempPage(url, async page => {
     await page.waitForSelector('tr.zA, [role="main"] tr[role="row"]', { timeout: 15000 }).catch(() => {});
-    if (/accounts\.google\.com/.test(page.url())) throw new JevisError('NOT_LOGGED_IN', "Gmail'e Handry'nin Chrome'unda giriş yapılmamış. Önce login_window aracıyla bir kere giriş yap.");
+    if (/accounts\.google\.com/.test(page.url())) throw new JevisError('NOT_LOGGED_IN', T("Gmail'e Handry'nin Chrome'unda giriş yapılmamış. Önce login_window aracıyla bir kere giriş yap.", `Nobody is logged in to Gmail in ${APP_NAME}'s Chrome. Log in there once first with the login_window tool.`));
     return page.evaluate(inboxRowsInPage);
   });
   return findInboxCode(rows, { withinMin, from });

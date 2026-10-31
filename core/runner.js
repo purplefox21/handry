@@ -10,10 +10,14 @@ import { setActivity } from './activity.js';
 import { currentChat, newChat, addUser, addAnswer, brainTurn, brainDone, stepText, NEW_CHAT } from './chats.js';
 import * as desktop from '../hands/desktop.js';
 import { APP_NAME } from './brand.js';
+import { T } from './i18n.js';
 
 // Brains get the local date and time with each message ("yarın 9'da" needs
 // it). It rides in the message, not the system prompt, so prompt caching holds.
-const withNow = text => `${text}\n\n[Şu an: ${new Date().toLocaleString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}]`;
+const withNow = text => T(
+  `${text}\n\n[Şu an: ${new Date().toLocaleString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}]`,
+  `${text}\n\n[Now: ${new Date().toLocaleString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(/\u202f/g, ' ')}]`
+);
 
 const clip = (s, n) => { const t = String(s ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
 
@@ -24,12 +28,12 @@ const clip = (s, n) => { const t = String(s ?? '').replace(/\s+/g, ' ').trim(); 
 async function screenNow() {
   const parts = [];
   const front = await desktop.frontmost().catch(() => null);
-  if (front?.app) parts.push(`önde ${front.app}${front.window ? ` — "${clip(front.window, 60)}"` : ''}`);
+  if (front?.app) parts.push(`${T('önde', 'in front:')} ${front.app}${front.window ? ` — "${clip(front.window, 60)}"` : ''}`);
   try {
     const tabs = await (await fetch(`http://127.0.0.1:${config().browser.cdpPort}/json/list`, { signal: AbortSignal.timeout(600) })).json();
     const ui = process.env.JEVIS_UI_PORT ? `:${process.env.JEVIS_UI_PORT}/` : null;
     const tab = tabs.find(t => t.type === 'page' && !/^(devtools|chrome-extension|chrome):/.test(t.url) && !(ui && t.url.includes(ui)));
-    if (tab) parts.push(`${APP_NAME} Chrome'da açık sekme "${clip(tab.title, 60)}" (${clip(tab.url, 90)})`);
+    if (tab) parts.push(T(`${APP_NAME} Chrome'da açık sekme "${clip(tab.title, 60)}" (${clip(tab.url, 90)})`, `open tab in ${APP_NAME}'s Chrome: "${clip(tab.title, 60)}" (${clip(tab.url, 90)})`));
   } catch {}
   return parts.join('; ');
 }
@@ -39,7 +43,7 @@ const MODEL_NAMES = { 'claude-sonnet-5-5': 'Sonnet 5.5', 'claude-sonnet-5': 'Son
 function thinker(brain, model) {
   if (brain.id !== 'claude-code') return brain.label;
   const id = model || config().brain.providers['claude-code']?.model;
-  return `Claude (${MODEL_NAMES[id] || id || 'abonelik'})`;
+  return `Claude (${MODEL_NAMES[id] || id || T('abonelik', 'subscription')})`;
 }
 
 // "tarif: sabah-rutini isim=Berat site=example.com"
@@ -60,18 +64,26 @@ export async function runRecipeWithHandoff({ name, vars, brain, sessionId, onEve
     return out;
   };
   const res = await runRecipe(name, { vars, onEvent, signal, askBrain });
-  if (res.ok || res.stopped) return { text: res.ok ? (doneText || `"${name}" tarifi bitti.`) : 'Durduruldu.', sessionId: session, stopped: res.stopped, ok: res.ok };
-  onEvent({ type: 'status', text: `Tarif ${res.failedAt + 1}. adımda takıldı; ${brain.label} kaldığı yerden devam ediyor.` });
-  const out = await askBrain([
+  if (res.ok || res.stopped) return { text: res.ok ? (doneText || T(`"${name}" tarifi bitti.`, `The "${name}" recipe is done.`)) : T('Durduruldu.', 'Stopped.'), sessionId: session, stopped: res.stopped, ok: res.ok };
+  onEvent({ type: 'status', text: T(`Tarif ${res.failedAt + 1}. adımda takıldı; ${brain.label} kaldığı yerden devam ediyor.`, `The recipe got stuck at step ${res.failedAt + 1}; ${brain.label} goes on from there.`) });
+  const out = await askBrain(T([
     `"${name}" tarifini adım adım çalıştırıyordum. ${res.failedAt + 1}. adım olmadı:`,
     `${JSON.stringify(res.step)} → ${res.error}`,
     `Yapılması gereken kalan adımlar: ${JSON.stringify(res.remaining)}`,
     'Sayfaya ya da uygulamaya bakıp kalan adımları tamamla. Sayfa değişmiş olabilir; aynı amaca giden yolu bul.'
-  ].join('\n'));
+  ], [
+    `I was running the "${name}" recipe step by step. Step ${res.failedAt + 1} did not work:`,
+    `${JSON.stringify(res.step)} → ${res.error}`,
+    `Steps still to do: ${JSON.stringify(res.remaining)}`,
+    'Look at the page or the app and finish the remaining steps. The page may have changed; find the way to the same goal.'
+  ]).join('\n'));
   return { text: out.text, sessionId: out.sessionId, handedOff: true };
 }
 
-const SOURCES = { bar: 'çubuk', window: 'pencere', voice: 'ses', cli: 'terminal', timer: 'zamanlayıcı', phone: 'telefon (iMessage)' };
+const sources = () => T(
+  { bar: 'çubuk', window: 'pencere', voice: 'ses', cli: 'terminal', timer: 'zamanlayıcı', phone: 'telefon (iMessage)' },
+  { bar: 'bar', window: 'window', voice: 'voice', cli: 'terminal', timer: 'timer', phone: 'phone (iMessage)' }
+);
 
 /**
  * chat: false keeps the command out of the chats (tests, jevis_do from other
@@ -84,7 +96,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
   // "Yeni sohbet": a clean page, nothing else to do.
   if (useChat && NEW_CHAT.test(text)) {
     const fresh = newChat();
-    return finish({ text: 'Yeni sohbet açıldı. Ne yapayım?' }, { newChat: true, chat: { id: fresh.id, title: 'Yeni sohbet' } });
+    return finish({ text: T('Yeni sohbet açıldı. Ne yapayım?', 'New chat started. What should I do?') }, { newChat: true, chat: { id: fresh.id, title: T('Yeni sohbet', 'New chat') } });
   }
   const previousRun = process.env.JEVIS_RUN_ID;
   process.env.JEVIS_RUN_ID = runId; // every logged action of this run carries it
@@ -93,7 +105,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
   const chat = useChat ? currentChat(chatId, { switchTo: switchChat }) : null;
   // Who is asking, for the action log: the app itself and where the command came from.
   const previousCaller = process.env.JEVIS_CALLER;
-  process.env.JEVIS_CALLER = `${APP_NAME} · ${SOURCES[source] || source || 'komut'}`;
+  process.env.JEVIS_CALLER = `${APP_NAME} · ${sources()[source] || source || T('komut', 'command')}`;
   const previousChat = process.env.JEVIS_CHAT_ID;
   if (chat) process.env.JEVIS_CHAT_ID = chat.id; // a timer set now remembers the chat it was asked in
   else delete process.env.JEVIS_CHAT_ID;
@@ -124,7 +136,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
       if (quick.learned && learning) {
         const { recipe: task, vars } = quick.learned;
         const brain = brainFor();
-        const out = await runRecipeWithHandoff({ name: task.name, vars, brain, onEvent: emit, signal, model, effort, doneText: 'Tamam, öğrendiğim yoldan yaptım.' });
+        const out = await runRecipeWithHandoff({ name: task.name, vars, brain, onEvent: emit, signal, model, effort, doneText: T('Tamam, öğrendiğim yoldan yaptım.', 'Done, the way I learned it.') });
         if (!out.stopped) recordOutcome(task.name, Boolean(out.ok));
         return record(finish(out, { recipe: task.name, learnedReplay: true, brain: out.handedOff ? brain.id : undefined, stopped: Boolean(out.stopped) }), 'learned');
       }
@@ -132,7 +144,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
     }
     const brain = brainFor();
     const usedModel = brain.id === 'claude-code' ? (model || config().brain.providers['claude-code']?.model) : undefined;
-    emit({ type: 'status', text: `${thinker(brain, model)} düşünüyor…` });
+    emit({ type: 'status', text: T(`${thinker(brain, model)} düşünüyor…`, `${thinker(brain, model)} is thinking…`) });
     setActivity('thinking');
     // The chat's own session, told what happened without it and what is on screen now.
     const key = `${brain.id}|${usedModel || model || ''}`;
@@ -148,7 +160,7 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
     return record(finish({ text: out.text, sessionId: out.sessionId }, { brain: brain.id, model: usedModel, stopped: Boolean(out.stopped), learned }), 'brain');
   } catch (err) {
     setActivity(signal?.aborted ? 'idle' : 'error');
-    if (chat) addAnswer(chat, { text: signal?.aborted ? 'Durduruldu.' : `Olmadı: ${err.message}`, via: 'error', steps, runId, ok: false });
+    if (chat) addAnswer(chat, { text: signal?.aborted ? T('Durduruldu.', 'Stopped.') : T(`Olmadı: ${err.message}`, `That did not work: ${err.message}`), via: 'error', steps, runId, ok: false });
     throw err;
   } finally {
     if (previousRun === undefined) delete process.env.JEVIS_RUN_ID;

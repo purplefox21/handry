@@ -1,7 +1,7 @@
 // Handry's ears. Listener turns speech into text while it is spoken (Apple's
-// on-device Turkish recognizer), notices when a phrase has ended (a short
-// silence), keeps the phrase as a 16 kHz WAV for whisper, and can wait for
-// "Hey Handry" in the background.
+// on-device recognizer, Turkish or English by the app's language), notices
+// when a phrase has ended (a short silence), keeps the phrase as a 16 kHz WAV
+// for whisper, and can wait for "Hey Handry" in the background.
 //
 // Waiting for "Hey Handry" is cheap: only a loudness check runs all the time.
 // When someone starts speaking after a pause, the recognizer listens to the
@@ -31,7 +31,7 @@ final class Listener {
     private let engine = AVAudioEngine()
     private var engineRunning = false
     private var fileMode = false
-    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "tr-TR"))
+    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: L("tr-TR", "en-US")))
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     private var generation = 0
@@ -141,7 +141,7 @@ final class Listener {
         }
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0 else {
-            DispatchQueue.main.async { self.onError("Mikrofon bulunamadı.") }
+            DispatchQueue.main.async { self.onError(L("Mikrofon bulunamadı.", "No microphone found.")) }
             return
         }
         input.removeTap(onBus: 0)
@@ -153,7 +153,7 @@ final class Listener {
             try engine.start()
             engineRunning = true
         } catch {
-            DispatchQueue.main.async { self.onError("Mikrofon açılamadı: \(error.localizedDescription)") }
+            DispatchQueue.main.async { self.onError(L("Mikrofon açılamadı: \(error.localizedDescription)", "Couldn't open the microphone: \(error.localizedDescription)")) }
         }
     }
 

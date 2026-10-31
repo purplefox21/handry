@@ -11,6 +11,7 @@ import * as jev from '../core/jev.js';
 import { needsConfirm, confirmAction, harmlessByKind, allowedOnSite, rememberable } from '../guard/confirm.js';
 import { JevisError } from '../core/errors.js';
 import { APP, APP_NAME } from '../core/brand.js';
+import { T } from '../core/i18n.js';
 import * as human from './human.js';
 import * as overlay from './overlay.js';
 import * as captcha from './captcha.js';
@@ -18,6 +19,8 @@ import * as captcha from './captcha.js';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const withTimeout = (promise, ms, fallback) => Promise.race([promise, sleep(ms).then(() => fallback)]);
 const pct = p => Math.round((p || 0) * 100);
+// "1 row", "3 rows" (English only; Turkish has no plural after a number)
+const many = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export { JevisError };
 
@@ -59,12 +62,13 @@ export function profileChromePids() {
 export async function ensureChrome() {
   const { cdpPort, chromePath, profileDir } = config().browser;
   if (await cdpUp(cdpPort)) return false;
-  if (!fs.existsSync(chromePath)) throw new JevisError('NO_CHROME', `Chrome bulunamadı: ${chromePath}`);
+  if (!fs.existsSync(chromePath)) throw new JevisError('NO_CHROME', T(`Chrome bulunamadı: ${chromePath}`, `Chrome not found: ${chromePath}`));
   // The profile is open in a Chrome without the debugging port (a login window)? Give a just-started one a moment.
   if (profileChromePids().length) {
     for (let i = 0; i < 15 && !(await cdpUp(cdpPort)); i++) await sleep(200);
     if (await cdpUp(cdpPort)) return false;
-    throw new JevisError('NO_CHROME', `${APP_NAME}'nin Chrome profili bağlantısız bir pencerede açık (giriş penceresi olabilir). O pencereyi kapat (Cmd+Q); ya da login_window açıksa orada "Tamam"a bas.`);
+    throw new JevisError('NO_CHROME', T(`${APP_NAME}'nin Chrome profili bağlantısız bir pencerede açık (giriş penceresi olabilir). O pencereyi kapat (Cmd+Q); ya da login_window açıksa orada "Tamam"a bas.`,
+      `${APP_NAME}'s Chrome profile is open in a window with nothing attached (maybe a login window). Quit that window (Cmd+Q), or if login_window is open, press "OK" there.`));
   }
   const dir = expandHome(profileDir);
   fs.mkdirSync(dir, { recursive: true });
@@ -79,7 +83,7 @@ export async function ensureChrome() {
     await sleep(200);
     if (await cdpUp(cdpPort)) return true;
   }
-  throw new JevisError('NO_CHROME', 'Chrome açıldı ama bağlantı noktası hazır olmadı.');
+  throw new JevisError('NO_CHROME', T('Chrome açıldı ama bağlantı noktası hazır olmadı.', 'Chrome opened but its debugging port did not get ready.'));
 }
 
 /** Is the Handry Chrome up with its debugging port? */
@@ -109,8 +113,8 @@ export async function closeChrome() {
 /** Opens the Handry profile as an ordinary Chrome window: no debugging port, nothing attached to it. */
 export async function launchPlainChrome(url) {
   const { chromePath, profileDir } = config().browser;
-  if (!fs.existsSync(chromePath)) throw new JevisError('NO_CHROME', `Chrome bulunamadı: ${chromePath}`);
-  if (profileChromePids().length) throw new JevisError('PROFILE_BUSY', `${APP_NAME}'nin Chrome profili zaten açık.`);
+  if (!fs.existsSync(chromePath)) throw new JevisError('NO_CHROME', T(`Chrome bulunamadı: ${chromePath}`, `Chrome not found: ${chromePath}`));
+  if (profileChromePids().length) throw new JevisError('PROFILE_BUSY', T(`${APP_NAME}'nin Chrome profili zaten açık.`, `${APP_NAME}'s Chrome profile is already open.`));
   const dir = expandHome(profileDir);
   fs.mkdirSync(dir, { recursive: true });
   spawn(chromePath, [`--user-data-dir=${dir}`, '--no-first-run', '--no-default-browser-check', url], { detached: true, stdio: 'ignore' }).unref();
@@ -118,7 +122,7 @@ export async function launchPlainChrome(url) {
     await sleep(200);
     if (profileChromePids().length) return true;
   }
-  throw new JevisError('NO_CHROME', 'Chrome açılamadı.');
+  throw new JevisError('NO_CHROME', T('Chrome açılamadı.', 'Chrome could not be opened.'));
 }
 
 /** Quits the plain (login) Chrome of the Handry profile with a normal quit signal; never a hard kill, that could lose the login. */
@@ -217,7 +221,7 @@ export async function activePage() {
 // Reading the page (these functions run inside the page)
 // ---------------------------------------------------------------------------
 
-function snapshotInFrame({ prefix, max }) {
+function snapshotInFrame({ prefix, max, words }) {
   const INTERACTIVE = 'a[href], button, input, select, textarea, summary, [role=button], [role=link], [role=tab], [role=menuitem], [role=menuitemcheckbox], [role=menuitemradio], [role=option], [role=checkbox], [role=radio], [role=switch], [role=combobox], [role=textbox], [role=searchbox], [role=spinbutton], [role=slider], [role=treeitem], [contenteditable=""], [contenteditable="true"], [onclick], [tabindex]:not([tabindex="-1"])';
   const clean = s => (s || '').replace(/\s+/g, ' ').trim();
   const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
@@ -302,9 +306,9 @@ function snapshotInFrame({ prefix, max }) {
     const siniflar = [el, ...el.querySelectorAll('svg, i, span, img')].slice(0, 6).flatMap(x => String(x.getAttribute('class') || '').split(/\s+/)).filter(c => c.split(/[-_:.]+/).some(t => SIMGE.test(t)));
     parcalar.push(...siniflar.slice(0, 3));
     const ipucu = [...new Set(parcalar.map(p => p.replace(/[-_]+/g, ' ').trim()).filter(Boolean))].join(', ');
-    if (ipucu) return cut(`simge: ${ipucu}`, 80);
+    if (ipucu) return cut(`${words.icon}: ${ipucu}`, 80);
     // hiçbir ipucu yoksa en azından ne olduğu: içinde sadece simge (svg/img) olan bir düğme
-    return el.querySelector('svg, img, i') ? 'simge (yazısız)' : '';
+    return el.querySelector('svg, img, i') ? words.iconOnly : '';
   };
 
   // Plain text near the element that tells same-named controls apart
@@ -482,12 +486,13 @@ function tablesInFrame(maxRows) {
   return out;
 }
 
-function pageTextInFrame(maxChars) {
+function pageTextInFrame({ max: maxChars, more }) {
   const text = (document.body?.innerText || '').replace(/[ \t]+/g, ' ').replace(/\n\s*\n\s*\n+/g, '\n\n').trim();
-  return text.length > maxChars ? `${text.slice(0, maxChars)}\n… (${text.length - maxChars} karakter daha)` : text;
+  return text.length > maxChars ? `${text.slice(0, maxChars)}\n… (${text.length - maxChars} ${more})` : text;
 }
+const textArgs = max => ({ max, more: T('karakter daha', 'more characters') });
 
-function alertsInFrame() {
+function alertsInFrame(invalid) {
   const clean = s => (s || '').replace(/\s+/g, ' ').trim();
   const out = [];
   for (const el of document.querySelectorAll('[role=alert], [role=alertdialog], [aria-live=assertive]')) {
@@ -497,7 +502,7 @@ function alertsInFrame() {
   }
   for (const el of document.querySelectorAll('[aria-invalid=true]')) {
     const name = clean(el.getAttribute('aria-label') || el.labels?.[0]?.innerText || el.name || el.id);
-    if (name) out.push(`Geçersiz alan: ${name.slice(0, 60)}`);
+    if (name) out.push(`${invalid}: ${name.slice(0, 60)}`);
   }
   return out.slice(0, 6);
 }
@@ -526,7 +531,7 @@ async function snapshot(page) {
   const frames = await framesOf(page);
   for (let fi = 0; fi < frames.length && items.length < maxElements; fi++) {
     const res = await withTimeout(
-      frames[fi].evaluate(snapshotInFrame, { prefix: fi === 0 ? '' : `f${fi}-`, max: maxElements - items.length }).catch(() => null),
+      frames[fi].evaluate(snapshotInFrame, { prefix: fi === 0 ? '' : `f${fi}-`, max: maxElements - items.length, words: { icon: T('simge', 'icon'), iconOnly: T('simge (yazısız)', 'icon (no text)') } }).catch(() => null),
       5000, null
     );
     if (res) {
@@ -539,7 +544,7 @@ async function snapshot(page) {
 
 export function labelOf(item) {
   const state = item.inView ? item.state : [...item.state, 'offscreen'];
-  return `[${item.role}] ${item.name || '(isimsiz)'}${item.ctx ? ` — ${item.ctx}` : ''}${state.length ? ` {${state.join(', ')}}` : ''}`;
+  return `[${item.role}] ${item.name || T('(isimsiz)', '(unnamed)')}${item.ctx ? ` — ${item.ctx}` : ''}${state.length ? ` {${state.join(', ')}}` : ''}`;
 }
 
 async function locate(page, id) {
@@ -609,7 +614,7 @@ async function resolve(page, target, purpose, { withRisk = false, scope } = {}) 
   const idMatch = String(target).trim().match(/^#([\w-]+)$/);
   if (idMatch) {
     const loc = await locate(page, idMatch[1]);
-    if (!loc) throw new JevisError('STALE', `#${idMatch[1]} artık sayfada yok. Önce sayfayı yeniden okuyun (read).`);
+    if (!loc) throw new JevisError('STALE', T(`#${idMatch[1]} artık sayfada yok. Önce sayfayı yeniden okuyun (read).`, `#${idMatch[1]} is no longer on the page. Read the page again first (browser_read).`));
     // Same order as the element list: a field is named by its label, not by what's typed in it.
     const name = await loc.evaluate(el => {
       const clean = s => (s || '').replace(/\s+/g, ' ').trim();
@@ -619,7 +624,7 @@ async function resolve(page, target, purpose, { withRisk = false, scope } = {}) 
         || clean(el.getAttribute('placeholder')) || clean(el.getAttribute('title')) || clean(text)
         || clean(el.getAttribute('name')) || clean(el.id) || clean(el.value)).slice(0, 80);
     });
-    const item = { id: idMatch[1], name, role: 'seçilen', ctx: '', state: [] };
+    const item = { id: idMatch[1], name, role: T('seçilen', 'chosen'), ctx: '', state: [] };
     const risk = withRisk ? (await jev.isRisky(PURPOSE[purpose](name), { url: page.url(), title: await page.title() })).p : null;
     return { loc, item, pick: { confidence: 1, risk, ms: 0 } };
   }
@@ -627,7 +632,7 @@ async function resolve(page, target, purpose, { withRisk = false, scope } = {}) 
   const snap = await snapshot(page);
   let items = snap.items;
   if (purpose === 'option') items = await narrowOptions(page, items, scope);
-  if (!items.length) throw new JevisError('NOT_FOUND', 'Sayfada kullanılabilir öğe bulunamadı.');
+  if (!items.length) throw new JevisError('NOT_FOUND', T('Sayfada kullanılabilir öğe bulunamadı.', 'No usable element found on the page.'));
   const labels = items.map(labelOf);
   const pick = await jev.pickElement(PURPOSE[purpose](target), labels, { url: snap.url, title: snap.title }, { withRisk });
   const alternatives = pick.alternatives
@@ -635,14 +640,14 @@ async function resolve(page, target, purpose, { withRisk = false, scope } = {}) 
     .map(a => ({ id: items[a.index].id, label: labels[a.index], p: pct(a.p) }));
 
   if (pick.index === null) {
-    throw new JevisError('NOT_FOUND', `"${target}" ile eşleşen öğe yok (Jev "hiçbiri" dedi, %${pct(pick.confidence)}).`, { alternatives });
+    throw new JevisError('NOT_FOUND', T(`"${target}" ile eşleşen öğe yok (Jev "hiçbiri" dedi, %${pct(pick.confidence)}).`, `No element matches "${target}" (Jev said "none", ${pct(pick.confidence)}%).`), { alternatives });
   }
   if (!jev.isConfident(pick)) {
-    throw new JevisError('LOW_CONFIDENCE', `Jev "${target}" için emin değil (%${pct(pick.confidence)}). Adaylardan birini #id ile seçin.`, { alternatives });
+    throw new JevisError('LOW_CONFIDENCE', T(`Jev "${target}" için emin değil (%${pct(pick.confidence)}). Adaylardan birini #id ile seçin.`, `Jev is not sure about "${target}" (${pct(pick.confidence)}%). Pick one of the candidates by #id.`), { alternatives });
   }
   const item = items[pick.index];
   const loc = await locate(page, item.id);
-  if (!loc) throw new JevisError('STALE', 'Öğe seçilirken sayfa değişti, tekrar deneyin.');
+  if (!loc) throw new JevisError('STALE', T('Öğe seçilirken sayfa değişti, tekrar deneyin.', 'The page changed while the element was being picked; try again.'));
   return { loc, item, pick };
 }
 
@@ -666,7 +671,7 @@ function noteChange(page, field, value) {
 async function rectOf(page, loc) {
   await loc.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
   const box = await loc.boundingBox();
-  if (!box) throw new JevisError('NOT_VISIBLE', 'Öğe sayfada görünmüyor.');
+  if (!box) throw new JevisError('NOT_VISIBLE', T('Öğe sayfada görünmüyor.', 'The element is not visible on the page.'));
   const w = await page.evaluate(() => ({ x: window.screenX, y: window.screenY, ow: window.outerWidth, oh: window.outerHeight, iw: window.innerWidth, ih: window.innerHeight }));
   const zoom = w.iw > 0 && w.ow / w.iw > 0.25 && w.ow / w.iw < 5 ? w.ow / w.iw : 1;
   const left = w.x + (w.ow - w.iw * zoom) / 2;
@@ -689,22 +694,25 @@ async function guardRisk(page, item, riskP, actionText, loc = null) {
   const title = await page.title().catch(() => '');
   // geri alınabilir, zararsız işlemler (taslağı kaydet, formdan öğe çıkar) sorulmadan geçer; sayfa bağlamıyla bakılır
   // the text next to the button too: "Delete" under "Delete this project?" is not "Remove" in a draft
-  if (await harmlessByKind(verdict, `${actionText} (sayfa: ${title}, ${page.url()}${item.ctx ? `; yanındaki metin: ${String(item.ctx).slice(0, 300)}` : ''})`)) return null;
+  const near = item.ctx ? T(`; yanındaki metin: ${String(item.ctx).slice(0, 300)}`, `; text next to it: ${String(item.ctx).slice(0, 300)}`) : '';
+  if (await harmlessByKind(verdict, `${actionText} (${T('sayfa', 'page')}: ${title}, ${page.url()}${near})`)) return null;
   const changes = pendingChanges.get(page) || [];
-  const changed = changes.length ? `\n\nBu sayfada ${APP.genitive} girdikleri:\n${changes.slice(-12).map(c => `• ${c.field}: ${c.value}`).join('\n')}` : '';
+  const changed = changes.length ? `\n\n${T(`Bu sayfada ${APP.genitive} girdikleri`, `What ${APP_NAME} entered on this page`)}:\n${changes.slice(-12).map(c => `• ${c.field}: ${c.value}`).join('\n')}` : '';
   // kullanıcı bu sitede bu düğmeye "hep" dediyse sorulmaz (para, sipariş ve silme hariç)
   if (allowedOnSite(host, item.name)) {
     pendingChanges.delete(page);
-    return { reason: `${verdict.reason} · bu sitede hep izinli` };
+    return { reason: `${verdict.reason} · ${T('bu sitede hep izinli', 'always allowed on this site')}` };
   }
   // while the question is open, the button it is about is circled on the screen (drawn alongside: the question never waits for it)
   const mark = loc && config().overlay?.confirmHighlight !== false
-    ? rectOf(page, loc).then(r => overlay.draw({ shape: 'circle', rect: r, note: 'Buna basmak istiyorum', seconds: 900 })).catch(() => null)
+    ? rectOf(page, loc).then(r => overlay.draw({ shape: 'circle', rect: r, note: T('Buna basmak istiyorum', 'I want to press this'), seconds: 900 })).catch(() => null)
     : null;
-  const ok = await confirmAction(`${APP_NAME} şunu yapmak istiyor:\n\n${actionText}${changed}\n\nSayfa: ${title}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`, { remember: rememberable(item.name) ? { host, name: item.name } : null });
+  const question = T(`${APP_NAME} şunu yapmak istiyor:\n\n${actionText}${changed}\n\nSayfa: ${title}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`,
+    `${APP_NAME} wants to do this:\n\n${actionText}${changed}\n\nPage: ${title}\nWhy it asks: ${verdict.reason}\n\nDo you allow it?`);
+  const ok = await confirmAction(question, { remember: rememberable(item.name) ? { host, name: item.name } : null });
   const drawn = await mark;
   if (drawn) overlay.clear(drawn);
-  if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
+  if (!ok) throw new JevisError('DENIED', T(`Kullanıcı izin vermedi: ${actionText}`, `The user did not allow it: ${actionText}`));
   pendingChanges.delete(page); // approved: these are being saved now
   const shot = path.join(homeDir('logs', 'approved'), `${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`);
   await page.screenshot({ path: shot, type: 'jpeg', quality: 60, scale: 'css', timeout: 5000 }).catch(() => {});
@@ -722,7 +730,7 @@ async function outcome(page, before) {
     url,
     title: await page.title().catch(() => ''),
     navigated: url !== before.url,
-    alerts: await withTimeout(page.mainFrame().evaluate(alertsInFrame).catch(() => []), 1500, [])
+    alerts: await withTimeout(page.mainFrame().evaluate(alertsInFrame, T('Geçersiz alan', 'Invalid field')).catch(() => []), 1500, [])
   };
 }
 
@@ -761,7 +769,7 @@ async function newWindowPage(url) {
   if (!page || (await targetIdOf(page).catch(() => null)) !== targetId) {
     for (const p of openPages()) if ((await targetIdOf(p).catch(() => null)) === targetId) page = p;
   }
-  if (!page) throw new JevisError('NO_WINDOW', 'Yeni pencere açılamadı.');
+  if (!page) throw new JevisError('NO_WINDOW', T('Yeni pencere açılamadı.', 'The new window could not be opened.'));
   await page.waitForLoadState('domcontentloaded', { timeout: 45000 }).catch(() => {});
   return remember(page);
 }
@@ -820,7 +828,7 @@ export async function sessions(sites, { deep = true } = {}) {
       await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
       out.finalUrl = page.url();
       out.title = await page.title().catch(() => '');
-      out.text = await withTimeout(page.mainFrame().evaluate(pageTextInFrame, 1500).catch(() => ''), 3000, '');
+      out.text = await withTimeout(page.mainFrame().evaluate(pageTextInFrame, textArgs(1500)).catch(() => ''), 3000, '');
       out.loginUrl = LOGIN_URL.test(new URL(out.finalUrl).hostname + new URL(out.finalUrl).pathname);
     } catch (err) {
       out.error = err.message.split('\n')[0];
@@ -834,16 +842,16 @@ export async function sessions(sites, { deep = true } = {}) {
 
 export async function pageText(maxChars = 1500) {
   const page = await activePage();
-  return withTimeout(page.mainFrame().evaluate(pageTextInFrame, maxChars).catch(() => ''), 3000, '');
+  return withTimeout(page.mainFrame().evaluate(pageTextInFrame, textArgs(maxChars)).catch(() => ''), 3000, '');
 }
 
 export async function read({ text = true } = {}) {
   const page = await activePage();
   const snap = await snapshot(page);
   const body = text
-    ? await withTimeout(page.mainFrame().evaluate(pageTextInFrame, config().browser.maxTextChars).catch(() => ''), 3000, '')
+    ? await withTimeout(page.mainFrame().evaluate(pageTextInFrame, textArgs(config().browser.maxTextChars)).catch(() => ''), 3000, '')
     : '';
-  const alerts = await withTimeout(page.mainFrame().evaluate(alertsInFrame).catch(() => []), 1500, []);
+  const alerts = await withTimeout(page.mainFrame().evaluate(alertsInFrame, T('Geçersiz alan', 'Invalid field')).catch(() => []), 1500, []);
   return { url: snap.url, title: snap.title, elements: snap.items, total: snap.total, text: body, alerts };
 }
 
@@ -852,9 +860,9 @@ export async function click(target, { risk = true, purpose = 'click', scope } = 
   const before = { url: page.url() };
   const { loc, item, pick } = await resolve(page, target, purpose, { withRisk: risk, scope });
   if (await loc.evaluate(el => el.tagName === 'INPUT' && el.type === 'file')) {
-    throw new JevisError('WRONG_TOOL', 'Bu bir dosya seçme alanı; dosya yüklemek için upload kullanın.');
+    throw new JevisError('WRONG_TOOL', T('Bu bir dosya seçme alanı; dosya yüklemek için upload kullanın.', 'This is a file field; use upload (browser_upload) to upload a file.'));
   }
-  const approval = risk ? await guardRisk(page, item, pick.risk, `"${item.name}" öğesine tıklamak`, loc) : null;
+  const approval = risk ? await guardRisk(page, item, pick.risk, T(`"${item.name}" öğesine tıklamak`, `click "${item.name}"`), loc) : null;
   // the pointer glides for a while before it presses, so the wait must outlast the glide
   const popup = context().waitForEvent('page', { timeout: 8000 }).catch(() => null);
   await clickLocator(loc);
@@ -877,7 +885,7 @@ export async function type(target, text, { submit = false, append = false } = {}
   let approval = null;
   if (submit) {
     const risk = await jev.isRisky(`Type into "${item.name}" and press Enter to submit`, { url: page.url(), title: await page.title() });
-    approval = await guardRisk(page, item, risk.p, `"${item.name}" alanına yazıp Enter'a basmak (form gönderilebilir)`);
+    approval = await guardRisk(page, item, risk.p, T(`"${item.name}" alanına yazıp Enter'a basmak (form gönderilebilir)`, `type into "${item.name}" and press Enter (the form may be sent)`));
   }
   await loc.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
   // With human mode on, short text is typed key by key; long text goes in at once.
@@ -916,11 +924,11 @@ export async function download(target, saveTo) {
   const waiting = page.waitForEvent('download', { timeout: 60000 });
   await clickLocator(loc);
   let dl;
-  try { dl = await waiting; } catch { throw new JevisError('NO_DOWNLOAD', `"${item.name}" tıklandı ama 60 sn içinde bir indirme başlamadı.`); }
+  try { dl = await waiting; } catch { throw new JevisError('NO_DOWNLOAD', T(`"${item.name}" tıklandı ama 60 sn içinde bir indirme başlamadı.`, `Clicked "${item.name}" but no download started within 60 s.`)); }
   const name = dl.suggestedFilename();
   const home = os.homedir();
   const wanted = path.resolve(expandHome(saveTo || `~/Downloads/${APP_NAME}/`));
-  if (wanted !== home && !wanted.startsWith(home + path.sep)) throw new JevisError('OUTSIDE_HOME', 'İndirilen dosya sadece ev klasörünün içine kaydedilir.');
+  if (wanted !== home && !wanted.startsWith(home + path.sep)) throw new JevisError('OUTSIDE_HOME', T('İndirilen dosya sadece ev klasörünün içine kaydedilir.', 'Downloaded files are only saved inside the home folder.'));
   const isDir = /[\\/]$/.test(String(saveTo || '/')) || (fs.existsSync(wanted) && fs.statSync(wanted).isDirectory());
   let dest = isDir ? path.join(wanted, name) : wanted;
   fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -937,8 +945,8 @@ export async function tables(which, { maxRows = 60 } = {}) {
   const page = await activePage();
   const found = (await withTimeout(page.mainFrame().evaluate(tablesInFrame, maxRows).catch(() => []), 5000, []))
     .sort((a, b) => b.total - a.total);
-  if (!found.length) throw new JevisError('NOT_FOUND', 'Sayfada tablo bulunamadı.');
-  const describe = t => `${t.label || '(başlıksız)'} — ${t.headers.length ? t.headers.join(', ') : `ilk satır: ${t.rows[0].join(', ')}`} (${t.total} satır)`;
+  if (!found.length) throw new JevisError('NOT_FOUND', T('Sayfada tablo bulunamadı.', 'No table found on the page.'));
+  const describe = t => `${t.label || T('(başlıksız)', '(untitled)')} — ${t.headers.length ? t.headers.join(', ') : `${T('ilk satır', 'first row')}: ${t.rows[0].join(', ')}`} (${T(`${t.total} satır`, many(t.total, 'row'))})`;
   let index = 0;
   if (which && found.length > 1) {
     const pick = await jev.pickOption('table on the page', which, found.map(describe));
@@ -950,9 +958,10 @@ export async function tables(which, { maxRows = 60 } = {}) {
 export function formatTable(r) {
   const t = r.table;
   const keys = t.headers.length && t.rows.every(row => row.length <= t.headers.length) ? t.headers : null;
-  const lines = [`Tablo: ${t.label || '(başlıksız)'} · ${t.total} satır${t.total > t.rows.length ? ` (ilk ${t.rows.length})` : ''}${keys ? '' : t.headers.length ? ` · sütunlar: ${t.headers.join(', ')}` : ''}`];
-  for (const row of t.rows) lines.push(JSON.stringify(keys ? Object.fromEntries(keys.map((k, i) => [k || `sütun ${i + 1}`, row[i] ?? ''])) : row));
-  if (r.others.length) lines.push('', `Sayfadaki diğer tablolar: ${r.others.join(' | ')}`);
+  const lines = [T(`Tablo: ${t.label || '(başlıksız)'} · ${t.total} satır${t.total > t.rows.length ? ` (ilk ${t.rows.length})` : ''}${keys ? '' : t.headers.length ? ` · sütunlar: ${t.headers.join(', ')}` : ''}`,
+    `Table: ${t.label || '(untitled)'} · ${many(t.total, 'row')}${t.total > t.rows.length ? ` (first ${t.rows.length})` : ''}${keys ? '' : t.headers.length ? ` · columns: ${t.headers.join(', ')}` : ''}`)];
+  for (const row of t.rows) lines.push(JSON.stringify(keys ? Object.fromEntries(keys.map((k, i) => [k || T(`sütun ${i + 1}`, `column ${i + 1}`), row[i] ?? ''])) : row));
+  if (r.others.length) lines.push('', `${T('Sayfadaki diğer tablolar', 'Other tables on the page')}: ${r.others.join(' | ')}`);
   return lines.join('\n');
 }
 
@@ -995,11 +1004,11 @@ function valueCandidatesInFrame() {
 export async function valueAt(target) {
   const page = await activePage();
   const candidates = await page.mainFrame().evaluate(valueCandidatesInFrame).catch(() => []);
-  if (!candidates.length) throw new JevisError('NOT_FOUND', 'Sayfada okunacak bir değer (alan, kod, anahtar) bulunamadı.');
+  if (!candidates.length) throw new JevisError('NOT_FOUND', T('Sayfada okunacak bir değer (alan, kod, anahtar) bulunamadı.', 'No value to read (a field, a code, a key) found on the page.'));
   const pick = await jev.pickElement(`Read the value of: ${target}`, candidates.map(c => c.label), { url: page.url(), title: await page.title().catch(() => '') });
   if (pick.index === null || !jev.isConfident(pick)) {
     const alternatives = pick.alternatives.filter(a => a.index !== null).map(a => ({ id: candidates[a.index].id, label: candidates[a.index].label, p: pct(a.p) }));
-    throw new JevisError(pick.index === null ? 'NOT_FOUND' : 'LOW_CONFIDENCE', `"${target}" değeri sayfada bulunamadı ya da Jev emin değil (%${pct(pick.confidence)}).`, { alternatives });
+    throw new JevisError(pick.index === null ? 'NOT_FOUND' : 'LOW_CONFIDENCE', T(`"${target}" değeri sayfada bulunamadı ya da Jev emin değil (%${pct(pick.confidence)}).`, `The value "${target}" was not found on the page, or Jev is not sure (${pct(pick.confidence)}%).`), { alternatives });
   }
   const chosen = candidates[pick.index];
   const value = await page.mainFrame().evaluate(id => {
@@ -1034,7 +1043,7 @@ export async function fill(fields) {
   const page = await activePage();
   const snap = await snapshot(page);
   const items = snap.items.filter(i => i.role !== 'link');
-  if (!items.length) throw new JevisError('NOT_FOUND', 'Sayfada doldurulacak alan bulunamadı.');
+  if (!items.length) throw new JevisError('NOT_FOUND', T('Sayfada doldurulacak alan bulunamadı.', 'No field to fill found on the page.'));
   const labels = items.map(labelOf);
   const entries = Object.entries(fields).map(([field, value]) => [field, String(value)]);
 
@@ -1058,13 +1067,13 @@ export async function fill(fields) {
     const row = { field, value, ok: false };
     rows.push(row);
     if (pick.index === null || !jev.isConfident(pick)) {
-      row.problem = pick.error || (pick.index === null ? 'bulunamadı' : `Jev emin değil (%${pct(pick.confidence)})`);
+      row.problem = pick.error || (pick.index === null ? T('bulunamadı', 'not found') : T(`Jev emin değil (%${pct(pick.confidence)})`, `Jev is not sure (${pct(pick.confidence)}%)`));
       row.candidates = pick.alternatives.filter(a => a.index !== null).map(a => `#${items[a.index].id} ${labels[a.index]}`);
       continue;
     }
     const item = items[pick.index];
     Object.assign(row, { id: item.id, label: labels[pick.index], before: valueOf(item) });
-    if (used.has(item.id) && !CHOICE_ROLES.includes(item.role)) { row.problem = 'bu öğe başka bir alan için zaten dolduruldu'; continue; }
+    if (used.has(item.id) && !CHOICE_ROLES.includes(item.role)) { row.problem = T('bu öğe başka bir alan için zaten dolduruldu', 'this element was already filled for another field'); continue; }
     used.add(item.id);
     try {
       if (item.role === 'select' || item.state.includes('opens a list')) {
@@ -1082,7 +1091,7 @@ export async function fill(fields) {
         const r = await check(`#${item.id}`, on);
         row.after = r.checked === null ? '?' : r.checked ? '✓' : '—';
       } else {
-        row.problem = `bu bir ${item.role}; doldurulacak bir alan değil (Kaydet gibi düğmelere browser_click ile bas)`;
+        row.problem = T(`bu bir ${item.role}; doldurulacak bir alan değil (Kaydet gibi düğmelere browser_click ile bas)`, `this is a ${item.role}, not a field to fill (press buttons like Save with browser_click)`);
         continue;
       }
       row.ok = true;
@@ -1094,12 +1103,12 @@ export async function fill(fields) {
 }
 
 export function formatFill(r) {
-  const lines = [`${r.rows.filter(x => x.ok).length}/${r.rows.length} alan dolduruldu (kaydedilmedi):`];
+  const lines = [T(`${r.rows.filter(x => x.ok).length}/${r.rows.length} alan dolduruldu (kaydedilmedi):`, `${r.rows.filter(x => x.ok).length}/${r.rows.length} fields filled (not saved):`)];
   for (const x of r.rows) {
     if (x.ok) lines.push(`✓ ${x.field}: "${x.before}" → "${x.after}"  (#${x.id})`);
     else {
       lines.push(`✗ ${x.field} = "${x.value}": ${x.problem}${x.id ? ` (#${x.id})` : ''}`);
-      if (x.candidates?.length) lines.push(`    adaylar: ${x.candidates.join(' | ')}`);
+      if (x.candidates?.length) lines.push(`    ${T('adaylar', 'candidates')}: ${x.candidates.join(' | ')}`);
     }
   }
   return lines.join('\n');
@@ -1133,7 +1142,7 @@ export async function select(target, option) {
     if (index < 0) {
       const optPick = await jev.pickOption(item.name, option, options);
       if (optPick.index === null || !jev.isConfident(optPick)) {
-        throw new JevisError('NOT_FOUND', `"${option}" seçeneği bulunamadı. Seçenekler: ${options.slice(0, 40).join(' | ')}`);
+        throw new JevisError('NOT_FOUND', T(`"${option}" seçeneği bulunamadı. Seçenekler: ${options.slice(0, 40).join(' | ')}`, `Option "${option}" not found. Options: ${options.slice(0, 40).join(' | ')}`));
       }
       index = optPick.index;
     }
@@ -1175,10 +1184,10 @@ export async function check(target, on = true) {
 }
 
 export async function upload(target, filePath) {
-  if (!String(filePath ?? '').trim()) throw new JevisError('BAD_ARGS', 'Yüklenecek dosyanın yolunu ver (file_path).');
+  if (!String(filePath ?? '').trim()) throw new JevisError('BAD_ARGS', T('Yüklenecek dosyanın yolunu ver (file_path).', 'Give the path of the file to upload (file_path).'));
   const abs = path.resolve(expandHome(filePath));
-  if (!fs.existsSync(abs)) throw new JevisError('NOT_FOUND', `Dosya yok: ${abs}`);
-  if (fs.statSync(abs).isDirectory()) throw new JevisError('BAD_ARGS', `${abs} bir klasör; yüklenecek dosyanın kendisini ver.`);
+  if (!fs.existsSync(abs)) throw new JevisError('NOT_FOUND', T(`Dosya yok: ${abs}`, `No such file: ${abs}`));
+  if (fs.statSync(abs).isDirectory()) throw new JevisError('BAD_ARGS', T(`${abs} bir klasör; yüklenecek dosyanın kendisini ver.`, `${abs} is a folder; give the file itself.`));
   const page = await activePage();
   const before = { url: page.url() };
   let bulunan;
@@ -1203,7 +1212,7 @@ export async function upload(target, filePath) {
       await (await chooser).setFiles(abs);
     } catch {
       const inputs = page.locator('input[type=file]');
-      if (await inputs.count() !== 1) throw new JevisError('NOT_FOUND', 'Dosya seçme penceresi açılmadı ve sayfada tek bir dosya alanı yok.');
+      if (await inputs.count() !== 1) throw new JevisError('NOT_FOUND', T('Dosya seçme penceresi açılmadı ve sayfada tek bir dosya alanı yok.', 'No file chooser opened, and the page does not have exactly one file field.'));
       await inputs.setInputFiles(abs);
     }
   }
@@ -1213,21 +1222,24 @@ export async function upload(target, filePath) {
 
 /** Sayfadaki dosya alanlarından (gizliler dahil) tarife uyanı: tek alan varsa o, birden çoksa Jev seçer. */
 async function dosyaAlaniSec(page, target) {
-  const tarifler = await page.mainFrame().evaluate(() => [...document.querySelectorAll('input[type=file]')].map(el => {
+  const words = { accepts: T('kabul eder', 'accepts'), multiple: T('çoklu', 'multiple'), near: T('yakınında', 'near') };
+  const tarifler = await page.mainFrame().evaluate(w => [...document.querySelectorAll('input[type=file]')].map(el => {
     const clean = s => (s || '').replace(/\s+/g, ' ').trim();
     let yakin = '';
     for (let p = el.parentElement, i = 0; p && i < 6 && !yakin; p = p.parentElement, i++) {
       const baslik = p.querySelector('h1, h2, h3, h4, h5, h6, label, legend, [class*=title], [class*=label]');
       yakin = clean(baslik?.innerText || '').slice(0, 80) || clean(p.innerText || '').slice(0, 80);
     }
-    return clean([el.getAttribute('aria-label'), el.labels?.[0]?.innerText, el.name, el.id, el.accept && `kabul eder: ${el.accept}`, el.multiple && 'çoklu', yakin && `yakınında: ${yakin}`].filter(Boolean).join(' · '));
-  }));
-  if (!tarifler.length) throw new JevisError('NOT_FOUND', 'Sayfada dosya yükleme alanı yok. Önce yükleme düğmesine tıklayıp alanın açılmasını sağla.');
+    return clean([el.getAttribute('aria-label'), el.labels?.[0]?.innerText, el.name, el.id, el.accept && `${w.accepts}: ${el.accept}`, el.multiple && w.multiple, yakin && `${w.near}: ${yakin}`].filter(Boolean).join(' · '));
+  }), words);
+  if (!tarifler.length) throw new JevisError('NOT_FOUND', T('Sayfada dosya yükleme alanı yok. Önce yükleme düğmesine tıklayıp alanın açılmasını sağla.', 'The page has no file upload field. Click the upload button first so the field appears.'));
   const loc = i => page.locator('input[type=file]').nth(i);
-  if (tarifler.length === 1) return { loc: loc(0), etiket: tarifler[0] || 'dosya alanı' };
+  if (tarifler.length === 1) return { loc: loc(0), etiket: tarifler[0] || T('dosya alanı', 'file field') };
   const pick = await jev.pickOption('file upload field', String(target), tarifler);
   if (pick.index !== null && jev.isConfident(pick)) return { loc: loc(pick.index), etiket: tarifler[pick.index] };
-  throw new JevisError('LOW_CONFIDENCE', `Sayfada ${tarifler.length} dosya alanı var, hangisi olduğundan emin değilim. Tarifini şunlardan birinin kelimeleriyle ver:\n${tarifler.map((t, i) => `  ${i + 1}. ${t}`).join('\n')}`);
+  const list = tarifler.map((t, i) => `  ${i + 1}. ${t}`).join('\n');
+  throw new JevisError('LOW_CONFIDENCE', T(`Sayfada ${tarifler.length} dosya alanı var, hangisi olduğundan emin değilim. Tarifini şunlardan birinin kelimeleriyle ver:\n${list}`,
+    `The page has ${tarifler.length} file fields and I'm not sure which one is meant. Describe it with the words of one of these:\n${list}`));
 }
 
 export async function press(keys) {
@@ -1237,7 +1249,7 @@ export async function press(keys) {
   if (/^(Enter|Return)$/i.test(keys)) {
     const focused = await page.mainFrame().evaluate(focusedInFrame).catch(() => '');
     const risk = await jev.isRisky(`Press Enter in "${focused || 'the page'}" (this may submit a form)`, { url: page.url(), title: await page.title() });
-    approval = await guardRisk(page, { name: focused || 'Enter' }, risk.p, `"${focused || 'sayfa'}" içinde Enter'a basmak`);
+    approval = await guardRisk(page, { name: focused || 'Enter' }, risk.p, T(`"${focused || 'sayfa'}" içinde Enter'a basmak`, `press Enter in "${focused || 'the page'}"`));
   }
   if (human.humanOn(page)) await human.pressKey(page, keys);
   else await page.keyboard.press(keys);
@@ -1286,7 +1298,7 @@ export async function wait({ text, ms } = {}) {
       if (await withTimeout(page.evaluate(textOnPage, q).catch(() => false), 2000, false)) return { found: text, waited: Date.now() - started, url: page.url() };
       await sleep(400);
     }
-    throw new JevisError('NOT_FOUND', `"${text}" ${Math.round(limit / 1000)} sn içinde sayfada görünmedi.`);
+    throw new JevisError('NOT_FOUND', T(`"${text}" ${Math.round(limit / 1000)} sn içinde sayfada görünmedi.`, `"${text}" did not show on the page within ${Math.round(limit / 1000)} s.`));
   }
   await sleep(Math.min(ms || 1000, 30000));
   return { waited: Date.now() - started, url: page.url() };
@@ -1311,11 +1323,11 @@ async function findTab(ref) {
   }
   if (index < 0) {
     const pick = await jev.pickOption('browser tab', ref, list.map(t => `${t.title} — ${t.url}`));
-    if (pick.index === null || !jev.isConfident(pick)) throw new JevisError('NOT_FOUND', `"${ref}" sekmesi bulunamadı.`);
+    if (pick.index === null || !jev.isConfident(pick)) throw new JevisError('NOT_FOUND', T(`"${ref}" sekmesi bulunamadı.`, `Tab "${ref}" not found.`));
     index = pick.index;
   }
   const page = openPages()[index];
-  if (!page) throw new JevisError('NOT_FOUND', `${Number(ref)}. sekme yok (${list.length} sekme açık).`);
+  if (!page) throw new JevisError('NOT_FOUND', T(`${Number(ref)}. sekme yok (${list.length} sekme açık).`, `There is no tab ${Number(ref)} (${list.length} tabs open).`));
   return page;
 }
 
@@ -1324,7 +1336,7 @@ async function findTab(ref) {
  * the tab with these words in its title or address, else the current one.
  */
 export async function tabText(ref, maxChars = 6000) {
-  if (!(await cdpUp(config().browser.cdpPort))) throw new JevisError('NO_BROWSER', `${APP.genitive} Chrome penceresi kapalı.`);
+  if (!(await cdpUp(config().browser.cdpPort))) throw new JevisError('NO_BROWSER', T(`${APP.genitive} Chrome penceresi kapalı.`, `${APP_NAME}'s Chrome window is closed.`));
   const page = ref ? await findTab(ref) : await activePage();
   const text = await page.evaluate(() => document.body?.innerText || '').catch(() => '');
   return { title: await page.title().catch(() => ''), url: page.url(), text: text.slice(0, maxChars) };
@@ -1422,8 +1434,8 @@ export async function screenshot({ fullPage = false, format = 'png', marks = fal
 
 export async function verify(expectation) {
   const page = await activePage();
-  const text = await page.mainFrame().evaluate(pageTextInFrame, 3000).catch(() => '');
-  const alerts = await page.mainFrame().evaluate(alertsInFrame).catch(() => []);
+  const text = await page.mainFrame().evaluate(pageTextInFrame, textArgs(3000)).catch(() => '');
+  const alerts = await page.mainFrame().evaluate(alertsInFrame, T('Geçersiz alan', 'Invalid field')).catch(() => []);
   // Field values and checkbox states are not part of the page text.
   const snap = await snapshot(page);
   const controls = snap.items.filter(i => i.state.length).slice(0, 120).map(labelOf);
@@ -1436,39 +1448,41 @@ export async function verify(expectation) {
 // ---------------------------------------------------------------------------
 
 export function formatRead(r, { maxElements = 200, all = false } = {}) {
-  const lines = [`Sayfa: ${r.title}`, `URL: ${r.url}`];
-  if (r.alerts?.length) lines.push(`Uyarılar: ${r.alerts.join(' | ')}`);
+  const lines = [`${T('Sayfa', 'Page')}: ${r.title}`, `URL: ${r.url}`];
+  if (r.alerts?.length) lines.push(`${T('Uyarılar', 'Alerts')}: ${r.alerts.join(' | ')}`);
   // What's on screen in full; the rest as a count (targets there still work by name).
   const onScreen = r.elements.filter(e => e.inView);
   const shown = all || !onScreen.length ? r.elements : onScreen;
-  lines.push('', `Öğeler (${shown.length}${all ? '' : ' ekranda'}${r.total > r.elements.length ? `, sayfada toplam ${r.total}` : ''}):`);
+  lines.push('', T(`Öğeler (${shown.length}${all ? '' : ' ekranda'}${r.total > r.elements.length ? `, sayfada toplam ${r.total}` : ''}):`,
+    `Elements (${shown.length}${all ? '' : ' on screen'}${r.total > r.elements.length ? `, ${r.total} on the page in all` : ''}):`));
   for (const el of shown.slice(0, maxElements)) lines.push(`#${el.id} ${labelOf(el)}`);
   const rest = r.elements.length - Math.min(shown.length, maxElements);
-  if (rest > 0) lines.push(`… ekran dışında ${rest} öğe daha. Onlara da adıyla hedef verebilirsin; hepsini görmek için browser_read all=true.`);
-  if (r.text) lines.push('', 'Sayfa metni:', r.text);
+  if (rest > 0) lines.push(T(`… ekran dışında ${rest} öğe daha. Onlara da adıyla hedef verebilirsin; hepsini görmek için browser_read all=true.`, `… ${rest} more ${rest === 1 ? 'element' : 'elements'} off screen. You can target them by name too; browser_read all=true lists them all.`));
+  if (r.text) lines.push('', T('Sayfa metni:', 'Page text:'), r.text);
   return lines.join('\n');
 }
 
 export function formatOutcome(res) {
   const parts = [];
-  if (res.element) parts.push(`Öğe: "${res.element.name}"${res.jev?.confidence !== undefined ? ` (Jev %${res.jev.confidence}, ${res.jev.ms} ms)` : ''}`);
-  if (res.typed !== undefined) parts.push(`${res.typed} karakter yazıldı`);
-  if (res.selected !== undefined) parts.push(`Seçildi: ${res.selected}`);
-  if (res.checked !== undefined) parts.push(`İşaretli: ${res.checked === null ? 'bilinmiyor' : res.checked ? 'evet' : 'hayır'}`);
-  if (res.file) parts.push(`Yüklendi: ${res.file}`);
-  if (res.newTab) parts.push('Yeni sekme açıldı');
-  if (res.approval) parts.push(`Kullanıcı onayladı (${res.approval.reason})`);
-  if (res.navigated) parts.push('Sayfa değişti');
-  if (res.title !== undefined) parts.push(`Şu an: ${res.title} (${res.url})`);
-  if (res.alerts?.length) parts.push(`Uyarılar: ${res.alerts.join(' | ')}`);
+  // the router and the window read "Öğe: …" / "Element: …", "Sayfa değişti" / "Page changed", "Yeni sekme" / "New tab", "Şu an: …" / "Now: …"
+  if (res.element) parts.push(T(`Öğe: "${res.element.name}"${res.jev?.confidence !== undefined ? ` (Jev %${res.jev.confidence}, ${res.jev.ms} ms)` : ''}`, `Element: "${res.element.name}"${res.jev?.confidence !== undefined ? ` (Jev ${res.jev.confidence}%, ${res.jev.ms} ms)` : ''}`));
+  if (res.typed !== undefined) parts.push(T(`${res.typed} karakter yazıldı`, `${many(res.typed, 'character')} typed`));
+  if (res.selected !== undefined) parts.push(`${T('Seçildi', 'Selected')}: ${res.selected}`);
+  if (res.checked !== undefined) parts.push(`${T('İşaretli', 'Checked')}: ${res.checked === null ? T('bilinmiyor', 'unknown') : res.checked ? T('evet', 'yes') : T('hayır', 'no')}`);
+  if (res.file) parts.push(`${T('Yüklendi', 'Uploaded')}: ${res.file}`);
+  if (res.newTab) parts.push(T('Yeni sekme açıldı', 'New tab opened'));
+  if (res.approval) parts.push(T(`Kullanıcı onayladı (${res.approval.reason})`, `The user approved (${res.approval.reason})`));
+  if (res.navigated) parts.push(T('Sayfa değişti', 'Page changed'));
+  if (res.title !== undefined) parts.push(`${T('Şu an', 'Now')}: ${res.title} (${res.url})`);
+  if (res.alerts?.length) parts.push(`${T('Uyarılar', 'Alerts')}: ${res.alerts.join(' | ')}`);
   return parts.join('\n');
 }
 
 export function formatError(err) {
   const lines = [err.message];
   if (err.alternatives?.length) {
-    lines.push('Adaylar:');
-    for (const a of err.alternatives) lines.push(`  #${a.id} ${a.label} (%${a.p})`);
+    lines.push(T('Adaylar:', 'Candidates:'));
+    for (const a of err.alternatives) lines.push(T(`  #${a.id} ${a.label} (%${a.p})`, `  #${a.id} ${a.label} (${a.p}%)`));
   }
   return lines.join('\n');
 }

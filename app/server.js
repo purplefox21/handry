@@ -4,6 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { ROOT, config, homeDir } from '../core/config.js';
 import { getApiKey } from '../core/jev.js';
 import { findBinary } from '../brain/common.js';
@@ -21,6 +22,7 @@ import { listRecipes, loadRecipe, saveFromRun, deleteRecipe } from '../core/reci
 import { APP_NAME } from '../core/brand.js';
 import { startPhoneCommands } from '../core/phone.js';
 import { screenshot } from '../hands/desktop.js';
+import { T, lang, languageSetting, macLanguage, setLanguage } from '../core/i18n.js';
 
 const PORT = Number(process.env.PORT) || config().server.port || 4263;
 process.env.JEVIS_UI_PORT = String(PORT); // browser hands skip this app's own tab
@@ -68,7 +70,7 @@ function readBody(req, limit = 25 * 1024 * 1024) {
     let size = 0;
     req.on('data', chunk => {
       size += chunk.length;
-      if (size > limit) { reject(new Error('İstek çok büyük')); req.destroy(); return; }
+      if (size > limit) { reject(new Error(T('İstek çok büyük', 'The request is too big'))); req.destroy(); return; }
       chunks.push(chunk);
     });
     req.on('end', () => resolve(Buffer.concat(chunks)));
@@ -87,9 +89,9 @@ const HISTORY = [];
 const remember = entry => { HISTORY.push(entry); if (HISTORY.length > 50) HISTORY.shift(); };
 
 async function handleRun(req, res) {
-  if (activeRun) return sendJson(res, 409, { error: `${APP_NAME} şu an başka bir işi yapıyor. Bitmesini bekle ya da DURDUR'a bas.` });
+  if (activeRun) return sendJson(res, 409, { error: T(`${APP_NAME} şu an başka bir işi yapıyor. Bitmesini bekle ya da DURDUR'a bas.`, `${APP_NAME} is busy with another task. Wait for it to finish or press STOP.`) });
   const { text, brain: brainId = config().brain.default, fast = true, model, effort, source = 'window', chatId } = JSON.parse((await readBody(req)).toString() || '{}');
-  if (!text?.trim()) return sendJson(res, 400, { error: 'Boş komut.' });
+  if (!text?.trim()) return sendJson(res, 400, { error: T('Boş komut.', 'The command is empty.') });
 
   res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
   const send = event => { if (!res.writableEnded) res.write(`${JSON.stringify(event)}\n`); };
@@ -102,7 +104,7 @@ async function handleRun(req, res) {
     Object.assign(entry, { id: done.runId, answer: done.text, ms: done.ms, fast: done.fast, learnedReplay: done.learnedReplay, recipe: done.recipe, brain: done.brain, model: done.model, stopped: done.stopped, learned: done.learned });
     send(done);
   } catch (err) {
-    entry.error = controller.signal.aborted ? 'Durduruldu.' : err.message;
+    entry.error = controller.signal.aborted ? T('Durduruldu.', 'Stopped.') : err.message;
     send({ type: 'error', message: entry.error });
   } finally {
     activeRun = null;
@@ -139,7 +141,7 @@ async function handleVoiceFile(req, res) {
   const dir = homeDir('tmp');
   const resolved = path.resolve(String(file || ''));
   if (path.dirname(resolved) !== dir || !/^voice-[\w-]+\.wav$/.test(path.basename(resolved)) || !fs.existsSync(resolved)) {
-    return sendJson(res, 400, { error: 'Ses dosyası bulunamadı.' });
+    return sendJson(res, 400, { error: T('Ses dosyası bulunamadı.', "Couldn't find the recording.") });
   }
   try {
     const text = await transcribe(resolved);
@@ -153,6 +155,34 @@ async function handleSay(req, res) {
   const { text } = JSON.parse((await readBody(req)).toString() || '{}');
   speak(text || '');
   sendJson(res, 200, { ok: true });
+}
+
+// ---------------------------------------------------------------------------
+// Language: "tr", "en" or "auto" (core/i18n.js). Handry.app notices a change
+// and restarts itself with this server; the page waits for that, then reloads.
+// ---------------------------------------------------------------------------
+
+let byApp;
+/** Did Handry.app start this server (so it restarts on a language change)? Not when it reuses `npm start`. */
+function startedByApp() {
+  if (byApp === undefined) {
+    try {
+      byApp = /\.app\/Contents\/MacOS\//.test(execFileSync('ps', ['-o', 'comm=', '-p', String(process.ppid)], { encoding: 'utf-8', timeout: 2000 }));
+    } catch {
+      byApp = false;
+    }
+  }
+  return byApp;
+}
+
+async function handleLanguage(req, res) {
+  const { language } = JSON.parse((await readBody(req)).toString() || '{}');
+  if (!['tr', 'en', 'auto'].includes(language)) {
+    return sendJson(res, 400, { error: T('language: "tr", "en" ya da "auto" olmalı.', 'language must be "tr", "en" or "auto".') });
+  }
+  const before = lang();
+  const now = setLanguage(language);
+  sendJson(res, 200, { language: now, restart: now !== before && startedByApp() });
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +229,7 @@ const ROUTES = {
   'POST /api/files/undo': async (req, res) => {
     try {
       const r = await undoFiles();
-      sendJson(res, 200, { ok: true, text: `Geri alındı: ${r.done.join('; ')}` });
+      sendJson(res, 200, { ok: true, text: T(`Geri alındı: ${r.done.join('; ')}`, `Undone: ${r.done.join('; ')}`) });
     } catch (err) {
       sendJson(res, 200, { ok: false, text: err.message });
     }
@@ -208,7 +238,7 @@ const ROUTES = {
   'GET /api/timers': (req, res) => sendJson(res, 200, { now: Date.now(), jobs: sortedJobs().map(jobView) }),
   'POST /api/timers/cancel': async (req, res) => {
     const { id, all } = JSON.parse((await readBody(req)).toString() || '{}');
-    if (!id && !all) return sendJson(res, 400, { error: 'id ya da all ver.' });
+    if (!id && !all) return sendJson(res, 400, { error: T('id ya da all ver.', 'Give an id or all.') });
     sendJson(res, 200, { cancelled: cancelJobs(all ? 'all' : id).map(jobView) });
   },
   'POST /api/say': handleSay,
@@ -224,6 +254,9 @@ const ROUTES = {
   },
   // "Is this really our server?" The app asks before reusing whatever answers on its port.
   'GET /api/ping': (req, res) => sendJson(res, 200, { jevis: true, name: APP_NAME, pid: process.pid }),
+  // What Handry speaks now, what was chosen ("auto" follows the Mac), and the Mac's own language.
+  'GET /api/language': (req, res) => sendJson(res, 200, { language: lang(), setting: languageSetting(), mac: macLanguage() }),
+  'POST /api/language': handleLanguage,
   'GET /api/status': (req, res) => {
     let jev = true;
     try { getApiKey(); } catch { jev = false; }
@@ -242,15 +275,15 @@ export function registerRoute(key, handler) {
 
 const server = http.createServer(async (req, res) => {
   if (!isTrustedRequest(req)) {
-    sendJson(res, 403, { error: `Bu sunucuya sadece bu bilgisayardaki ${APP_NAME} arayüzünden erişilebilir.` });
+    sendJson(res, 403, { error: T(`Bu sunucuya sadece bu bilgisayardaki ${APP_NAME} arayüzünden erişilebilir.`, `Only ${APP_NAME}'s own window on this computer can use this server.`) });
     return;
   }
   const urlPath = req.url.split('?')[0];
 
   if (urlPath.startsWith('/api/')) {
-    if (urlPath !== '/api/ping' && !hasValidToken(req)) return sendJson(res, 401, { error: 'Geçersiz oturum anahtarı. Sayfayı yenileyin.' });
+    if (urlPath !== '/api/ping' && !hasValidToken(req)) return sendJson(res, 401, { error: T('Geçersiz oturum anahtarı. Sayfayı yenileyin.', 'The session key is not valid. Reload the page.') });
     const handler = ROUTES[`${req.method} ${urlPath}`];
-    if (!handler) return sendJson(res, 404, { error: 'Bilinmeyen adres.' });
+    if (!handler) return sendJson(res, 404, { error: T('Bilinmeyen adres.', 'Unknown address.') });
     try {
       await handler(req, res);
     } catch (err) {
@@ -275,8 +308,9 @@ const server = http.createServer(async (req, res) => {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     if (ext === '.html') {
-      // The app's name (core/brand.js) goes into the page: {{APP}}, {{APP_DAT}}, {{FOX}}, and a meta tag for the scripts.
-      const brand = encodeURIComponent(JSON.stringify({ ...APP, fox: FOX.name, wake: WAKE_LABEL }));
+      // The app's name (core/brand.js) goes into the page: {{APP}}, {{APP_DAT}}, {{FOX}}, and a meta tag for the scripts
+      // (with the language the page shows: common.js puts in the English texts).
+      const brand = encodeURIComponent(JSON.stringify({ ...APP, fox: FOX.name, wake: WAKE_LABEL, lang: lang(), language: languageSetting() }));
       const html = fs.readFileSync(filePath, 'utf-8')
         .replaceAll('{{APP}}', APP.name).replaceAll('{{APP_DAT}}', APP.dative).replaceAll('{{APP_GEN}}', APP.genitive).replaceAll('{{FOX}}', FOX.name)
         .replace('</head>', `  <meta name="jevis-token" content="${SESSION_TOKEN}">\n  <meta name="app-brand" content="${brand}">\n</head>`);
@@ -292,7 +326,7 @@ const server = http.createServer(async (req, res) => {
 // Scheduled "command" tasks run like a command from the user, once nothing else is running.
 async function runScheduled(text, job = {}) {
   for (let i = 0; i < 300 && activeRun; i++) await new Promise(r => setTimeout(r, 2000));
-  if (activeRun) throw new Error(`${APP_NAME} 10 dakikadır başka bir işle meşgul`);
+  if (activeRun) throw new Error(T(`${APP_NAME} 10 dakikadır başka bir işle meşgul`, `${APP_NAME} has been busy with another task for 10 minutes`));
   const controller = new AbortController();
   activeRun = { controller };
   const entry = { at: Date.now(), source: 'timer', text, tools: 0 };
@@ -308,7 +342,7 @@ async function runScheduled(text, job = {}) {
 // Commands texted from the phone ("Handry, …") run the same way, one at a time; the answer goes back by iMessage.
 async function runPhone(text) {
   for (let i = 0; i < 300 && activeRun; i++) await new Promise(r => setTimeout(r, 2000));
-  if (activeRun) throw new Error(`${APP_NAME} 10 dakikadır başka bir işle meşgul`);
+  if (activeRun) throw new Error(T(`${APP_NAME} 10 dakikadır başka bir işle meşgul`, `${APP_NAME} has been busy with another task for 10 minutes`));
   const controller = new AbortController();
   activeRun = { controller };
   const entry = { at: Date.now(), source: 'phone', text, tools: 0 };
@@ -323,13 +357,13 @@ async function runPhone(text) {
 }
 
 server.on('error', err => {
-  if (err.code === 'EADDRINUSE') console.error(`${APP_NAME} başlamadı: ${PORT} portunu başka bir program kullanıyor (handry.config.json › server.port ile değiştirilebilir).`);
+  if (err.code === 'EADDRINUSE') console.error(T(`${APP_NAME} başlamadı: ${PORT} portunu başka bir program kullanıyor (handry.config.json › server.port ile değiştirilebilir).`, `${APP_NAME} didn't start: another program is using port ${PORT} (you can change it in handry.config.json › server.port).`));
   else console.error(err);
   process.exit(1);
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`🤖 ${APP_NAME} hazır: http://localhost:${PORT}`);
+  console.log(T(`🤖 ${APP_NAME} hazır: http://localhost:${PORT}`, `🤖 ${APP_NAME} is ready: http://localhost:${PORT}`));
   startScheduler({ run: runScheduled });
   if (config().phone?.commands !== false) startPhoneCommands({ run: runPhone, shoot: () => screenshot({ fullScreen: true }), log: m => console.log(m) });
 });

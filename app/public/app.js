@@ -59,7 +59,7 @@ function newTurn() {
   head.type = 'button';
   const stateEl = el('span', 'state');
   stateEl.append(el('span', 'spinner'));
-  const label = el('span', 'label', 'Başlıyor…');
+  const label = el('span', 'label', T('Başlıyor…', 'Starting…'));
   const chev = icon('chevron-down');
   chev.classList.add('chev');
   head.append(stateEl, label, chev);
@@ -95,7 +95,7 @@ function settleStep(li, { ok, detail, image }) {
   if (image?.data) {
     const img = el('img', 'step-shot');
     img.src = `data:${image.mimeType || 'image/jpeg'};base64,${image.data}`;
-    img.alt = 'ekran görüntüsü';
+    img.alt = T('ekran görüntüsü', 'screenshot');
     img.addEventListener('click', () => img.classList.toggle('big'));
     main.append(img);
   }
@@ -105,20 +105,21 @@ function setLabel(turn, text) {
   if (!turn.finished) turn.label.textContent = text;
 }
 
-const liveLabel = (turn, doing) => `${turn.who || 'Çalışıyor'}${turn.tools ? ` · ${turn.tools} adım` : ''}${doing ? ` — ${doing}` : ''}`;
+const liveLabel = (turn, doing) => `${turn.who || T('Çalışıyor', 'Working')}${turn.tools ? ` · ${stepCount(turn.tools)}` : ''}${doing ? ` — ${doing}` : ''}`;
 
 function handleEvent(turn, ev) {
   switch (ev.type) {
     case 'route':
-      turn.who = ev.route === 'needs_brain' ? currentBrainLabel() : ev.route === 'learned' ? 'Öğrenilmiş yol' : `Hızlı yol · ${ROUTE_NAMES[ev.route] || ev.route}`;
-      setLabel(turn, liveLabel(turn, ev.route === 'needs_brain' ? 'düşünüyor' : ''));
+      turn.who = ev.route === 'needs_brain' ? currentBrainLabel() : ev.route === 'learned' ? T('Öğrenilmiş yol', 'Learned way') : `${T('Hızlı yol', 'Fast path')} · ${ROUTE_NAMES[ev.route] || ev.route}`;
+      setLabel(turn, liveLabel(turn, ev.route === 'needs_brain' ? T('düşünüyor', 'thinking') : ''));
       break;
     case 'status':
-      if (/düşünüyor|başladı/.test(ev.text)) {
+      // The runner's "… düşünüyor…" / "Claude başladı" (English: "… is thinking…" / "Claude started").
+      if (/düşünüyor|başladı|thinking…?$|started$/.test(ev.text)) {
         turn.who = currentBrainLabel();
-        setLabel(turn, liveLabel(turn, 'düşünüyor'));
+        setLabel(turn, liveLabel(turn, T('düşünüyor', 'thinking')));
       } else if (ev.text.startsWith('📌')) {
-        if (turn.who !== 'Öğrenilmiş yol') turn.who = 'Tarif';
+        if (turn.who !== T('Öğrenilmiş yol', 'Learned way')) turn.who = T('Tarif', 'Recipe');
         setLabel(turn, liveLabel(turn, ''));
       } else {
         addStep(turn, { title: ev.text, kind: 'note' });
@@ -137,8 +138,8 @@ function handleEvent(turn, ev) {
       if (i >= 0) {
         const { li: pendingLi, args } = turn.pending.splice(i, 1)[0];
         li = pendingLi;
-        // "#6" only means something to the brain: show the element's name instead.
-        const named = String(ev.text || '').match(/Öğe: "([^"]+)"/)?.[1];
+        // "#6" only means something to the brain: show the element's name instead ("Öğe:"; in English "Element:" or "Control:").
+        const named = String(ev.text || '').match(/(?:Öğe|Element|Control|Item): "([^"]+)"/)?.[1];
         if (named && /^#/.test(args?.target || '')) li.querySelector('.step-title').textContent = describe(ev.name, { ...args, target: named });
       } else {
         turn.tools++;
@@ -169,19 +170,21 @@ function finishTurn(turn, ev) {
   const final = ev.text || turn.texts.at(-1) || '';
   // The brain's last message is the answer: show it once, as the answer.
   if (turn.lastNote && turn.texts.at(-1) === final) turn.lastNote.remove();
-  for (const p of turn.pending) settleStep(p.li, { ok: false, detail: 'yarıda kaldı' });
+  for (const p of turn.pending) settleStep(p.li, { ok: false, detail: T('yarıda kaldı', 'cut short') });
   turn.pending = [];
-  const who = ev.fast ? 'Hızlı yol (Jev)' : ev.learnedReplay ? `Öğrenilmiş yol${ev.brain ? ' + Claude' : ', Claude\'suz'}` : ev.recipe ? `Tarif: ${pretty(ev.recipe)}` : (MODEL_NAMES[ev.model] || BRAIN_NAMES[ev.brain] || APP_NAME);
+  const who = ev.fast ? T('Hızlı yol (Jev)', 'Fast path (Jev)') : ev.learnedReplay ? `${T('Öğrenilmiş yol', 'Learned way')}${ev.brain ? ' + Claude' : T(', Claude\'suz', ', no Claude')}` : ev.recipe ? `${T('Tarif', 'Recipe')}: ${pretty(ev.recipe)}` : (MODEL_NAMES[ev.model] || BRAIN_NAMES[ev.brain] || APP_NAME);
   const secs = ((ev.ms || 0) / 1000).toFixed(1);
   turn.activity.classList.remove('open');
   turn.activity.classList.add(ev.stopped ? 'failed' : 'done');
   turn.stateEl.replaceChildren(icon(ev.stopped ? 'x' : 'check'));
-  turn.label.textContent = `${ev.stopped ? 'Durduruldu' : 'Bitti'} · ${who}${turn.tools ? ` · ${turn.tools} adım` : ''} · ${secs} sn`;
+  turn.label.textContent = `${ev.stopped ? T('Durduruldu', 'Stopped') : T('Bitti', 'Done')} · ${who}${turn.tools ? ` · ${stepCount(turn.tools)}` : ''} · ${secs} ${T('sn', 's')}`;
   if (!turn.steps.children.length) turn.activity.querySelector('.chev').remove();
   if (final) turn.body.append(el('div', 'answer', final));
   if (ev.learned?.name) {
     const note = el('div', 'learned-note');
-    note.append(icon('bookmark'), document.createTextNode(ev.learned.updated ? 'Bu işi zaten biliyordum; öğrendiğim yolu güncelledim.' : 'Bunu öğrendim. Benzer bir komutu bir dahaki sefere Claude\'a sormadan yaparım.'));
+    note.append(icon('bookmark'), document.createTextNode(ev.learned.updated
+      ? T('Bu işi zaten biliyordum; öğrendiğim yolu güncelledim.', 'I already knew this one; I updated the way I learned it.')
+      : T('Bunu öğrendim. Benzer bir komutu bir dahaki sefere Claude\'a sormadan yaparım.', "Learned this. Next time I'll do a similar command without asking Claude.")));
     turn.body.append(note);
   }
   if (ev.chat && !ev.replay) { state.chatId = ev.chat.id; showChatTitle(ev.chat.title); }
@@ -195,7 +198,7 @@ function failTurn(turn, message) {
   for (const p of turn.pending) settleStep(p.li, { ok: false });
   turn.activity.classList.add('failed', 'open');
   turn.stateEl.replaceChildren(icon('x'));
-  turn.label.textContent = 'Olmadı';
+  turn.label.textContent = T('Olmadı', "Didn't work");
   if (!turn.steps.children.length) turn.activity.hidden = true;
   turn.body.append(el('div', 'answer error', message));
 }
@@ -204,24 +207,24 @@ function addSaveRecipe(turn, runId) {
   const foot = el('div', 'turn-foot');
   const button = el('button', 'link-btn');
   button.type = 'button';
-  button.append(icon('bookmark'), document.createTextNode('Tarif olarak kaydet'));
+  button.append(icon('bookmark'), document.createTextNode(T('Tarif olarak kaydet', 'Save as a recipe')));
   button.addEventListener('click', () => {
     const form = el('form', 'inline-form');
     const input = el('input');
-    input.placeholder = 'Tarifin adı, ör. appstore-fiyat';
+    input.placeholder = T('Tarifin adı, ör. appstore-fiyat', 'Recipe name, e.g. appstore-price');
     input.required = true;
-    const save = el('button', 'btn btn-primary', 'Kaydet');
+    const save = el('button', 'btn btn-primary', T('Kaydet', 'Save'));
     save.type = 'submit';
-    const cancel = el('button', 'btn btn-ghost', 'Vazgeç');
+    const cancel = el('button', 'btn btn-ghost', T('Vazgeç', 'Cancel'));
     cancel.type = 'button';
     cancel.addEventListener('click', () => form.replaceWith(button));
     form.addEventListener('submit', async e => {
       e.preventDefault();
       const res = await api('/api/recipes', { method: 'POST', body: JSON.stringify({ name: input.value.trim(), runId }) });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) return toast(`Kaydedilemedi: ${data.error || res.status}`);
-      foot.replaceChildren(el('span', 'recipe-meta', `Tarif kaydedildi: ${pretty(data.recipe.name)} (${data.recipe.steps.length} adım)`));
-      toast('Tarif kaydedildi');
+      if (!res.ok) return toast(T(`Kaydedilemedi: ${data.error || res.status}`, `Couldn't save: ${data.error || res.status}`));
+      foot.replaceChildren(el('span', 'recipe-meta', `${T('Tarif kaydedildi', 'Recipe saved')}: ${pretty(data.recipe.name)} (${stepCount(data.recipe.steps.length)})`));
+      toast(T('Tarif kaydedildi', 'Recipe saved'));
       loadRecipes();
     });
     form.append(input, save, cancel);
@@ -246,7 +249,7 @@ function setRunning(on) {
   state.running = on;
   sendBtn.hidden = on;
   stopBtn.hidden = !on;
-  setStatus(on ? 'busy' : 'ready', on ? 'Çalışıyor…' : 'Hazır');
+  setStatus(on ? 'busy' : 'ready', on ? T('Çalışıyor…', 'Working…') : T('Hazır', 'Ready'));
   updateSendButton();
   if (!on) input.focus();
 }
@@ -268,15 +271,15 @@ async function send(text) {
       source: 'window',
       ...(state.brain === 'claude-code' ? { model: state.model, effort: state.effort } : {})
     }, ev => { if (ev.newChat) newChatDone = true; handleEvent(turn, ev); });
-    if (!turn.finished) failTurn(turn, 'Bağlantı yarıda kesildi.');
+    if (!turn.finished) failTurn(turn, T('Bağlantı yarıda kesildi.', 'The connection was cut off.'));
   } catch (err) {
-    failTurn(turn, `Bağlantı hatası: ${err.message}`);
+    failTurn(turn, T(`Bağlantı hatası: ${err.message}`, `Connection error: ${err.message}`));
   } finally {
     setRunning(false);
   }
-  // "yeni sohbet" said here: show the clean page; otherwise remember what is on screen.
+  // "yeni sohbet" ("new chat") said here: show the clean page; otherwise remember what is on screen.
   const { chat } = await (await api('/api/chats/current')).json().catch(() => ({}));
-  if (newChatDone) { renderChat(chat); toast('Yeni sohbet açıldı.'); } else if (chat?.id === state.chatId) state.shownEntries = chat.entries.length;
+  if (newChatDone) { renderChat(chat); toast(T('Yeni sohbet açıldı.', 'New chat started.')); } else if (chat?.id === state.chatId) state.shownEntries = chat.entries.length;
 }
 
 function updateSendButton() {
@@ -309,11 +312,12 @@ function submit() {
 // Chats: this window shows one; the bar, voice and the terminal write into the current one
 // ---------------------------------------------------------------------------
 
-const SOURCES = { bar: 'Çubuktan', cli: 'Terminalden', voice: 'Sesle', timer: 'Zamanlayıcıdan' };
-const VIA_ROUTE = { fast: { fast: true }, learned: { learnedReplay: true }, recipe: { recipe: 'tarif' } };
+const SOURCES = { bar: T('Çubuktan', 'From the bar'), cli: T('Terminalden', 'From the terminal'), voice: T('Sesle', 'By voice'), timer: T('Zamanlayıcıdan', 'From a timer') };
+const VIA_ROUTE = { fast: { fast: true }, learned: { learnedReplay: true }, recipe: { recipe: T('tarif', 'recipe') } };
 
+// A chat without a title yet is called "Yeni sohbet" ("New chat"): nothing to show then.
 function showChatTitle(title) {
-  $('chatTitle').textContent = title && title !== 'Yeni sohbet' ? short(title, 36) : '';
+  $('chatTitle').textContent = title && title !== 'Yeni sohbet' && title !== 'New chat' ? short(title, 36) : '';
 }
 
 /** Past entries of a chat, as finished turns. */
@@ -364,33 +368,34 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) sync
 
 const ago = t => {
   const m = Math.round((Date.now() - t) / 60000);
-  if (m < 1) return 'az önce';
-  if (m < 60) return `${m} dk önce`;
-  if (m < 1440) return `${Math.round(m / 60)} saat önce`;
-  return new Date(t).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+  if (m < 1) return T('az önce', 'just now');
+  if (m < 60) return T(`${m} dk önce`, `${m} min ago`);
+  const h = Math.round(m / 60);
+  if (m < 1440) return T(`${h} saat önce`, `${h} ${h === 1 ? 'hour' : 'hours'} ago`);
+  return new Date(t).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' });
 };
 
 async function loadChats() {
   const { chats } = await (await api('/api/chats')).json();
   const list = $('chatList');
-  if (!chats.length) { list.replaceChildren(el('div', 'empty', 'Henüz sohbet yok.')); return; }
+  if (!chats.length) { list.replaceChildren(el('div', 'empty', T('Henüz sohbet yok.', 'No chats yet.'))); return; }
   list.replaceChildren(...chats.map(c => {
     const item = el('div', `chat-item${c.id === state.chatId ? ' current' : ''}`);
     const textBox = el('div', 'chat-item-text');
-    textBox.append(el('div', 'chat-item-title', c.title), el('div', 'chat-item-meta', `${c.count} komut · ${ago(c.updated)}`));
+    textBox.append(el('div', 'chat-item-title', c.title), el('div', 'chat-item-meta', `${T(`${c.count} komut`, `${c.count} ${c.count === 1 ? 'command' : 'commands'}`)} · ${ago(c.updated)}`));
     const del = el('button', 'icon-btn');
-    del.title = 'Sil';
+    del.title = T('Sil', 'Delete');
     del.append(icon('trash'));
     del.addEventListener('click', async e => {
       e.stopPropagation();
-      if (!del.dataset.sure) { del.dataset.sure = '1'; del.title = 'Emin misin? Tekrar bas'; del.classList.add('danger'); setTimeout(() => { delete del.dataset.sure; del.classList.remove('danger'); }, 3000); return; }
+      if (!del.dataset.sure) { del.dataset.sure = '1'; del.title = T('Emin misin? Tekrar bas', 'Sure? Press again'); del.classList.add('danger'); setTimeout(() => { delete del.dataset.sure; del.classList.remove('danger'); }, 3000); return; }
       await api('/api/chats/delete', { method: 'POST', body: JSON.stringify({ id: c.id }) });
       if (c.id === state.chatId) renderChat(null);
       loadChats();
     });
     item.append(textBox, del);
     item.addEventListener('click', async () => {
-      if (state.running) return toast('Önce çalışan işi bitir ya da durdur.');
+      if (state.running) return toast(T('Önce çalışan işi bitir ya da durdur.', 'Finish or stop the running task first.'));
       const { chat } = await (await api('/api/chats/switch', { method: 'POST', body: JSON.stringify({ id: c.id }) })).json();
       renderChat(chat);
       closeDrawer();
@@ -400,7 +405,7 @@ async function loadChats() {
 }
 
 async function startNewChat() {
-  if (state.running) return toast('Önce çalışan işi bitir ya da durdur.');
+  if (state.running) return toast(T('Önce çalışan işi bitir ya da durdur.', 'Finish or stop the running task first.'));
   const { chat } = await (await api('/api/chats/new', { method: 'POST' })).json();
   renderChat(chat);
   closeDrawer();
@@ -409,7 +414,7 @@ async function startNewChat() {
 
 sendBtn.addEventListener('click', submit);
 stopBtn.addEventListener('click', async () => {
-  setStatus('stopping', 'Durduruluyor…');
+  setStatus('stopping', T('Durduruluyor…', 'Stopping…'));
   await api('/api/stop', { method: 'POST' });
 });
 
@@ -461,7 +466,7 @@ speakToggle.addEventListener('change', () => { state.speak = speakToggle.checked
 function syncBrain() {
   const claude = state.brain === 'claude-code';
   $('modelSwitch').classList.toggle('disabled', !claude);
-  $('modelSwitch').title = claude ? '' : 'Model seçimi sadece Claude Code beyninde';
+  $('modelSwitch').title = claude ? '' : T('Model seçimi sadece Claude Code beyninde', 'The model can only be picked with the Claude Code brain');
 }
 
 $('brainSelect').addEventListener('change', e => {
@@ -495,10 +500,10 @@ async function loadBrains() {
 async function loadStatus() {
   const s = await (await api('/api/status')).json();
   const rows = [
-    [s.jev, 'Jev (karar modeli)', 'TypeSafe anahtarı yok (.env › JEV_KEY)'],
-    [s.claude, 'Claude Code (aboneliğin)', 'claude komutu bulunamadı'],
-    [s.chrome, `${APP_NAME} Chrome`, 'Chrome bulunamadı'],
-    [s.voice, 'Ses tanıma (whisper)', 'kurulu değil']
+    [s.jev, T('Jev (karar modeli)', 'Jev (decision model)'), T('TypeSafe anahtarı yok (.env › JEV_KEY)', 'no TypeSafe key (.env › JEV_KEY)')],
+    [s.claude, T('Claude Code (aboneliğin)', 'Claude Code (your subscription)'), T('claude komutu bulunamadı', 'the claude command was not found')],
+    [s.chrome, `${APP_NAME} Chrome`, T('Chrome bulunamadı', 'Chrome was not found')],
+    [s.voice, T('Ses tanıma (whisper)', 'Speech recognition (whisper)'), T('kurulu değil', 'not installed')]
   ];
   $('statusList').replaceChildren(...rows.map(([ok, label, fix]) => {
     const li = el('li');
@@ -508,6 +513,52 @@ async function loadStatus() {
     return li;
   }));
 }
+
+// Language: Türkçe, English or the Mac's own. Handry.app notices the change and
+// restarts itself with its server: the page waits until the server answers
+// again, then reloads. A server on its own (npm start) keeps answering, so the
+// page reloads at once.
+const langSwitch = $('langSwitch');
+
+async function loadLanguage() {
+  const { setting } = await (await api('/api/language')).json();
+  setChecked(langSwitch, 'lang', setting);
+}
+
+async function serverPid() {
+  try { return (await (await fetch('/api/ping', { cache: 'no-store' })).json()).pid; } catch { return null; }
+}
+
+/** Waits (up to 20 s) until the server went away and came back, or another one answers. */
+async function serverRestarted(pid) {
+  let down = false;
+  for (const end = Date.now() + 20000; Date.now() < end;) {
+    await new Promise(r => setTimeout(r, 400));
+    const now = await serverPid();
+    if (now === null) down = true;
+    else if (down || now !== pid) return;
+  }
+}
+
+async function chooseLanguage(value) {
+  const pid = await serverPid();
+  const res = await api('/api/language', { method: 'POST', body: JSON.stringify({ language: value }) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return toast(data.error || T(`Dil değişmedi (${res.status}).`, `The language didn't change (${res.status}).`));
+  setChecked(langSwitch, 'lang', value);
+  if (data.language === LANG) return; // "auto" may mean the language already shown
+  const note = $('langNote');
+  note.textContent = data.language === 'en' ? 'Restarting…' : 'Yeniden başlıyor…';
+  note.hidden = false;
+  langSwitch.classList.add('disabled');
+  if (data.restart) await serverRestarted(pid);
+  location.reload();
+}
+
+langSwitch.addEventListener('click', e => {
+  const b = e.target.closest('[data-lang]');
+  if (b && b.getAttribute('aria-checked') !== 'true' && !langSwitch.classList.contains('disabled')) chooseLanguage(b.dataset.lang).catch(err => toast(err.message));
+});
 
 // ---------------------------------------------------------------------------
 // Drawers: settings and recipes
@@ -524,7 +575,7 @@ function openDrawer(id) {
   if (id === 'logDrawer') loadLog().catch(err => toast(err.message));
   if (id === 'recipesDrawer') loadRecipes();
   if (id === 'chatsDrawer') loadChats().catch(err => toast(err.message));
-  if (id === 'settingsDrawer') loadStatus().catch(() => {});
+  if (id === 'settingsDrawer') { loadStatus().catch(() => {}); loadLanguage().catch(() => {}); }
 }
 
 function closeDrawer() {
@@ -562,9 +613,9 @@ async function refreshTimers() {
 
 /** Shows a chat in the window (also called by Handry.app's menu: "Sohbeti Aç"). */
 async function openChatById(id) {
-  if (state.running) { toast('Önce çalışan işi bitir ya da durdur.'); return false; }
+  if (state.running) { toast(T('Önce çalışan işi bitir ya da durdur.', 'Finish or stop the running task first.')); return false; }
   const res = await api('/api/chats/switch', { method: 'POST', body: JSON.stringify({ id }) });
-  if (!res.ok) { toast('Bu sohbet artık yok.'); return false; }
+  if (!res.ok) { toast(T('Bu sohbet artık yok.', 'This chat is gone.')); return false; }
   renderChat((await res.json()).chat);
   closeDrawer();
   return true;
@@ -575,25 +626,25 @@ function timerItem(job) {
   item.dataset.id = job.id;
   // A click opens the chat the timer was asked in.
   if (job.chatId) {
-    item.title = 'Bu zamanlayıcının kurulduğu sohbeti aç';
+    item.title = T('Bu zamanlayıcının kurulduğu sohbeti aç', 'Open the chat this timer was set in');
     item.addEventListener('click', () => openChatById(job.chatId));
   }
   const mark = el('span', 'timer-icon');
   mark.append(icon(timerIcon(job)));
   const text = el('div', 'timer-text');
   text.append(el('div', 'timer-title', job.what), el('div', 'timer-sub'));
-  const from = job.source === 'mcp' ? "VS Code'dan kuruldu" : '';
+  const from = job.source === 'mcp' ? T("VS Code'dan kuruldu", 'Set from VS Code') : '';
   if (job.said || from) text.append(el('div', 'timer-said', [job.said && `“${job.said}”`, from].filter(Boolean).join(' · ')));
-  const cancel = el('button', 'btn btn-danger-ghost timer-cancel', 'İptal');
+  const cancel = el('button', 'btn btn-danger-ghost timer-cancel', T('İptal', 'Cancel'));
   cancel.type = 'button';
   const done = async () => {
     await cancelTimer(job.id);
-    toast(`İptal edildi: ${job.what}`);
+    toast(T(`İptal edildi: ${job.what}`, `Cancelled: ${job.what}`));
     refreshTimers();
   };
   // A running shutdown countdown is cancelled at once; anything else asks first.
   if (job.firing) cancel.addEventListener('click', e => { e.stopPropagation(); done(); });
-  else twoStep(cancel, 'Emin misin?', done);
+  else twoStep(cancel, T('Emin misin?', 'Sure?'), done);
   item.append(mark, text, cancel);
   return item;
 }
@@ -611,7 +662,7 @@ function renderTimers() {
   const list = $('timerList');
   $('cancelAllTimers').hidden = timerJobs.length < 2;
   if (!timerJobs.length) {
-    list.replaceChildren(el('div', 'empty', 'Bekleyen zamanlayıcı yok.'));
+    list.replaceChildren(el('div', 'empty', T('Bekleyen zamanlayıcı yok.', 'Nothing scheduled.')));
     list.dataset.sig = '';
     return;
   }
@@ -624,10 +675,10 @@ function renderTimers() {
   updateTimerTexts();
 }
 
-twoStep($('cancelAllTimers'), 'Hepsi iptal olsun mu?', async () => {
+twoStep($('cancelAllTimers'), T('Hepsi iptal olsun mu?', 'Cancel them all?'), async () => {
   await cancelTimer('all');
   $('cancelAllTimers').disabled = false;
-  toast('Bütün zamanlayıcılar iptal edildi.');
+  toast(T('Bütün zamanlayıcılar iptal edildi.', 'Everything scheduled was cancelled.'));
   refreshTimers();
 });
 
@@ -641,17 +692,18 @@ window.addEventListener('focus', () => refreshTimers());
 // ---------------------------------------------------------------------------
 
 let logDay = null;
-const hhmmOf = ts => new Date(ts).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+// 24-hour clock in both languages, so the "10:02–10:05" range below keeps working.
+const hhmmOf = ts => new Date(ts).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
 
 function dayLabel(day) {
   const d = new Date(`${day}T12:00:00`);
   const today = new Date();
   const diff = Math.round((new Date(today.toDateString()) - new Date(d.toDateString())) / 86400000);
-  return diff === 0 ? 'Bugün' : diff === 1 ? 'Dün' : d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+  return diff === 0 ? T('Bugün', 'Today') : diff === 1 ? T('Dün', 'Yesterday') : d.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' });
 }
 
 // Older entries have no "who": the run id still tells the app from a Claude session.
-const whoOf = e => e.who || (String(e.run).startsWith('mcp-') ? 'Claude oturumu' : String(e.run).startsWith('run-') ? APP_NAME : 'elle');
+const whoOf = e => e.who || (String(e.run).startsWith('mcp-') ? T('Claude oturumu', 'Claude session') : String(e.run).startsWith('run-') ? APP_NAME : T('elle', 'by hand'));
 
 function logRow(e) {
   const row = el('div', `log-row${e.ok ? '' : ' failed'}`);
@@ -662,8 +714,9 @@ function logRow(e) {
   const what = el('span', 'log-what', describe(e.tool, e.args));
   line.append(el('span', 'log-time', hhmmOf(e.ts)), mark, what);
   const summary = String(e.summary || '');
-  if (/Kullanıcı onayladı/.test(summary)) line.append(el('span', 'log-badge asked', 'sen onayladın'));
-  if (/izin vermedi|DENIED/.test(summary)) line.append(el('span', 'log-badge denied', 'sen reddettin'));
+  // The tools' own words, in either language (older entries are in Turkish).
+  if (/Kullanıcı onayladı|The user (?:allowed|approved)/.test(summary)) line.append(el('span', 'log-badge asked', T('sen onayladın', 'you approved')));
+  if (/izin vermedi|DENIED|didn't allow|did not allow/.test(summary)) line.append(el('span', 'log-badge denied', T('sen reddettin', 'you refused')));
   line.append(el('span', `log-badge ${e.ok ? 'ok' : 'err'}`, e.ok ? '✓' : '✗'));
   const detail = el('pre', 'log-detail', `${e.tool} ${JSON.stringify(e.args || {})}\n\n${summary}${e.ms !== undefined ? `\n\n${e.ms} ms` : ''}`);
   detail.hidden = true;
@@ -682,7 +735,7 @@ async function loadLog(day = logDay) {
     return chip;
   }));
   const list = $('logList');
-  if (!data.entries.length) { list.replaceChildren(el('div', 'empty', 'Bu gün kayıt yok.')); return; }
+  if (!data.entries.length) { list.replaceChildren(el('div', 'empty', T('Bu gün kayıt yok.', 'Nothing was logged that day.'))); return; }
   // Newest first; one group per run (one command, or one Claude session's work).
   const groups = [];
   for (const e of data.entries) {
@@ -694,7 +747,8 @@ async function loadLog(day = logDay) {
     const box = el('section', 'log-group');
     const failed = g.items.filter(e => !e.ok).length;
     const head = el('div', 'log-head');
-    head.append(el('span', 'log-who', g.who), el('span', 'log-meta', `${hhmmOf(g.items.at(-1).ts).slice(0, 5)}–${hhmmOf(g.items[0].ts).slice(0, 5)} · ${g.items.length} işlem${failed ? ` · ${failed} olmadı` : ''}`));
+    const count = g.items.length;
+    head.append(el('span', 'log-who', g.who), el('span', 'log-meta', `${hhmmOf(g.items.at(-1).ts).slice(0, 5)}–${hhmmOf(g.items[0].ts).slice(0, 5)} · ${T(`${count} işlem`, `${count} ${count === 1 ? 'action' : 'actions'}`)}${failed ? T(` · ${failed} olmadı`, ` · ${failed} failed`) : ''}`));
     box.append(head, ...[...g.items].reverse().map(logRow));
     return box;
   }));
@@ -711,7 +765,7 @@ async function loadRecipes() {
   const { recipes } = await (await api('/api/recipes')).json();
   const list = $('recipeList');
   if (!recipes.length) {
-    list.replaceChildren(el('div', 'empty', 'Henüz tarif yok. Bir işi bitirince altındaki "Tarif olarak kaydet"e bas.'));
+    list.replaceChildren(el('div', 'empty', T('Henüz tarif yok. Bir işi bitirince altındaki "Tarif olarak kaydet"e bas.', 'No recipes yet. When a task is done, press "Save as a recipe" under it.')));
     return;
   }
   list.replaceChildren(...recipes.map(recipeCard));
@@ -721,10 +775,11 @@ function recipeCard(r) {
   const card = el('div', 'recipe');
   const top = el('div', 'recipe-top');
   if (r.learned) {
-    top.append(el('span', 'recipe-name', r.pattern), el('span', 'recipe-badge', 'öğrenildi'));
-    card.append(top, el('div', 'recipe-desc', `${r.steps} adım · ${r.uses ? `${r.uses} kez Claude'suz yapıldı` : 'henüz tekrar kullanılmadı'}`));
+    top.append(el('span', 'recipe-name', r.pattern), el('span', 'recipe-badge', T('öğrenildi', 'learned')));
+    const uses = r.uses ? T(`${r.uses} kez Claude'suz yapıldı`, `done ${r.uses} ${r.uses === 1 ? 'time' : 'times'} without Claude`) : T('henüz tekrar kullanılmadı', 'not used again yet');
+    card.append(top, el('div', 'recipe-desc', `${stepCount(r.steps)} · ${uses}`));
   } else {
-    top.append(el('span', 'recipe-name', pretty(r.name)), el('span', 'recipe-meta', `${r.steps} adım`));
+    top.append(el('span', 'recipe-name', pretty(r.name)), el('span', 'recipe-meta', stepCount(r.steps)));
     card.append(top);
     if (r.description) card.append(el('div', 'recipe-desc', r.description));
   }
@@ -744,26 +799,26 @@ function recipeCard(r) {
 
   const actions = el('div', 'recipe-actions');
   const run = el('button', 'btn btn-primary');
-  run.append(icon('play'), document.createTextNode('Çalıştır'));
+  run.append(icon('play'), document.createTextNode(T('Çalıştır', 'Run')));
   run.addEventListener('click', () => {
     const missing = inputs.find(i => !i.value.trim());
-    if (missing) { missing.focus(); return toast(`"${missing.name}" değerini yaz`); }
+    if (missing) { missing.focus(); return toast(T(`"${missing.name}" değerini yaz`, `Fill in "${missing.name}"`)); }
     inputs.forEach(i => store.set(`var_${r.name}_${i.name}`, i.value));
     const args = inputs.map(i => `${i.name}="${i.value.replace(/"/g, '')}"`).join(' ');
     closeDrawer();
-    send(`tarif: ${r.name} ${args}`.trim());
+    send(`${T('tarif', 'recipe')}: ${r.name} ${args}`.trim());
   });
   const del = el('button', 'btn btn-danger-ghost');
-  del.append(icon('trash'), document.createTextNode('Sil'));
+  del.append(icon('trash'), document.createTextNode(T('Sil', 'Delete')));
   del.addEventListener('click', async () => {
     if (!del.dataset.sure) {
       del.dataset.sure = '1';
-      del.lastChild.textContent = 'Emin misin?';
-      setTimeout(() => { delete del.dataset.sure; del.lastChild.textContent = 'Sil'; }, 3000);
+      del.lastChild.textContent = T('Emin misin?', 'Sure?');
+      setTimeout(() => { delete del.dataset.sure; del.lastChild.textContent = T('Sil', 'Delete'); }, 3000);
       return;
     }
     await api('/api/recipes/delete', { method: 'POST', body: JSON.stringify({ name: r.name }) });
-    toast('Tarif silindi');
+    toast(T('Tarif silindi', 'Recipe deleted'));
     loadRecipes();
   });
   actions.append(run, del);
@@ -778,7 +833,7 @@ function recipeCard(r) {
 const micBtn = $('micBtn');
 const composer = $('composer');
 const hint = $('hint');
-const HINT = 'Enter ile gönder · Shift+Enter yeni satır';
+const HINT = T('Enter ile gönder · Shift+Enter yeni satır', 'Enter to send · Shift+Enter for a new line');
 let recording = null;
 
 async function startListening() {
@@ -794,11 +849,11 @@ async function startListening() {
   const started = Date.now();
   const timer = setInterval(() => {
     const s = Math.floor((Date.now() - started) / 1000);
-    hint.textContent = `Dinliyorum… 0:${String(s).padStart(2, '0')} · bırakınca gönderilir`;
+    hint.textContent = T(`Dinliyorum… 0:${String(s).padStart(2, '0')} · bırakınca gönderilir`, `Listening… 0:${String(s).padStart(2, '0')} · sent when you let go`);
   }, 250);
   recording = { stream, ctx, node, chunks, started, timer };
   composer.classList.add('recording');
-  setStatus('listening', 'Dinliyorum…');
+  setStatus('listening', T('Dinliyorum…', 'Listening…'));
 }
 
 async function stopListening() {
@@ -813,13 +868,13 @@ async function stopListening() {
   composer.classList.remove('recording');
   hint.textContent = HINT;
   const samples = await resample(chunks, rate, 16000);
-  if (samples.length < 16000 * 0.4) { setStatus('ready', 'Hazır'); return; }
-  setStatus('busy', 'Yazıya çeviriyorum…');
+  if (samples.length < 16000 * 0.4) { setStatus('ready', T('Hazır', 'Ready')); return; }
+  setStatus('busy', T('Yazıya çeviriyorum…', 'Turning it into text…'));
   const res = await fetch('/api/voice', { method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Jevis-Token': TOKEN }, body: toWav(samples, 16000) });
   const data = await res.json().catch(() => ({}));
-  setStatus('ready', 'Hazır');
-  if (!res.ok) return toast(`Ses çevrilemedi: ${data.error || res.status}`);
-  if (!data.text) return toast('Bir şey duyamadım, tekrar dener misin?');
+  setStatus('ready', T('Hazır', 'Ready'));
+  if (!res.ok) return toast(T(`Ses çevrilemedi: ${data.error || res.status}`, `Couldn't turn the speech into text: ${data.error || res.status}`));
+  if (!data.text) return toast(T('Bir şey duyamadım, tekrar dener misin?', "I didn't hear anything. Try again?"));
   send(data.text);
 }
 
@@ -828,7 +883,7 @@ let pressedAt = 0;
 micBtn.addEventListener('pointerdown', async () => {
   if (recording) return;
   pressedAt = Date.now();
-  try { await startListening(); } catch (err) { toast(`Mikrofon açılamadı: ${err.message}`); }
+  try { await startListening(); } catch (err) { toast(T(`Mikrofon açılamadı: ${err.message}`, `Couldn't open the microphone: ${err.message}`)); }
 });
 micBtn.addEventListener('pointerup', () => {
   if (recording && Date.now() - pressedAt > 350) stopListening();
@@ -857,4 +912,4 @@ async function init() {
   input.focus();
 }
 
-init().catch(err => toast(`Yüklenemedi: ${err.message}`));
+init().catch(err => toast(T(`Yüklenemedi: ${err.message}`, `Couldn't load: ${err.message}`)));

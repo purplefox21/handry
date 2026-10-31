@@ -14,6 +14,7 @@ import { JevisError } from '../core/errors.js';
 import { confirmAction } from '../guard/confirm.js';
 import { HOME as JEVIS_HOME, ROOT as PROJECT } from '../core/config.js';
 import { APP_NAME } from '../core/brand.js';
+import { T } from '../core/i18n.js';
 
 const execFileAsync = promisify(execFile);
 const HOME = os.homedir();
@@ -36,11 +37,12 @@ const NOISE = /\/(Library|node_modules|\.git|\.cache|\.Trash|DerivedData|Pods|bu
 
 /** Hides keys and passwords in a text (API keys, tokens, "password=…"). */
 export function redact(text) {
+  const hidden = T('[gizli]', '[hidden]');
   return String(text)
-    .replace(/\b(sk-(?:ant-|proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{30,}|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/g, '[gizli]')
-    .replace(/((?:api[_-]?key|secret|token|password|passwd|pwd|şifre|parola|jev_key|typesafe_api_key|client_secret|private_key)["']?\s*[=:]\s*["']?)[^\s"',;]+/gi, '$1[gizli]')
-    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[gizli anahtar]')
-    .replace(/\b[A-Fa-f0-9]{40,}\b/g, '[gizli]');
+    .replace(/\b(sk-(?:ant-|proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{30,}|eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/g, hidden)
+    .replace(/((?:api[_-]?key|secret|token|password|passwd|pwd|şifre|parola|jev_key|typesafe_api_key|client_secret|private_key)["']?\s*[=:]\s*["']?)[^\s"',;]+/gi, `$1${hidden}`)
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, T('[gizli anahtar]', '[hidden key]'))
+    .replace(/\b[A-Fa-f0-9]{40,}\b/g, hidden);
 }
 
 export const tilde = p => (p === HOME ? '~' : p.startsWith(HOME + path.sep) ? `~/${p.slice(HOME.length + 1)}` : p);
@@ -57,24 +59,27 @@ export function resolvePath(input = '~') {
   p = path.resolve(p);
   let real = p;
   try { real = fs.realpathSync(p); } catch {}
-  if (real !== HOME && !real.startsWith(HOME + path.sep)) throw new JevisError('OUTSIDE_HOME', `${APP_NAME} sadece ev klasöründeki (~) dosyalarla çalışır.`);
+  if (real !== HOME && !real.startsWith(HOME + path.sep)) throw new JevisError('OUTSIDE_HOME', T(`${APP_NAME} sadece ev klasöründeki (~) dosyalarla çalışır.`, `${APP_NAME} only works with files in your home folder (~).`));
   return p;
 }
 
 const statOf = p => { try { return fs.statSync(p); } catch { return null; } };
 const readdir = d => { try { return fs.readdirSync(d); } catch { return []; } };
 
-/** "az önce", "5 dk önce", "3 saat önce", "dün", "4 gün önce", "12 Eyl" */
+/** "az önce", "5 dk önce", "3 saat önce", "dün", "4 gün önce", "12 Eyl" (English: "just now", "5 min ago", "3 hours ago", "yesterday", "4 days ago", "Sep 12") */
 export function ago(ms) {
   if (!ms) return '';
   const diff = Date.now() - ms;
-  if (diff < 60e3) return 'az önce';
-  if (diff < 3600e3) return `${Math.round(diff / 60e3)} dk önce`;
-  if (diff < DAY) return `${Math.round(diff / 3600e3)} saat önce`;
-  if (diff < 2 * DAY) return 'dün';
-  if (diff < 14 * DAY) return `${Math.round(diff / DAY)} gün önce`;
-  return new Date(ms).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+  if (diff < 60e3) return T('az önce', 'just now');
+  if (diff < 3600e3) { const n = Math.round(diff / 60e3); return T(`${n} dk önce`, `${n} min ago`); }
+  if (diff < DAY) { const n = Math.round(diff / 3600e3); return T(`${n} saat önce`, `${n} ${n === 1 ? 'hour' : 'hours'} ago`); }
+  if (diff < 2 * DAY) return T('dün', 'yesterday');
+  if (diff < 14 * DAY) { const n = Math.round(diff / DAY); return T(`${n} gün önce`, `${n} days ago`); }
+  return new Date(ms).toLocaleDateString(T('tr-TR', 'en-US'), { day: 'numeric', month: 'short' });
 }
+
+/** "3 items", "1 item" (English only; Turkish nouns stay singular after a number). */
+const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 const sizeText = n => (n < 1024 ? `${n} B` : n < 1024 ** 2 ? `${(n / 1024).toFixed(0)} KB` : n < 1024 ** 3 ? `${(n / 1024 ** 2).toFixed(1)} MB` : `${(n / 1024 ** 3).toFixed(1)} GB`);
 
@@ -82,8 +87,8 @@ const sizeText = n => (n < 1024 ? `${n} B` : n < 1024 ** 2 ? `${(n / 1024).toFix
 export function list(dir, { hidden = false, limit = 200 } = {}) {
   const p = resolvePath(dir);
   const st = statOf(p);
-  if (!st) throw new JevisError('NOT_FOUND', `Böyle bir klasör yok: ${tilde(p)}`);
-  if (!st.isDirectory()) throw new JevisError('NOT_DIR', `${tilde(p)} bir dosya, klasör değil.`);
+  if (!st) throw new JevisError('NOT_FOUND', T(`Böyle bir klasör yok: ${tilde(p)}`, `No such folder: ${tilde(p)}`));
+  if (!st.isDirectory()) throw new JevisError('NOT_DIR', T(`${tilde(p)} bir dosya, klasör değil.`, `${tilde(p)} is a file, not a folder.`));
   const items = readdir(p).filter(n => hidden || !n.startsWith('.')).map(name => {
     const s = statOf(path.join(p, name));
     return s && { name, dir: s.isDirectory() && !name.endsWith('.app'), app: name.endsWith('.app'), size: s.size, modified: s.mtimeMs };
@@ -125,17 +130,17 @@ export async function search(query, { dir = '~', limit = 40 } = {}) {
 /** The text of a file (plain text, or Word/RTF/HTML through textutil). */
 export async function read(target, { maxChars = 20000 } = {}) {
   const p = resolvePath(target);
-  if (SECRET_FILE.test(p) || SECRET_DIR.test(tilde(p).replace(/^~/, ''))) throw new JevisError('SECRET', 'Bu dosya şifre ya da anahtar içerebilir; Handry onu okumaz.');
+  if (SECRET_FILE.test(p) || SECRET_DIR.test(tilde(p).replace(/^~/, ''))) throw new JevisError('SECRET', T('Bu dosya şifre ya da anahtar içerebilir; Handry onu okumaz.', `This file may hold passwords or keys; ${APP_NAME} doesn't read it.`));
   const st = statOf(p);
-  if (!st) throw new JevisError('NOT_FOUND', `Böyle bir dosya yok: ${tilde(p)}`);
-  if (st.isDirectory()) throw new JevisError('NOT_FILE', `${tilde(p)} bir klasör; files_list ile bak.`);
-  if (st.size > 20 * 1024 * 1024) throw new JevisError('TOO_BIG', `Dosya çok büyük (${sizeText(st.size)}).`);
+  if (!st) throw new JevisError('NOT_FOUND', T(`Böyle bir dosya yok: ${tilde(p)}`, `No such file: ${tilde(p)}`));
+  if (st.isDirectory()) throw new JevisError('NOT_FILE', T(`${tilde(p)} bir klasör; files_list ile bak.`, `${tilde(p)} is a folder; look at it with files_list.`));
+  if (st.size > 20 * 1024 * 1024) throw new JevisError('TOO_BIG', T(`Dosya çok büyük (${sizeText(st.size)}).`, `The file is too big (${sizeText(st.size)}).`));
   let text;
   if (/\.(docx?|rtf|rtfd|odt|html?|webarchive)$/i.test(p)) {
     text = (await execFileAsync('textutil', ['-convert', 'txt', '-stdout', p], { maxBuffer: 50 * 1024 * 1024 })).stdout;
   } else {
     const buf = fs.readFileSync(p);
-    if (buf.subarray(0, 8000).includes(0)) throw new JevisError('BINARY', 'Bu bir metin dosyası değil (resim, PDF, video ya da program olabilir). Görmek için files_open ile açıp desktop_screenshot kullan.');
+    if (buf.subarray(0, 8000).includes(0)) throw new JevisError('BINARY', T('Bu bir metin dosyası değil (resim, PDF, video ya da program olabilir). Görmek için files_open ile açıp desktop_screenshot kullan.', "This isn't a text file (it may be an image, PDF, video or program). To see it, open it with files_open and use desktop_screenshot."));
     text = buf.toString('utf-8');
   }
   return { path: tilde(p), chars: text.length, truncated: text.length > maxChars, text: redact(text.slice(0, maxChars)) };
@@ -145,11 +150,11 @@ export async function read(target, { maxChars = 20000 } = {}) {
 export async function open(target, { app } = {}) {
   const p = resolvePath(target);
   const st = statOf(p);
-  if (!st) throw new JevisError('NOT_FOUND', `Böyle bir dosya ya da klasör yok: ${tilde(p)}`);
+  if (!st) throw new JevisError('NOT_FOUND', T(`Böyle bir dosya ya da klasör yok: ${tilde(p)}`, `No such file or folder: ${tilde(p)}`));
   const runs = st.isFile() && (RUNS_CODE.test(p) || (st.mode & 0o111) !== 0) || p.endsWith('.app');
   if (runs && (!app || TERMINALS.test(app))) {
-    const ok = await confirmAction(`${APP_NAME} şunu açmak istiyor:\n\n${tilde(p)}${app ? `\n(${app} ile)` : ''}\n\nBu dosya açılınca program ya da komut olarak çalışabilir. İzin veriyor musun?`);
-    if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${tilde(p)} açılmadı.`);
+    const ok = await confirmAction(T(`${APP_NAME} şunu açmak istiyor:\n\n${tilde(p)}${app ? `\n(${app} ile)` : ''}\n\nBu dosya açılınca program ya da komut olarak çalışabilir. İzin veriyor musun?`, `${APP_NAME} wants to open this:\n\n${tilde(p)}${app ? `\n(with ${app})` : ''}\n\nOpening this file can run it as a program or a command. Do you allow it?`));
+    if (!ok) throw new JevisError('DENIED', T(`Kullanıcı izin vermedi: ${tilde(p)} açılmadı.`, `The user didn't allow it: ${tilde(p)} was not opened.`));
   }
   await execFileAsync('open', [...(app ? ['-a', app] : []), p], { timeout: 20000 });
   return { opened: tilde(p), app: app || null };
@@ -289,7 +294,7 @@ export function sessionReport(sessionId) {
 /** What was done in a project: git history and the Claude Code sessions run in it. */
 export async function projectActivity(dir, { sessions = 3, commits = 10 } = {}) {
   const p = resolvePath(dir);
-  if (!statOf(p)?.isDirectory()) throw new JevisError('NOT_FOUND', `Böyle bir klasör yok: ${tilde(p)}`);
+  if (!statOf(p)?.isDirectory()) throw new JevisError('NOT_FOUND', T(`Böyle bir klasör yok: ${tilde(p)}`, `No such folder: ${tilde(p)}`));
   const out = { path: tilde(p), git: null, sessions: [] };
   // trimEnd: status lines start with a space (" M file").
   const git = (...args) => execFileAsync('git', ['-C', p, ...args], { timeout: 10000, maxBuffer: 10 * 1024 * 1024 }).then(r => r.stdout.trimEnd());
@@ -317,41 +322,46 @@ export async function projectActivity(dir, { sessions = 3, commits = 10 } = {}) 
 // ---------------------------------------------------------------------------
 
 export function formatList(r) {
-  if (!r.items.length) return `${r.path}: boş.`;
-  return [`${r.path} (${r.total} öğe${r.total > r.items.length ? `, ilk ${r.items.length}` : ''}, en yeni önce):`,
+  if (!r.items.length) return T(`${r.path}: boş.`, `${r.path}: empty.`);
+  return [T(`${r.path} (${r.total} öğe${r.total > r.items.length ? `, ilk ${r.items.length}` : ''}, en yeni önce):`, `${r.path} (${count(r.total, 'item')}${r.total > r.items.length ? `, first ${r.items.length}` : ''}, newest first):`),
     ...r.items.map(i => `${i.dir ? '📁' : i.app ? '🧩' : '📄'} ${i.name}${i.dir ? '/' : ''} — ${ago(i.modified)}${i.dir || i.app ? '' : ` · ${sizeText(i.size)}`}`)].join('\n');
 }
 
 export function formatRecent(r) {
-  if (!r.items.length) return `Son ${r.days} günde kayıt yok.`;
+  const lastDays = r.days === 1 ? 'the last day' : `the last ${r.days} days`;
+  if (!r.items.length) return T(`Son ${r.days} günde kayıt yok.`, `Nothing in ${lastDays}.`);
   if (r.kind === 'projects') {
-    return [`Son ${r.days} günde üzerinde çalışılan projeler (en yeni önce):`,
-      ...r.items.map(i => `📁 ${i.name} — ${i.path} · ${ago(i.used)} · ${i.sources.join(' + ')}${i.openInVsCode ? ' · VS Code\'da açık' : ''}`)].join('\n');
+    return [T(`Son ${r.days} günde üzerinde çalışılan projeler (en yeni önce):`, `Projects worked on in ${lastDays} (newest first):`),
+      ...r.items.map(i => `📁 ${i.name} — ${i.path} · ${ago(i.used)} · ${i.sources.join(' + ')}${i.openInVsCode ? T(' · VS Code\'da açık', ' · open in VS Code') : ''}`)].join('\n');
   }
-  const head = r.kind === 'apps' ? `Son ${r.days} günde kullanılan uygulamalar:` : `Son ${r.days} günde açılan dosyalar:`;
+  const head = r.kind === 'apps' ? T(`Son ${r.days} günde kullanılan uygulamalar:`, `Apps used in ${lastDays}:`) : T(`Son ${r.days} günde açılan dosyalar:`, `Files opened in ${lastDays}:`);
   return [head, ...r.items.map(i => `${r.kind === 'apps' ? '🧩' : '📄'} ${i.name} — ${ago(i.used)}${r.kind === 'apps' ? '' : ` · ${i.path}`}`)].join('\n');
 }
 
 export function formatSearch(r) {
-  if (!r.items.length) return `"${r.query}" ${r.path} içinde bulunamadı.`;
-  return [`"${r.query}" için ${r.total} sonuç${r.total > r.items.length ? ` (en yeni ${r.items.length})` : ''}:`,
+  if (!r.items.length) return T(`"${r.query}" ${r.path} içinde bulunamadı.`, `"${r.query}" wasn't found in ${r.path}.`);
+  return [T(`"${r.query}" için ${r.total} sonuç${r.total > r.items.length ? ` (en yeni ${r.items.length})` : ''}:`, `${count(r.total, 'result')} for "${r.query}"${r.total > r.items.length ? ` (newest ${r.items.length})` : ''}:`),
     ...r.items.map(i => `${i.dir ? '📁' : '📄'} ${i.path} — ${ago(i.modified)}`)].join('\n');
 }
 
 export function formatActivity(r) {
-  const lines = [`Proje: ${r.path}`];
+  const lines = [T(`Proje: ${r.path}`, `Project: ${r.path}`)];
   if (r.git) {
-    lines.push(`Git: dal ${r.git.branch} · ${r.git.changed.length ? `${r.git.changed.length} kaydedilmemiş değişiklik (${r.git.changed.slice(0, 8).join(', ')}${r.git.changed.length > 8 ? '…' : ''})` : 'kaydedilmemiş değişiklik yok'}`);
-    if (r.git.commits.length) lines.push('Son commitler:', ...r.git.commits.map(c => `- ${c.hash} (${c.when}) ${c.subject}`));
+    const changed = r.git.changed.length ? `(${r.git.changed.slice(0, 8).join(', ')}${r.git.changed.length > 8 ? '…' : ''})` : '';
+    lines.push(T(`Git: dal ${r.git.branch} · ${r.git.changed.length ? `${r.git.changed.length} kaydedilmemiş değişiklik ${changed}` : 'kaydedilmemiş değişiklik yok'}`,
+      `Git: branch ${r.git.branch} · ${r.git.changed.length ? `${count(r.git.changed.length, 'uncommitted change')} ${changed}` : 'no uncommitted changes'}`));
+    if (r.git.commits.length) lines.push(T('Son commitler:', 'Recent commits:'), ...r.git.commits.map(c => `- ${c.hash} (${c.when}) ${c.subject}`));
   } else {
-    lines.push('Git: bu klasör bir git deposu değil.');
+    lines.push(T('Git: bu klasör bir git deposu değil.', "Git: this folder isn't a git repository."));
   }
-  if (!r.sessions.length) lines.push('', 'Bu klasörde Claude Code oturumu bulunamadı.');
+  if (!r.sessions.length) lines.push('', T('Bu klasörde Claude Code oturumu bulunamadı.', 'No Claude Code session was found in this folder.'));
   r.sessions.forEach((s, i) => {
-    lines.push('', `Claude Code oturumu ${i + 1}: "${s.title || '(başlıksız)'}" — son hareket ${ago(s.last)}${s.started ? `, başlangıç ${ago(s.started)}` : ''}${s.lines ? ` · +${s.lines.added}/-${s.lines.removed} satır` : ''}`);
-    if (s.firstPrompt) lines.push(`  İlk istek: ${s.firstPrompt}`);
-    if (s.lastPrompts.length) lines.push('  Son istekler:', ...s.lastPrompts.map(p => `  - ${p}`));
-    if (s.lastReply) lines.push(`  Claude'un son cevabı: ${s.lastReply}`);
+    const title = s.title || T('(başlıksız)', '(untitled)');
+    lines.push('', T(`Claude Code oturumu ${i + 1}: "${title}" — son hareket ${ago(s.last)}${s.started ? `, başlangıç ${ago(s.started)}` : ''}${s.lines ? ` · +${s.lines.added}/-${s.lines.removed} satır` : ''}`,
+      `Claude Code session ${i + 1}: "${title}" — last activity ${ago(s.last)}${s.started ? `, started ${ago(s.started)}` : ''}${s.lines ? ` · +${s.lines.added}/-${s.lines.removed} lines` : ''}`));
+    if (s.firstPrompt) lines.push(T(`  İlk istek: ${s.firstPrompt}`, `  First request: ${s.firstPrompt}`));
+    if (s.lastPrompts.length) lines.push(T('  Son istekler:', '  Last requests:'), ...s.lastPrompts.map(p => `  - ${p}`));
+    if (s.lastReply) lines.push(T(`  Claude'un son cevabı: ${s.lastReply}`, `  Claude's last answer: ${s.lastReply}`));
   });
   return lines.join('\n');
 }
@@ -377,13 +387,13 @@ function changeable(p, { source = false } = {}) {
   const inTest = testRoot && (p === testRoot || p.startsWith(testRoot + path.sep));
   if (!inTest) {
     if (rel === 'Library' || rel.startsWith(`Library${path.sep}`) || rel.split(path.sep).some(part => part.startsWith('.'))) {
-      throw new JevisError('PROTECTED', `${tilde(p)}: sistem ve gizli klasörlere dokunmam (Library, .ssh, .config…).`);
+      throw new JevisError('PROTECTED', T(`${tilde(p)}: sistem ve gizli klasörlere dokunmam (Library, .ssh, .config…).`, `${tilde(p)}: I don't touch system and hidden folders (Library, .ssh, .config…).`));
     }
-    if (SECRET_DIR.test(p) || SECRET_FILE.test(p)) throw new JevisError('PROTECTED', `${tilde(p)}: anahtar ve şifre dosyalarına dokunmam.`);
+    if (SECRET_DIR.test(p) || SECRET_FILE.test(p)) throw new JevisError('PROTECTED', T(`${tilde(p)}: anahtar ve şifre dosyalarına dokunmam.`, `${tilde(p)}: I don't touch key and password files.`));
   }
-  if (source && STANDARD.has(p)) throw new JevisError('PROTECTED', `${tilde(p)} ana klasörlerden biri; onu taşımam ya da çöpe atmam.`);
+  if (source && STANDARD.has(p)) throw new JevisError('PROTECTED', T(`${tilde(p)} ana klasörlerden biri; onu taşımam ya da çöpe atmam.`, `${tilde(p)} is one of the main folders; I don't move it or put it in the Trash.`));
   if (source && (p === PROJECT || PROJECT.startsWith(p + path.sep) || p.startsWith(PROJECT + path.sep + '.git'))) {
-    throw new JevisError('PROTECTED', `${tilde(p)}: asistanın kendi dosyaları; onları taşımam ya da çöpe atmam.`);
+    throw new JevisError('PROTECTED', T(`${tilde(p)}: asistanın kendi dosyaları; onları taşımam ya da çöpe atmam.`, `${tilde(p)}: the assistant's own files; I don't move them or put them in the Trash.`));
   }
 }
 
@@ -414,10 +424,11 @@ function journalEntries() {
   try { return fs.readFileSync(JOURNAL(), 'utf-8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)); } catch { return []; }
 }
 
-async function askFirst(what, items) {
-  const list = items.slice(0, 12).map(p => `• ${tilde(p)}`).join('\n') + (items.length > 12 ? `\n… ve ${items.length - 12} tane daha` : '');
-  const ok = await confirmAction(`${APP_NAME} şunu yapmak istiyor: ${what}\n\n${list}\n\nİzin veriyor musun?`);
-  if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${what} yapılmadı.`);
+/** what: [Turkish ("3 öğeyi … taşımak"), English ("move 3 items into …")]. */
+async function askFirst([what, whatEn], items) {
+  const list = items.slice(0, 12).map(p => `• ${tilde(p)}`).join('\n') + (items.length > 12 ? T(`\n… ve ${items.length - 12} tane daha`, `\n… and ${items.length - 12} more`) : '');
+  const ok = await confirmAction(T(`${APP_NAME} şunu yapmak istiyor: ${what}\n\n${list}\n\nİzin veriyor musun?`, `${APP_NAME} wants to ${whatEn}:\n\n${list}\n\nDo you allow it?`));
+  if (!ok) throw new JevisError('DENIED', T(`Kullanıcı izin vermedi: ${what} yapılmadı.`, `The user didn't allow it, so nothing was done (${whatEn}).`));
 }
 
 /** Moves within the home folder; across disks it copies, then removes the original. */
@@ -434,7 +445,7 @@ function moveOne(from, to) {
 export async function makeFolder(target) {
   const p = resolvePath(target);
   changeable(p);
-  if (statOf(p)) throw new JevisError('EXISTS', `Zaten var: ${tilde(p)}`);
+  if (statOf(p)) throw new JevisError('EXISTS', T(`Zaten var: ${tilde(p)}`, `Already exists: ${tilde(p)}`));
   fs.mkdirSync(p, { recursive: true });
   journal({ op: 'mkdir', path: p });
   return { made: tilde(p) };
@@ -450,15 +461,15 @@ function prepare(from, to) {
   const sources = [].concat(from).map(resolvePath);
   const dest = resolvePath(to);
   for (const s of sources) {
-    if (!statOf(s)) throw new JevisError('NOT_FOUND', `Böyle bir dosya ya da klasör yok: ${tilde(s)}`);
+    if (!statOf(s)) throw new JevisError('NOT_FOUND', T(`Böyle bir dosya ya da klasör yok: ${tilde(s)}`, `No such file or folder: ${tilde(s)}`));
     changeable(s, { source: true });
   }
   changeable(dest);
   const pairs = destinations(sources, dest);
   for (const [s, t] of pairs) {
-    if (t === s) throw new JevisError('SAME', `${tilde(s)} zaten orada.`);
-    if (t.startsWith(s + path.sep)) throw new JevisError('INSIDE_ITSELF', `${tilde(s)} kendi içine taşınamaz.`);
-    if (statOf(t)) throw new JevisError('EXISTS', `Orada aynı adla bir şey var: ${tilde(t)}. Üstüne yazmıyorum; başka bir ad ver.`);
+    if (t === s) throw new JevisError('SAME', T(`${tilde(s)} zaten orada.`, `${tilde(s)} is already there.`));
+    if (t.startsWith(s + path.sep)) throw new JevisError('INSIDE_ITSELF', T(`${tilde(s)} kendi içine taşınamaz.`, `${tilde(s)} can't be moved into itself.`));
+    if (statOf(t)) throw new JevisError('EXISTS', T(`Orada aynı adla bir şey var: ${tilde(t)}. Üstüne yazmıyorum; başka bir ad ver.`, `Something with the same name is already there: ${tilde(t)}. I don't overwrite; give another name.`));
   }
   return { sources, dest, pairs };
 }
@@ -466,7 +477,7 @@ function prepare(from, to) {
 export async function move(from, to) {
   const { sources, dest, pairs } = prepare(from, to);
   const projects = sources.filter(isGitProject);
-  if (projects.length || sources.length > 20) await askFirst(`${sources.length} öğeyi ${tilde(dest)} içine taşımak${projects.length ? ' (git projesi var)' : ''}`, sources);
+  if (projects.length || sources.length > 20) await askFirst([`${sources.length} öğeyi ${tilde(dest)} içine taşımak${projects.length ? ' (git projesi var)' : ''}`, `move ${count(sources.length, 'item')} into ${tilde(dest)}${projects.length ? ' (a git project among them)' : ''}`], sources);
   let made = null;
   if (sources.length > 1 && !statOf(dest)) { fs.mkdirSync(dest, { recursive: true }); made = dest; }
   for (const [s, t] of pairs) moveOne(s, t);
@@ -477,7 +488,7 @@ export async function move(from, to) {
 export async function copy(from, to) {
   const { sources, dest, pairs } = prepare(from, to);
   const files = sources.reduce((n, s) => n + countFiles(s), 0);
-  if (sources.length > 20 || files > 500) await askFirst(`${files} dosyayı ${tilde(dest)} içine kopyalamak`, sources);
+  if (sources.length > 20 || files > 500) await askFirst([`${files} dosyayı ${tilde(dest)} içine kopyalamak`, `copy ${count(files, 'file')} into ${tilde(dest)}`], sources);
   let made = null;
   if (sources.length > 1 && !statOf(dest)) { fs.mkdirSync(dest, { recursive: true }); made = dest; }
   for (const [s, t] of pairs) fs.cpSync(s, t, { recursive: true, errorOnExist: true, force: false });
@@ -489,13 +500,14 @@ export async function copy(from, to) {
 export async function trash(targets) {
   const paths = [].concat(targets).map(resolvePath);
   for (const p of paths) {
-    if (!statOf(p)) throw new JevisError('NOT_FOUND', `Böyle bir dosya ya da klasör yok: ${tilde(p)}`);
+    if (!statOf(p)) throw new JevisError('NOT_FOUND', T(`Böyle bir dosya ya da klasör yok: ${tilde(p)}`, `No such file or folder: ${tilde(p)}`));
     changeable(p, { source: true });
   }
   const folders = paths.filter(p => statOf(p).isDirectory());
   if (folders.length || paths.length > 3) {
     const files = paths.reduce((n, p) => n + countFiles(p), 0);
-    await askFirst(`${paths.length} öğeyi Çöp Sepeti'ne atmak (${files} dosya${paths.some(isGitProject) ? ', git projesi var' : ''})`, paths);
+    const git = paths.some(isGitProject);
+    await askFirst([`${paths.length} öğeyi Çöp Sepeti'ne atmak (${files} dosya${git ? ', git projesi var' : ''})`, `put ${count(paths.length, 'item')} in the Trash (${count(files, 'file')}${git ? ', a git project among them' : ''})`], paths);
   }
   const { stdout } = await execFileAsync('/usr/bin/trash', ['-v', ...paths], { timeout: 60000 });
   const pairs = [...stdout.matchAll(/Moved "(.+)" to "(.+)"/g)].map(m => [m[1], m[2]]);
@@ -508,26 +520,26 @@ export async function undo() {
   const entries = journalEntries();
   const undone = new Set(entries.filter(e => e.op === 'undo').map(e => e.of));
   const last = [...entries].reverse().find(e => e.op !== 'undo' && !undone.has(e.id));
-  if (!last) throw new JevisError('NOTHING', 'Geri alınacak bir dosya işi yok.');
+  if (!last) throw new JevisError('NOTHING', T('Geri alınacak bir dosya işi yok.', 'There is no file change to undo.'));
   const done = [];
   if (last.op === 'mkdir') {
-    if (readdir(last.path).length) throw new JevisError('NOT_EMPTY', `${tilde(last.path)} artık boş değil; geri almıyorum.`);
+    if (readdir(last.path).length) throw new JevisError('NOT_EMPTY', T(`${tilde(last.path)} artık boş değil; geri almıyorum.`, `${tilde(last.path)} isn't empty anymore; I'm not undoing it.`));
     fs.rmdirSync(last.path);
-    done.push(`${tilde(last.path)} kaldırıldı`);
+    done.push(T(`${tilde(last.path)} kaldırıldı`, `${tilde(last.path)} removed`));
   } else if (last.op === 'move' || last.op === 'trash') {
     for (const [s, t] of [...last.pairs].reverse()) {
-      if (statOf(s)) throw new JevisError('EXISTS', `${tilde(s)} yerinde artık başka bir şey var; geri almıyorum.`);
-      if (!statOf(t)) throw new JevisError('NOT_FOUND', `${tilde(t)} artık yok; geri alınamıyor.`);
+      if (statOf(s)) throw new JevisError('EXISTS', T(`${tilde(s)} yerinde artık başka bir şey var; geri almıyorum.`, `Something else is at ${tilde(s)} now; I'm not undoing it.`));
+      if (!statOf(t)) throw new JevisError('NOT_FOUND', T(`${tilde(t)} artık yok; geri alınamıyor.`, `${tilde(t)} is gone; it can't be undone.`));
       fs.mkdirSync(path.dirname(s), { recursive: true });
       moveOne(t, s);
-      done.push(`${tilde(s)} geri geldi`);
+      done.push(T(`${tilde(s)} geri geldi`, `${tilde(s)} is back`));
     }
     if (last.made && !readdir(last.made).length) fs.rmdirSync(last.made);
   } else if (last.op === 'copy') {
     const copies = last.pairs.map(([, t]) => t).filter(t => statOf(t));
     if (copies.length) await execFileAsync('/usr/bin/trash', copies, { timeout: 60000 });
     if (last.made && !readdir(last.made).length) fs.rmdirSync(last.made);
-    done.push(`${copies.length} kopya Çöp Sepeti'ne atıldı`);
+    done.push(T(`${copies.length} kopya Çöp Sepeti'ne atıldı`, `${copies.length === 1 ? '1 copy' : `${copies.length} copies`} put in the Trash`));
   }
   journal({ op: 'undo', of: last.id });
   return { undone: last.op, done };

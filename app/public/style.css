@@ -405,6 +405,9 @@ kbd {
 .segmented { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--surface-3); }
 .segmented button { flex: 1; padding: 6px 8px; border-radius: 7px; font-size: 13px; color: var(--text-2); }
 .segmented button[aria-checked="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); font-weight: 600; }
+.segmented.disabled { opacity: 0.45; pointer-events: none; }
+#langSwitch button { flex: 1 1 auto; white-space: nowrap; }
+.lang-note { color: var(--text); font-weight: 600; }
 
 .switch-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); cursor: pointer; }
 .switch-row:first-child { border-top: none; }

@@ -7,6 +7,7 @@ import path from 'node:path';
 import { execFile, spawnSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { HOME } from '../core/config.js';
+import { T } from '../core/i18n.js';
 
 const execFileAsync = promisify(execFile);
 const SERVICE = 'jevis';
@@ -29,7 +30,7 @@ const cleanSites = sites => sites.map(s => s.trim().toLowerCase().replace(/^http
  */
 export function addSecretInteractive(name, sites) {
   const res = spawnSync('security', ['add-generic-password', '-a', name, '-s', SERVICE, '-U', '-w'], { stdio: 'inherit' });
-  if (res.status !== 0) throw new Error('Anahtar Zinciri kaydı başarısız oldu.');
+  if (res.status !== 0) throw new Error(T('Anahtar Zinciri kaydı başarısız oldu.', 'Saving to the Keychain failed.'));
   registerSecret(name, sites);
 }
 
@@ -42,7 +43,7 @@ export function storeSecret(name, value, sites = []) {
   const oneLine = String(value).split(/\r?\n/).map(s => s.trim()).filter(Boolean).join(' ');
   const quoted = oneLine.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const res = spawnSync('security', ['-i'], { input: `add-generic-password -a "${name}" -s ${SERVICE} -U -w "${quoted}"\n`, encoding: 'utf-8' });
-  if (res.status !== 0) throw new Error(`Anahtar Zinciri'ne yazılamadı: ${(res.stderr || '').trim()}`);
+  if (res.status !== 0) throw new Error(`${T("Anahtar Zinciri'ne yazılamadı", "Couldn't write to the Keychain")}: ${(res.stderr || '').trim()}`);
   registerSecret(name, sites);
 }
 
@@ -67,10 +68,12 @@ export function listSecrets() {
 /** host "idmsa.apple.com" matches site "apple.com" (subdomain) and "idmsa.apple.com" (exact). */
 export function siteAllowed(name, host) {
   const info = readIndex()[name];
-  if (!info) return { ok: false, reason: `"${name}" adında kayıtlı bir sır yok. Kaydetmek için: node cli.js secret add ${name} --site <site>` };
+  if (!info) return { ok: false, reason: T(`"${name}" adında kayıtlı bir sır yok. Kaydetmek için: node cli.js secret add ${name} --site <site>`, `No saved secret named "${name}". To save one: node cli.js secret add ${name} --site <site>`) };
   const h = String(host).toLowerCase();
   const ok = info.sites.some(s => h === s || h.endsWith(`.${s}`));
-  return ok ? { ok: true } : { ok: false, reason: `"${name}" sadece şu sitelerde kullanılabilir: ${info.sites.join(', ') || '(hiçbiri)'}. Şu anki site: ${h || '(yerel dosya)'}` };
+  if (ok) return { ok: true };
+  return { ok: false, reason: T(`"${name}" sadece şu sitelerde kullanılabilir: ${info.sites.join(', ') || '(hiçbiri)'}. Şu anki site: ${h || '(yerel dosya)'}`,
+    `"${name}" can only be used on these sites: ${info.sites.join(', ') || '(none)'}. This site: ${h || '(a local file)'}`) };
 }
 
 /** Reads the value. Only guard code may call this; never pass the result to an LLM. */

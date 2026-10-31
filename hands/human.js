@@ -11,6 +11,7 @@
 // for a while. JEVIS_HUMAN=1 forces it on, JEVIS_HUMAN=0 (or `human.enabled:
 // false` in the config) keeps it off whatever the brain says.
 import { config, loadState, saveState } from '../core/config.js';
+import { T } from '../core/i18n.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -68,7 +69,7 @@ export function setMode({ on, scope, site, minutes = 30 } = {}) {
   if (on && scope === 'all') {
     m.allUntil = Date.now() + clamp(Number(minutes) || 30, 1, 480) * 60_000;
   } else if (on) {
-    if (!key) throw new Error('Hangi site için açılacağı belli değil (site ver ya da önce sayfayı aç).');
+    if (!key) throw new Error(T('Hangi site için açılacağı belli değil (site ver ya da önce sayfayı aç).', 'It is not clear for which site to turn it on (give site, or open the page first).'));
     if (!m.sites.includes(key)) m.sites.push(key);
   } else if (scope === 'all') {
     delete m.allUntil;

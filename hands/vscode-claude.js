@@ -17,6 +17,7 @@ import { resolvePath, recentProjects } from './files.js';
 import * as overlay from './overlay.js';
 import { alertUser, resolveAlert } from '../guard/notify.js';
 import { APP_NAME } from '../core/brand.js';
+import { T } from '../core/i18n.js';
 
 const run = promisify(execFile);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -29,18 +30,18 @@ const isDir = p => { try { return fs.statSync(p).isDirectory(); } catch { return
 /** A folder path ("~/Desktop/jev") or the name of a recent project ("jev") → its absolute path. */
 export async function projectDir(project) {
   const raw = flat(project);
-  if (!raw) throw new JevisError('BAD_ARGS', 'Hangi proje? Bir klasör yolu ya da proje adı ver.');
+  if (!raw) throw new JevisError('BAD_ARGS', T('Hangi proje? Bir klasör yolu ya da proje adı ver.', 'Which project? Give a folder path or a project name.'));
   if (raw.includes('/') || raw.startsWith('~')) {
     const p = resolvePath(raw);
-    if (!isDir(p)) throw new JevisError('NOT_FOUND', `Böyle bir klasör yok: ${raw}`);
+    if (!isDir(p)) throw new JevisError('NOT_FOUND', T(`Böyle bir klasör yok: ${raw}`, `No such folder: ${raw}`));
     return p;
   }
   const recent = await recentProjects({ days: 120, limit: 60 });
   const exact = recent.filter(r => lower(r.name) === lower(raw));
   const near = exact.length ? exact : recent.filter(r => lower(r.name).includes(lower(raw)));
   if (near.length === 1 || exact.length) return resolvePath(near[0].path);
-  if (near.length > 1) throw new JevisError('AMBIGUOUS', `"${raw}" birden çok projeye uyuyor: ${near.map(r => r.path).join(', ')}. Klasör yolunu ver.`);
-  throw new JevisError('NOT_FOUND', `"${raw}" adında yakın zamanda açılmış bir proje yok. Son projeler: ${recent.slice(0, 8).map(r => r.name).join(', ')}.`);
+  if (near.length > 1) throw new JevisError('AMBIGUOUS', T(`"${raw}" birden çok projeye uyuyor: ${near.map(r => r.path).join(', ')}. Klasör yolunu ver.`, `"${raw}" matches more than one project: ${near.map(r => r.path).join(', ')}. Give the folder path.`));
+  throw new JevisError('NOT_FOUND', T(`"${raw}" adında yakın zamanda açılmış bir proje yok. Son projeler: ${recent.slice(0, 8).map(r => r.name).join(', ')}.`, `No recently opened project is called "${raw}". Recent projects: ${recent.slice(0, 8).map(r => r.name).join(', ')}.`));
 }
 
 /** Brings the VS Code window of dir to the front (VS Code opens it when it isn't open). */
@@ -53,7 +54,7 @@ async function projectWindow(dir) {
     if (f.bundleId === VSCODE && String(f.window || '').split(' — ').includes(base)) return f;
     await sleep(250);
   }
-  throw new JevisError('NOT_FOUND', `VS Code'da "${base}" penceresi öne gelmedi; hiçbir şey yazmadım.`);
+  throw new JevisError('NOT_FOUND', T(`VS Code'da "${base}" penceresi öne gelmedi; hiçbir şey yazmadım.`, `The "${base}" window didn't come to the front in VS Code; I didn't type anything.`));
 }
 
 /**
@@ -88,8 +89,8 @@ async function sendWhenShown(pid, text, seconds = 15) {
       if (found && !found.asking) break;
       if (found?.asking && !asked) {
         asked = {
-          alert: alertUser(`VS Code, Claude eklentisinin ${APP_NAME}'nin bağlantısını açmasına izin istiyor. Open'a basarsan devam ederim (bir daha sormasın istersen "Do not ask me again"i işaretle).`, { title: APP_NAME, imessage: true }),
-          mark: found.asking.w ? await overlay.draw({ shape: 'circle', rect: found.asking, note: 'izin senin: Open', seconds: 120 }).catch(() => null) : null
+          alert: alertUser(T(`VS Code, Claude eklentisinin ${APP_NAME}'nin bağlantısını açmasına izin istiyor. Open'a basarsan devam ederim (bir daha sormasın istersen "Do not ask me again"i işaretle).`, `VS Code asks whether the Claude extension may open ${APP_NAME}'s link. Press Open and I'll go on (tick "Do not ask me again" so it doesn't ask again).`), { title: APP_NAME, imessage: true }),
+          mark: found.asking.w ? await overlay.draw({ shape: 'circle', rect: found.asking, note: T('izin senin: Open', 'your call: Open'), seconds: 120 }).catch(() => null) : null
         };
         until = Date.now() + 120_000;
       }
@@ -107,8 +108,8 @@ async function sendWhenShown(pid, text, seconds = 15) {
   }
   if (!found) {
     throw new JevisError(asked ? 'DENIED' : 'NOT_FOUND', asked
-      ? 'VS Code\'un izin sorusuna Open denilmedi; Claude\'a hiçbir şey göndermedim.'
-      : 'Claude sekmesi açıldı ama yazı mesaj kutusunda görünmedi, göndermedim. VS Code bir şey soruyor olabilir (klasöre güven, giriş); ekrana bak.');
+      ? T('VS Code\'un izin sorusuna Open denilmedi; Claude\'a hiçbir şey göndermedim.', 'Open wasn\'t pressed on VS Code\'s question; I sent nothing to Claude.')
+      : T('Claude sekmesi açıldı ama yazı mesaj kutusunda görünmedi, göndermedim. VS Code bir şey soruyor olabilir (klasöre güven, giriş); ekrana bak.', 'The Claude tab opened but the text didn\'t show up in its message box, so I didn\'t send it. VS Code may be asking something (trust the folder, sign in); have a look at the screen.'));
   }
   if (found.send) {
     await desktop.pressPath(found.send.path, { pid, expect: found.send.name });
@@ -120,7 +121,7 @@ async function sendWhenShown(pid, text, seconds = 15) {
     await sleep(250);
     if (!(await boxWith(pid, text))?.box) return;
   }
-  throw new JevisError('NOT_SENT', 'Gönder\'e basıldı ama yazı hâlâ mesaj kutusunda duruyor.');
+  throw new JevisError('NOT_SENT', T('Gönder\'e basıldı ama yazı hâlâ mesaj kutusunda duruyor.', 'Send was pressed but the text is still in the message box.'));
 }
 
 /** A new VS Code Claude session in dir that was not there before, or null. */
@@ -137,7 +138,7 @@ async function newSessionIn(dir, before, seconds = 20) {
  * → { dir, window, session } (session: the claudeSessions() entry, or null if it could not be told apart).
  */
 export async function startSession({ project, task }) {
-  if (!flat(task)) throw new JevisError('BAD_ARGS', 'Claude\'a ne yazayım? task boş.');
+  if (!flat(task)) throw new JevisError('BAD_ARGS', T('Claude\'a ne yazayım? task boş.', 'What should I tell Claude? task is empty.'));
   const dir = await projectDir(project);
   const before = new Set(claudeSessions().map(s => s.pid));
   const win = await projectWindow(dir);
@@ -154,17 +155,17 @@ export function findSession(which) {
   const exact = all.filter(s => lower(s.name) === w);
   const hits = byId.length ? byId : exact.length ? exact : all.filter(s => lower(s.name).includes(w) || lower(s.project) === w);
   if (hits.length === 1) return hits[0];
-  const list = all.map(s => `"${s.name}" (${s.project}, ${s.where})`).join(', ') || 'yok';
-  if (!hits.length) throw new JevisError('NOT_FOUND', `"${which}" diye açık bir Claude Code oturumu yok. Açık olanlar: ${list}.`);
-  throw new JevisError('AMBIGUOUS', `"${which}" birden çok oturuma uyuyor: ${hits.map(s => `"${s.name}"`).join(', ')}. Adını tam ver.`);
+  const list = all.map(s => `"${s.name}" (${s.project}, ${s.where})`).join(', ') || T('yok', 'none');
+  if (!hits.length) throw new JevisError('NOT_FOUND', T(`"${which}" diye açık bir Claude Code oturumu yok. Açık olanlar: ${list}.`, `No open Claude Code session is called "${which}". Open ones: ${list}.`));
+  throw new JevisError('AMBIGUOUS', T(`"${which}" birden çok oturuma uyuyor: ${hits.map(s => `"${s.name}"`).join(', ')}. Adını tam ver.`, `"${which}" matches more than one session: ${hits.map(s => `"${s.name}"`).join(', ')}. Give its full name.`));
 }
 
 /** Writes text into an open VS Code Claude session (its tab comes to the front) and sends it. */
 export async function sendToSession({ session: which, text }) {
-  if (!flat(text)) throw new JevisError('BAD_ARGS', 'Ne yazayım? text boş.');
+  if (!flat(text)) throw new JevisError('BAD_ARGS', T('Ne yazayım? text boş.', 'What should I write? text is empty.'));
   const s = findSession(which);
-  if (s.where !== 'VS Code') throw new JevisError('NOT_SUPPORTED', `"${s.name}" oturumu VS Code'da değil (${s.where || 'başka bir yerde'}); ben sadece VS Code'daki Claude oturumlarına yazabiliyorum.`);
-  if (!s.cwd || !s.sessionId) throw new JevisError('NOT_FOUND', `"${s.name}" oturumunun klasörü bilinmiyor.`);
+  if (s.where !== 'VS Code') throw new JevisError('NOT_SUPPORTED', T(`"${s.name}" oturumu VS Code'da değil (${s.where || 'başka bir yerde'}); ben sadece VS Code'daki Claude oturumlarına yazabiliyorum.`, `The "${s.name}" session isn't in VS Code (${s.where || 'somewhere else'}); I can only write to Claude sessions in VS Code.`));
+  if (!s.cwd || !s.sessionId) throw new JevisError('NOT_FOUND', T(`"${s.name}" oturumunun klasörü bilinmiyor.`, `The folder of the "${s.name}" session isn't known.`));
   const win = await projectWindow(s.cwd);
   await run('open', [`${LINK}?session=${encodeURIComponent(s.sessionId)}&prompt=${encodeURIComponent(text)}`]);
   await sendWhenShown(win.pid, text);

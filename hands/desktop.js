@@ -13,6 +13,7 @@ import * as jev from '../core/jev.js';
 import { needsConfirm, confirmAction, dialogOpen, harmlessByKind } from '../guard/confirm.js';
 import { isStopped } from '../guard/stop.js';
 import { APP_NAME } from '../core/brand.js';
+import { T } from '../core/i18n.js';
 import * as overlay from './overlay.js';
 
 const execFileAsync = promisify(execFile);
@@ -46,7 +47,7 @@ async function ax(...args) {
     let out = null;
     try { out = JSON.parse(err.stdout); } catch {}
     if (out?.error) throw new JevisError(out.code || 'DESKTOP', out.error);
-    throw new JevisError('DESKTOP', `Masaüstü yardımcısı hata verdi: ${err.message}`);
+    throw new JevisError('DESKTOP', T(`Masaüstü yardımcısı hata verdi: ${err.message}`, `The desktop helper failed: ${err.message}`));
   }
 }
 
@@ -55,7 +56,7 @@ async function ensureTrusted() {
   if (trustedChecked) return;
   const { trusted } = await ax('trusted');
   if (!trusted) {
-    throw new JevisError('NO_PERMISSION', `Erişilebilirlik izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik bölümünde ${APP_NAME} uygulamasını (ya da onu çalıştıran Terminal / VS Code'u) aç. ${APP_NAME} menüsündeki "İzinler…" penceresi doğru sayfayı açar.`);
+    throw new JevisError('NO_PERMISSION', T(`Erişilebilirlik izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik bölümünde ${APP_NAME} uygulamasını (ya da onu çalıştıran Terminal / VS Code'u) aç. ${APP_NAME} menüsündeki "İzinler…" penceresi doğru sayfayı açar.`, `No Accessibility permission. In System Settings › Privacy & Security › Accessibility, turn on ${APP_NAME} (or the Terminal / VS Code that runs it). The "Permissions…" window in the ${APP_NAME} menu opens the right page.`));
   }
   trustedChecked = true;
 }
@@ -77,7 +78,7 @@ async function appArgs(app) {
   let found = list.find(a => a.name.toLowerCase() === wanted || a.bundleId.toLowerCase() === wanted || a.bundleId.toLowerCase().endsWith(`.${wanted}`));
   if (!found) {
     const pick = await jev.pickOption('running application', app, list.map(a => `${a.name} (${a.bundleId})`));
-    if (pick.index === null || !jev.isConfident(pick)) throw new JevisError('NO_APP', `"${app}" adında açık bir uygulama yok. Açık olanlar: ${list.map(a => a.name).join(', ')}`);
+    if (pick.index === null || !jev.isConfident(pick)) throw new JevisError('NO_APP', T(`"${app}" adında açık bir uygulama yok. Açık olanlar: ${list.map(a => a.name).join(', ')}`, `No open app is called "${app}". Open apps: ${list.map(a => a.name).join(', ')}`));
     found = list[pick.index];
   }
   return ['--pid', found.pid];
@@ -90,7 +91,7 @@ export function labelOf(e) {
   if (e.focused) state.push('focused');
   if (e.selected) state.push('selected');
   const role = e.subrole && !e.name ? `${e.role}/${e.subrole}` : e.role;
-  return `[${role}] ${e.name || e.subrole || '(isimsiz)'}${e.ctx ? ` — ${e.ctx}` : ''}${state.length ? ` {${state.join(', ')}}` : ''}`;
+  return `[${role}] ${e.name || e.subrole || T('(isimsiz)', '(unnamed)')}${e.ctx ? ` — ${e.ctx}` : ''}${state.length ? ` {${state.join(', ')}}` : ''}`;
 }
 
 /** Controls (#d1, #d2…) and texts of an app's front window; menus optional. */
@@ -122,7 +123,7 @@ async function resolve(target, purpose, { app, withRisk = false } = {}) {
   if (id) {
     const saved = loadState().desktop;
     const entry = saved?.ids?.[id[1]];
-    if (!entry) throw new JevisError('STALE', `#${id[1]} bilinmiyor. Önce pencereyi oku (desktop_read).`);
+    if (!entry) throw new JevisError('STALE', T(`#${id[1]} bilinmiyor. Önce pencereyi oku (desktop_read).`, `#${id[1]} is unknown. Read the window first (desktop_read).`));
     const front = await frontmost();
     const risk = withRisk ? (await jev.isRisky(PURPOSE[purpose](entry.name), { app: saved.app, window: saved.window })).p : null;
     return { path: entry.path, name: entry.name, expect: entry.name, role: '', pid: saved.pid, bundleId: front.bundleId, context: saved.texts || [], frame: entry.frame, pick: { confidence: 1, risk, ms: 0 } };
@@ -145,10 +146,10 @@ async function resolve(target, purpose, { app, withRisk = false } = {}) {
     if (!best || (alternatives[0]?.p || 0) > (best.alternatives[0]?.p || 0)) best = { app: r.app, pick, alternatives };
   }
   if (best && best.pick.index !== null) {
-    throw new JevisError('LOW_CONFIDENCE', `Jev "${target}" için emin değil (%${pct(best.pick.confidence)}). Adaylardan birini #id ile seçin.`, { alternatives: best.alternatives });
+    throw new JevisError('LOW_CONFIDENCE', T(`Jev "${target}" için emin değil (%${pct(best.pick.confidence)}). Adaylardan birini #id ile seçin.`, `Jev isn't sure about "${target}" (${pct(best.pick.confidence)}%). Pick one of the candidates by #id.`), { alternatives: best.alternatives });
   }
-  if (best) throw new JevisError('NOT_FOUND', `"${target}" ${best.app} içinde bulunamadı (pencere ve menüler).`, { alternatives: best.alternatives });
-  throw new JevisError('NOT_FOUND', 'Pencerede kullanılabilir öğe yok.');
+  if (best) throw new JevisError('NOT_FOUND', T(`"${target}" ${best.app} içinde bulunamadı (pencere ve menüler).`, `"${target}" wasn't found in ${best.app} (window and menus).`), { alternatives: best.alternatives });
+  throw new JevisError('NOT_FOUND', T('Pencerede kullanılabilir öğe yok.', 'The window has no controls to use.'));
 }
 
 async function guard(el, riskP, actionText, app) {
@@ -156,23 +157,23 @@ async function guard(el, riskP, actionText, app) {
   if (!verdict.ask) return null;
   // What the window says decides what a button does: "Sil" under "Bu belgeyi tutmak istiyor musunuz?" throws a
   // document away. Without it Jev took that "Sil" for something harmless and the user was never asked.
-  const said = el.context?.length ? `; pencerede: ${el.context.join(' · ').slice(0, 600)}` : '';
-  if (await harmlessByKind(verdict, `${actionText} (uygulama: ${app}${said})`)) return null;
+  const said = el.context?.length ? T(`; pencerede: ${el.context.join(' · ').slice(0, 600)}`, `; the window says: ${el.context.join(' · ').slice(0, 600)}`) : '';
+  if (await harmlessByKind(verdict, T(`${actionText} (uygulama: ${app}${said})`, `${actionText} (app: ${app}${said})`))) return null;
   // while the question is open, the control it is about is circled on the screen (drawn alongside: the question never waits for it)
   const mark = el.frame?.w && config().overlay?.confirmHighlight !== false
-    ? overlay.draw({ shape: 'circle', rect: el.frame, note: 'Buna basmak istiyorum', seconds: 900 }).catch(() => null)
+    ? overlay.draw({ shape: 'circle', rect: el.frame, note: T('Buna basmak istiyorum', 'I want to press this'), seconds: 900 }).catch(() => null)
     : null;
-  const ok = await confirmAction(`${APP_NAME} şunu yapmak istiyor:\n\n${actionText}\n\nUygulama: ${app}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`);
+  const ok = await confirmAction(T(`${APP_NAME} şunu yapmak istiyor:\n\n${actionText}\n\nUygulama: ${app}\nNeden soruluyor: ${verdict.reason}\n\nİzin veriyor musun?`, `${APP_NAME} wants to do this:\n\n${actionText}\n\nApp: ${app}\nWhy you're asked: ${verdict.reason}\n\nDo you allow it?`));
   const drawn = await mark;
   if (drawn) overlay.clear(drawn);
-  if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${actionText}`);
+  if (!ok) throw new JevisError('DENIED', T(`Kullanıcı izin vermedi: ${actionText}`, `The user didn't allow it: ${actionText}`));
   return { reason: verdict.reason };
 }
 
 async function shellGuard(bundleId, what) {
   if (!SHELL_APPS.has(bundleId)) return;
-  const ok = await confirmAction(`${APP_NAME} bir terminale şunu yapmak istiyor:\n\n${what}\n\nTerminale yazılanlar komut olarak çalışabilir. İzin veriyor musun?`);
-  if (!ok) throw new JevisError('DENIED', `Kullanıcı terminal işlemine izin vermedi: ${what}`);
+  const ok = await confirmAction(T(`${APP_NAME} bir terminale şunu yapmak istiyor:\n\n${what}\n\nTerminale yazılanlar komut olarak çalışabilir. İzin veriyor musun?`, `${APP_NAME} wants to do this in a terminal:\n\n${what}\n\nWhat is typed into a terminal can run as a command. Do you allow it?`));
+  if (!ok) throw new JevisError('DENIED', T(`Kullanıcı terminal işlemine izin vermedi: ${what}`, `The user didn't allow the terminal action: ${what}`));
 }
 
 async function after(pid) {
@@ -183,14 +184,14 @@ async function after(pid) {
 
 /** No touching the screen while a confirmation dialog waits for the user (a click could answer it). */
 function notDuringDialog() {
-  if (dialogOpen()) throw new JevisError('WAIT_USER', 'Ekranda kullanıcıya soru soran bir onay penceresi açık. Cevabını bekle; o sırada ekrana dokunmuyorum.');
+  if (dialogOpen()) throw new JevisError('WAIT_USER', T('Ekranda kullanıcıya soru soran bir onay penceresi açık. Cevabını bekle; o sırada ekrana dokunmuyorum.', "A confirmation dialog is open on the screen, asking the user something. Wait for the answer; I don't touch the screen meanwhile."));
 }
 
 export async function click(target, { app } = {}) {
   notDuringDialog();
   await ensureTrusted();
   const el = await resolve(target, 'click', { app, withRisk: true });
-  const approval = await guard(el, el.pick.risk, `"${el.name}" öğesine basmak`, (await frontmost()).app);
+  const approval = await guard(el, el.pick.risk, T(`"${el.name}" öğesine basmak`, `press "${el.name}"`), (await frontmost()).app);
   const res = await ax('press', el.path, '--pid', el.pid, '--expect', el.expect || '');
   return { element: { name: el.name, role: el.role }, jev: { confidence: pct(el.pick.confidence), ms: el.pick.ms }, method: res.method, approval, ...(await after(el.pid)) };
 }
@@ -201,18 +202,18 @@ export async function type(target, text, { app, submit = false } = {}) {
   await ensureTrusted();
   if (!target) {
     const front = await ensureFront(app);
-    await shellGuard(front.bundleId, `"${text}" yazmak${submit ? ' ve Enter\'a basmak' : ''}`);
+    await shellGuard(front.bundleId, T(`"${text}" yazmak${submit ? ' ve Enter\'a basmak' : ''}`, `type "${text}"${submit ? ' and press Enter' : ''}`));
     await ax('type', text);
     if (submit) await ax('key', 'return');
     return { typed: text.length, ...(await after(front.pid)) };
   }
   const el = await resolve(target, 'type', { app });
-  await shellGuard(el.bundleId, `"${text}" yazmak`);
+  await shellGuard(el.bundleId, T(`"${text}" yazmak`, `type "${text}"`));
   const res = await ax('setvalue', el.path, text, '--pid', el.pid);
   let approval = null;
   if (submit) {
     const risk = await jev.isRisky(`Press Enter after typing into "${el.name}"`, { app: el.bundleId });
-    approval = await guard(el, risk.p, `"${el.name}" alanında Enter'a basmak`, el.bundleId);
+    approval = await guard(el, risk.p, T(`"${el.name}" alanında Enter'a basmak`, `press Enter in "${el.name}"`), el.bundleId);
     await ax('key', 'return');
   }
   return { element: { name: el.name, role: el.role }, jev: { confidence: pct(el.pick.confidence), ms: el.pick.ms }, typed: text.length, method: res.method, approval, ...(await after(el.pid)) };
@@ -246,8 +247,8 @@ async function ensureFront(app) {
     front = await frontmost();
   }
   if (String(front.pid) !== String(target[1])) {
-    const name = typeof app === 'number' ? (await apps()).find(a => a.pid === app)?.name || 'Uygulama' : app;
-    throw new JevisError('NOT_FRONT', `${name} öne getirilemedi (önde: ${front.app}); hiçbir şey gönderilmedi. Ekranda cevap bekleyen bir sistem sorusu olabilir.`);
+    const name = typeof app === 'number' ? (await apps()).find(a => a.pid === app)?.name || T('Uygulama', 'The app') : app;
+    throw new JevisError('NOT_FRONT', T(`${name} öne getirilemedi (önde: ${front.app}); hiçbir şey gönderilmedi. Ekranda cevap bekleyen bir sistem sorusu olabilir.`, `Couldn't bring ${name} to the front (in front: ${front.app}); nothing was sent. A system question may be waiting for an answer on the screen.`));
   }
   return front;
 }
@@ -258,10 +259,10 @@ export async function key(combo, { app } = {}) {
   const normalized = combo.toLowerCase().replace(/\s+/g, '');
   const front = await ensureFront(app);
   if (DANGEROUS_KEYS.has(normalized)) {
-    const ok = await confirmAction(`${APP_NAME} "${front.app}" içinde ${combo} kısayoluna basmak istiyor (uygulama kapanabilir ya da veri silinebilir).\n\nİzin veriyor musun?`);
-    if (!ok) throw new JevisError('DENIED', `Kullanıcı izin vermedi: ${combo}`);
+    const ok = await confirmAction(T(`${APP_NAME} "${front.app}" içinde ${combo} kısayoluna basmak istiyor (uygulama kapanabilir ya da veri silinebilir).\n\nİzin veriyor musun?`, `${APP_NAME} wants to press ${combo} in "${front.app}" (the app may quit or data may be deleted).\n\nDo you allow it?`));
+    if (!ok) throw new JevisError('DENIED', T(`Kullanıcı izin vermedi: ${combo}`, `The user didn't allow it: ${combo}`));
   }
-  if (['return', 'enter'].includes(normalized)) await shellGuard(front.bundleId, 'Enter\'a basmak (yazılı komut çalışır)');
+  if (['return', 'enter'].includes(normalized)) await shellGuard(front.bundleId, T('Enter\'a basmak (yazılı komut çalışır)', 'press Enter (the typed command runs)'));
   await ax('key', combo);
   return { key: combo, ...(await after(front.pid)) };
 }
@@ -279,11 +280,11 @@ export async function scroll(direction = 'down', amount = 400, { app, x, y } = {
   let front, point;
   if (x !== undefined && y !== undefined) {
     const shot = loadState().shot;
-    if (!shot || Date.now() - shot.at > SHOT_MAX_AGE_MS) throw new JevisError('NO_SHOT', 'Bir noktada kaydırmak için önce desktop_screenshot al (ya da x, y vermeden pencerenin ortasında kaydır).');
+    if (!shot || Date.now() - shot.at > SHOT_MAX_AGE_MS) throw new JevisError('NO_SHOT', T('Bir noktada kaydırmak için önce desktop_screenshot al (ya da x, y vermeden pencerenin ortasında kaydır).', 'To scroll at a point, take a desktop_screenshot first (or scroll in the middle of the window by leaving out x, y).'));
     front = await ensureFront(shot.pid);
     let area = shot.area;
     if (shot.windowId) {
-      if (front.windowId !== shot.windowId) throw new JevisError('STALE', `${shot.app} içinde önde başka bir pencere var; yeni bir desktop_screenshot al.`);
+      if (front.windowId !== shot.windowId) throw new JevisError('STALE', otherWindow(shot.app));
       area = { ...area, x: front.bounds.X, y: front.bounds.Y };
     }
     point = { x: Math.round(area.x + (Number(x) * area.w) / shot.image.w), y: Math.round(area.y + (Number(y) * area.h) / shot.image.h) };
@@ -322,7 +323,7 @@ export async function openApp(name, target) {
   } catch {
     const installed = installedApps();
     const pick = await jev.pickOption('application to open', name, installed);
-    if (pick.index === null || !jev.isConfident(pick)) throw new JevisError('NO_APP', `"${name}" adında bir uygulama bulunamadı.`);
+    if (pick.index === null || !jev.isConfident(pick)) throw new JevisError('NO_APP', T(`"${name}" adında bir uygulama bulunamadı.`, `No app called "${name}" was found.`));
     opened = installed[pick.index];
     await execFileAsync('open', ['-a', opened, ...extra]);
   }
@@ -350,7 +351,7 @@ export async function quitApp(name) {
     await sleep(200);
     if (!(await apps()).some(a => a.pid === pid)) return { quit: target.name };
   }
-  return { quit: null, stillOpen: target.name, note: `${target.name} kapanmadı; muhtemelen "kaydedilsin mi?" sorusu açık. desktop_read ile bakıp cevapla.` };
+  return { quit: null, stillOpen: target.name, note: T(`${target.name} kapanmadı; muhtemelen "kaydedilsin mi?" sorusu açık. desktop_read ile bakıp cevapla.`, `${target.name} didn't quit; a "save changes?" question is probably open. Look with desktop_read and answer it.`) };
 }
 
 /**
@@ -367,7 +368,7 @@ export async function screenshot({ app, fullScreen = false } = {}) {
   } catch (err) {
     const { screenRecording } = await ax('trusted').catch(() => ({}));
     if (screenRecording === false) {
-      throw new JevisError('NO_PERMISSION', `Ekran Kaydı izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi Kaydı bölümünde ${APP_NAME} uygulamasını (ya da onu çalıştıran Terminal / VS Code'u) aç, sonra kapatıp yeniden aç.`);
+      throw new JevisError('NO_PERMISSION', T(`Ekran Kaydı izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi Kaydı bölümünde ${APP_NAME} uygulamasını (ya da onu çalıştıran Terminal / VS Code'u) aç, sonra kapatıp yeniden aç.`, `No Screen Recording permission. In System Settings › Privacy & Security › Screen & System Audio Recording, turn on ${APP_NAME} (or the Terminal / VS Code that runs it), then quit it and open it again.`));
     }
     throw err;
   }
@@ -380,12 +381,14 @@ export async function screenshot({ app, fullScreen = false } = {}) {
 }
 
 const SHOT_MAX_AGE_MS = 5 * 60 * 1000;
+const noShot = () => T('Önce desktop_screenshot al; x ve y o görüntünün piksel koordinatları olmalı.', 'Take a desktop_screenshot first; x and y must be pixels of that image.');
+const otherWindow = app => T(`${app} içinde önde başka bir pencere var; yeni bir desktop_screenshot al.`, `Another window of ${app} is in front; take a new desktop_screenshot.`);
 
 /** A point of the last desktop_screenshot (its pixels) → global screen points. */
 export function shotToScreen(x, y) {
   const shot = loadState().shot;
-  if (!shot || Date.now() - shot.at > SHOT_MAX_AGE_MS) throw new JevisError('NO_SHOT', 'Önce desktop_screenshot al; x ve y o görüntünün piksel koordinatları olmalı.');
-  if (!(x >= 0 && y >= 0 && x <= shot.image.w && y <= shot.image.h)) throw new JevisError('BAD_ARGS', `Nokta görüntünün dışında (görüntü ${shot.image.w}×${shot.image.h}).`);
+  if (!shot || Date.now() - shot.at > SHOT_MAX_AGE_MS) throw new JevisError('NO_SHOT', noShot());
+  if (!(x >= 0 && y >= 0 && x <= shot.image.w && y <= shot.image.h)) throw new JevisError('BAD_ARGS', T(`Nokta görüntünün dışında (görüntü ${shot.image.w}×${shot.image.h}).`, `The point is outside the image (image ${shot.image.w}×${shot.image.h}).`));
   const area = shot.area;
   return { x: Math.round(area.x + (x * area.w) / shot.image.w), y: Math.round(area.y + (y * area.h) / shot.image.h) };
 }
@@ -395,7 +398,7 @@ export async function frameOf(target, { app } = {}) {
   await ensureTrusted();
   if (app) await activate(app);
   const el = await resolve(target, 'click', { app });
-  if (!el.frame?.w) throw new JevisError('NO_FRAME', `"${el.name}" öğesinin ekrandaki yeri bilinmiyor (kapalı bir menüdeki öğe olabilir).`);
+  if (!el.frame?.w) throw new JevisError('NO_FRAME', T(`"${el.name}" öğesinin ekrandaki yeri bilinmiyor (kapalı bir menüdeki öğe olabilir).`, `Where "${el.name}" is on the screen isn't known (it may be an item of a closed menu).`));
   return { rect: el.frame, name: el.name, app: (await frontmost().catch(() => ({}))).app };
 }
 
@@ -409,22 +412,22 @@ export async function clickAt(x, y, { description = '', double = false, right = 
   notDuringDialog();
   await ensureTrusted();
   const shot = loadState().shot;
-  if (!shot || Date.now() - shot.at > SHOT_MAX_AGE_MS) throw new JevisError('NO_SHOT', 'Önce desktop_screenshot al; x ve y o görüntünün piksel koordinatları olmalı.');
-  if (!(x >= 0 && y >= 0 && x <= shot.image.w && y <= shot.image.h)) throw new JevisError('BAD_ARGS', `Nokta görüntünün dışında (görüntü ${shot.image.w}×${shot.image.h} piksel).`);
+  if (!shot || Date.now() - shot.at > SHOT_MAX_AGE_MS) throw new JevisError('NO_SHOT', noShot());
+  if (!(x >= 0 && y >= 0 && x <= shot.image.w && y <= shot.image.h)) throw new JevisError('BAD_ARGS', T(`Nokta görüntünün dışında (görüntü ${shot.image.w}×${shot.image.h} piksel).`, `The point is outside the image (image ${shot.image.w}×${shot.image.h} pixels).`));
   let area = shot.area;
   if (shot.windowId) {
     // The pixels belong to that window: it must be in front, the same size.
     const front = await ensureFront(shot.pid);
-    if (front.windowId !== shot.windowId) throw new JevisError('STALE', `${shot.app} içinde önde başka bir pencere var; yeni bir desktop_screenshot al.`);
+    if (front.windowId !== shot.windowId) throw new JevisError('STALE', otherWindow(shot.app));
     const b = front.bounds;
-    if (Math.abs(b.Width - area.w) > 2 || Math.abs(b.Height - area.h) > 2) throw new JevisError('STALE', 'Pencerenin boyutu değişti; yeni bir desktop_screenshot al.');
+    if (Math.abs(b.Width - area.w) > 2 || Math.abs(b.Height - area.h) > 2) throw new JevisError('STALE', T('Pencerenin boyutu değişti; yeni bir desktop_screenshot al.', 'The window changed size; take a new desktop_screenshot.'));
     area = { ...area, x: b.X, y: b.Y };
   }
   const point = { x: Math.round(area.x + (x * area.w) / shot.image.w), y: Math.round(area.y + (y * area.h) / shot.image.h) };
   const hit = await ax('hit', point.x, point.y).catch(() => ({ found: false }));
-  const what = [description, hit.found && hit.name ? `${hit.role} "${hit.name}"` : ''].filter(Boolean).join(' — ') || `(${point.x}, ${point.y}) noktası`;
+  const what = [description, hit.found && hit.name ? `${hit.role} "${hit.name}"` : ''].filter(Boolean).join(' — ') || T(`(${point.x}, ${point.y}) noktası`, `the point (${point.x}, ${point.y})`);
   const risk = await jev.isRisky(`${right ? 'Right-click' : double ? 'Double-click' : 'Click'} on: ${what}`, { app: shot.app });
-  const approval = await guard({ name: `${description} ${hit.name || ''}`, role: hit.role || '' }, risk.p, `${shot.app} içinde şuraya tıklamak: ${what}`, shot.app);
+  const approval = await guard({ name: `${description} ${hit.name || ''}`, role: hit.role || '' }, risk.p, T(`${shot.app} içinde şuraya tıklamak: ${what}`, `click in ${shot.app} on: ${what}`), shot.app);
   // The helper checks again right before clicking that the window is still the one under the point.
   if (shot.windowId) await ensureFront(shot.pid);
   await ax('click', point.x, point.y, ...(shot.windowId ? ['--pid', shot.pid] : []), ...(double ? ['--double'] : []), ...(right ? ['--right'] : []));
@@ -526,12 +529,12 @@ export async function switchSpace({ direction = 'right', steps = 1, to, display 
   await ensureTrusted();
   const layout = await spaces();
   const d = (display && layout.find(x => x.display === Number(display))) || layout.find(x => x.main) || layout[0];
-  if (!d) throw new JevisError('NO_SPACES', 'Masaüstü bilgisi okunamadı.');
+  if (!d) throw new JevisError('NO_SPACES', T('Masaüstü bilgisi okunamadı.', "Couldn't read the desktops (Spaces)."));
   const from = d.current;
   let plan;
   if (to) {
     const target = Math.min(Math.max(1, Math.round(Number(to))), d.spaces.length);
-    if (!from) throw new JevisError('NO_SPACES', 'Şu an hangi masaüstünün gösterildiği anlaşılamadı (tam ekran uygulama açık olabilir); sağ/sol ile geç.');
+    if (!from) throw new JevisError('NO_SPACES', T('Şu an hangi masaüstünün gösterildiği anlaşılamadı (tam ekran uygulama açık olabilir); sağ/sol ile geç.', "Couldn't tell which desktop is shown now (a full-screen app may be open); move right/left instead."));
     plan = { dir: target > from ? 'right' : 'left', n: Math.abs(target - from) };
   } else plan = { dir: direction, n: Math.min(Math.max(1, Number(steps) || 1), 16) };
   const was = await ax('cursor');
@@ -621,13 +624,15 @@ export async function focusWindow(app, which) {
   const away = !win && wanted && !/^\d+$/.test(wanted) ? await windowsElsewhere(pid, wanted) : [];
   if (away.length) {
     win = await walkToWindow(pid, wanted, away);
-    if (!win) throw new JevisError('NOT_FOUND', `"${which}" penceresi ekranda değil ve masaüstlerinin hiçbirinde bulunamadı: gizlenmiş ya da kapatılmış olabilir (masaüstleri gezildi, geri dönüldü).`);
+    if (!win) throw new JevisError('NOT_FOUND', T(`"${which}" penceresi ekranda değil ve masaüstlerinin hiçbirinde bulunamadı: gizlenmiş ya da kapatılmış olabilir (masaüstleri gezildi, geri dönüldü).`, `The "${which}" window isn't on the screen and wasn't found on any desktop: it may be hidden or closed (went through the desktops and came back).`));
   }
-  if (!list.length && !win) throw new JevisError('NOT_FOUND', `${name} uygulamasının açık penceresi yok.`);
+  if (!list.length && !win) throw new JevisError('NOT_FOUND', T(`${name} uygulamasının açık penceresi yok.`, `${name} has no open window.`));
   if (!win) {
-    const pick = await jev.pickOption(`window of ${name}`, which, list.map(w => w.title || '(başlıksız)'));
+    const untitled = T('(başlıksız)', '(untitled)');
+    const pick = await jev.pickOption(`window of ${name}`, which, list.map(w => w.title || untitled));
     if (pick.index === null || !jev.isConfident(pick)) {
-      throw new JevisError('NOT_FOUND', `"${which}" diye bir ${name} penceresi bulunamadı. Pencereler: ${list.map(w => `${w.index}. ${w.title || '(başlıksız)'}`).join(' | ')}`);
+      const shown = list.map(w => `${w.index}. ${w.title || untitled}`).join(' | ');
+      throw new JevisError('NOT_FOUND', T(`"${which}" diye bir ${name} penceresi bulunamadı. Pencereler: ${shown}`, `No ${name} window called "${which}" was found. Windows: ${shown}`));
     }
     win = list[pick.index];
   }
@@ -637,7 +642,7 @@ export async function focusWindow(app, which) {
     const f = await frontmost().catch(() => ({}));
     if (f.pid === pid && f.window === win.title) break;
   }
-  return { raised: win.title || `${win.index}. pencere`, ...(await after(pid)) };
+  return { raised: win.title || T(`${win.index}. pencere`, `window ${win.index}`), ...(await after(pid)) };
 }
 
 /**
@@ -656,10 +661,11 @@ export async function waitFor(words, { app, seconds = 10, gone = false } = {}) {
       .find(t => t !== undefined && t !== null && String(t).toLocaleLowerCase('tr').includes(wanted));
     if (gone ? !seen : seen) return { waited: Date.now() - started, found: gone ? null : clean(seen).slice(0, 120), gone, app: r.app, window: r.window };
     if (Date.now() - started > limit) break;
-    if (isStopped()) throw new JevisError('STOPPED', 'Kullanıcı acil durdurma yaptı.');
+    if (isStopped()) throw new JevisError('STOPPED', T('Kullanıcı acil durdurma yaptı.', 'The user pressed the emergency stop.'));
     await sleep(500);
   }
-  throw new JevisError('TIMEOUT', `${Math.round(limit / 1000)} sn beklendi; "${words}" ${gone ? 'hâlâ duruyor' : 'görünmedi'} (${r.app}${r.window ? ` — ${r.window}` : ''}).`);
+  const where = `${r.app}${r.window ? ` — ${r.window}` : ''}`;
+  throw new JevisError('TIMEOUT', T(`${Math.round(limit / 1000)} sn beklendi; "${words}" ${gone ? 'hâlâ duruyor' : 'görünmedi'} (${where}).`, `Waited ${Math.round(limit / 1000)} s; "${words}" ${gone ? 'is still there' : "didn't show up"} (${where}).`));
 }
 
 /** May Handry send Apple Events to that app? granted | denied | ask | not_running (never asks). */
@@ -670,7 +676,7 @@ export async function waitFor(words, { app, seconds = 10, gone = false } = {}) {
 export async function appleMenu() {
   await ensureTrusted();
   const finder = (await apps()).find(a => a.bundleId === 'com.apple.finder');
-  if (!finder) throw new JevisError('NO_APP', 'Finder çalışmıyor; Apple menüsüne ulaşılamadı.');
+  if (!finder) throw new JevisError('NO_APP', T('Finder çalışmıyor; Apple menüsüne ulaşılamadı.', "Finder isn't running; couldn't reach the Apple menu."));
   const tree = await ax('tree', '--pid', finder.pid, '--menus', '--max', '2000');
   return { pid: finder.pid, items: tree.elements.filter(e => e.path.startsWith('m.0.0.')).map(e => ({ name: clean(e.name), path: e.path })) };
 }
@@ -679,7 +685,7 @@ export async function appleMenu() {
 export async function pressAppleMenu(names) {
   const { pid, items } = await appleMenu();
   const item = items.find(i => names.includes(i.name));
-  if (!item) throw new JevisError('NOT_FOUND', `Apple menüsünde "${names[0]}" yok.`);
+  if (!item) throw new JevisError('NOT_FOUND', T(`Apple menüsünde "${names[0]}" yok.`, `The Apple menu has no "${names.join('" or "')}".`));
   await ax('press', '--pid', pid, item.path, '--expect', item.name);
   return item.name;
 }
@@ -694,25 +700,29 @@ export async function record(seconds, file) {
 }
 
 export function formatRead(r, { maxElements = 250 } = {}) {
-  const lines = [`Uygulama: ${r.app}`, `Pencere: ${r.window || '(yok)'}`, '', `Öğeler (${r.elements.length}${r.truncated ? ', liste kısaltıldı' : ''}):`];
+  const lines = T(
+    [`Uygulama: ${r.app}`, `Pencere: ${r.window || '(yok)'}`, '', `Öğeler (${r.elements.length}${r.truncated ? ', liste kısaltıldı' : ''}):`],
+    [`App: ${r.app}`, `Window: ${r.window || '(none)'}`, '', `Controls (${r.elements.length}${r.truncated ? ', list shortened' : ''}):`]
+  );
   for (const e of r.elements.slice(0, maxElements)) lines.push(`#${e.id} ${labelOf(e)}`);
-  if (r.texts.length) lines.push('', 'Metinler:', ...r.texts.slice(0, 80));
+  if (r.texts.length) lines.push('', T('Metinler:', 'Texts:'), ...r.texts.slice(0, 80));
   return lines.join('\n');
 }
 
 export function formatOutcome(res) {
   const parts = [];
-  if (res.element) parts.push(`Öğe: "${res.element.name}"${res.jev ? ` (Jev %${res.jev.confidence}, ${res.jev.ms} ms)` : ''}`);
-  if (res.typed !== undefined) parts.push(`${res.typed} karakter yazıldı`);
-  if (res.key) parts.push(`Tuş: ${res.key}`);
-  if (res.approval) parts.push(`Kullanıcı onayladı (${res.approval.reason})`);
-  if (res.quit) parts.push(`Kapatıldı: ${res.quit}`);
-  if (res.point) parts.push(`Tıklandı: (${res.point.x}, ${res.point.y})${res.hit ? ` — altında [${res.hit.role}] ${res.hit.name || '(isimsiz)'}` : ''}`);
-  if (res.raised) parts.push(`Pencere öne getirildi: ${res.raised}`);
-  if (res.found) parts.push(`Göründü: "${res.found}" (${(res.waited / 1000).toFixed(1)} sn)`);
-  if (res.gone) parts.push(`Kayboldu (${(res.waited / 1000).toFixed(1)} sn)`);
+  const secs = () => (res.waited / 1000).toFixed(1);
+  if (res.element) parts.push(T(`Öğe: "${res.element.name}"${res.jev ? ` (Jev %${res.jev.confidence}, ${res.jev.ms} ms)` : ''}`, `Control: "${res.element.name}"${res.jev ? ` (Jev ${res.jev.confidence}%, ${res.jev.ms} ms)` : ''}`));
+  if (res.typed !== undefined) parts.push(T(`${res.typed} karakter yazıldı`, `${res.typed} ${res.typed === 1 ? 'character' : 'characters'} typed`));
+  if (res.key) parts.push(T(`Tuş: ${res.key}`, `Key: ${res.key}`));
+  if (res.approval) parts.push(T(`Kullanıcı onayladı (${res.approval.reason})`, `The user allowed it (${res.approval.reason})`));
+  if (res.quit) parts.push(T(`Kapatıldı: ${res.quit}`, `Quit: ${res.quit}`));
+  if (res.point) parts.push(T(`Tıklandı: (${res.point.x}, ${res.point.y})${res.hit ? ` — altında [${res.hit.role}] ${res.hit.name || '(isimsiz)'}` : ''}`, `Clicked: (${res.point.x}, ${res.point.y})${res.hit ? ` — under it [${res.hit.role}] ${res.hit.name || '(unnamed)'}` : ''}`));
+  if (res.raised) parts.push(T(`Pencere öne getirildi: ${res.raised}`, `Window brought to the front: ${res.raised}`));
+  if (res.found) parts.push(T(`Göründü: "${res.found}" (${secs()} sn)`, `Showed up: "${res.found}" (${secs()} s)`));
+  if (res.gone) parts.push(T(`Kayboldu (${secs()} sn)`, `Gone (${secs()} s)`));
   if (res.note) parts.push(res.note);
-  if (res.app !== undefined) parts.push(`Önde: ${res.app}${res.window ? ` — ${res.window}` : ''}`);
+  if (res.app !== undefined) parts.push(T(`Önde: ${res.app}${res.window ? ` — ${res.window}` : ''}`, `In front: ${res.app}${res.window ? ` — ${res.window}` : ''}`));
   return parts.join('\n');
 }
 
@@ -729,17 +739,17 @@ export async function fillSecret(target, secretName, { app } = {}) {
   await ensureTrusted();
   const { listSecrets, readSecret } = await import('../guard/vault.js');
   const kayit = listSecrets().find(s => s.name === secretName);
-  if (!kayit) throw new JevisError('NOT_ALLOWED', `"${secretName}" adında kayıtlı bir şifre yok.`);
+  if (!kayit) throw new JevisError('NOT_ALLOWED', T(`"${secretName}" adında kayıtlı bir şifre yok.`, `No saved password is called "${secretName}".`));
   const el = await resolve(target, 'type', { app });
-  if (SHELL_APPS.has(el.bundleId)) throw new JevisError('NOT_ALLOWED', 'Terminale şifre yazılmaz.');
+  if (SHELL_APPS.has(el.bundleId)) throw new JevisError('NOT_ALLOWED', T('Terminale şifre yazılmaz.', 'Passwords are never typed into a terminal.'));
   const uygulama = (await apps()).find(a => String(a.pid) === String(el.pid));
   const adlar = [uygulama?.name, el.bundleId].filter(Boolean).map(x => `app:${String(x).toLowerCase()}`);
   if (!kayit.sites.some(s => adlar.includes(String(s).toLowerCase()))) {
-    throw new JevisError('NOT_ALLOWED', `"${secretName}" bu uygulamada kullanılamaz. İzinli olanlar: ${kayit.sites.join(', ') || '(hiçbiri)'}. Bu uygulama: ${adlar.join(' / ')}`);
+    throw new JevisError('NOT_ALLOWED', T(`"${secretName}" bu uygulamada kullanılamaz. İzinli olanlar: ${kayit.sites.join(', ') || '(hiçbiri)'}. Bu uygulama: ${adlar.join(' / ')}`, `"${secretName}" can't be used in this app. Allowed: ${kayit.sites.join(', ') || '(none)'}. This app: ${adlar.join(' / ')}`));
   }
   const deger = await readSecret(secretName);
   const res = await ax('setvalue', el.path, deger, '--pid', el.pid);
-  return { element: { name: el.name, role: el.role }, jev: { confidence: pct(el.pick.confidence), ms: el.pick.ms }, typed: deger.length, method: res.method, note: 'Şifre yazıldı (değer gösterilmez).', ...(await after(el.pid)) };
+  return { element: { name: el.name, role: el.role }, jev: { confidence: pct(el.pick.confidence), ms: el.pick.ms }, typed: deger.length, method: res.method, note: T('Şifre yazıldı (değer gösterilmez).', 'Password typed (the value is not shown).'), ...(await after(el.pid)) };
 }
 
 /** Ekranların kullanılabilir alanları (menü çubuğu ve Dock hariç), sol üst köşe başlangıçlı. */
@@ -758,6 +768,11 @@ const YERLER = {
   orta: e => [e.x + Math.floor(e.w * 0.15), e.y + Math.floor(e.h * 0.1), Math.floor(e.w * 0.7), Math.floor(e.h * 0.8)]
 };
 
+// The places in English, for the result and for a yer given in English ("left", "full") or with Turkish letters ("sağ", "üst").
+const YER_EN = { tam: 'full', sol: 'left', sag: 'right', ust: 'top', alt: 'bottom', orta: 'center', kucult: 'minimize', geri: 'restore' };
+const YER_ALIAS = { ...Object.fromEntries(Object.entries(YER_EN).map(([tr, en]) => [en, tr])), sağ: 'sag', üst: 'ust', küçült: 'kucult', centre: 'orta', centered: 'orta', minimise: 'kucult', back: 'geri' };
+const yerText = yer => T(yer, YER_EN[yer] || yer);
+
 /** Düzenlemeden önce pencerenin yeri ve boyutu saklanır: "geri" onu eski yerine koyar */
 async function yeriKaydet(pid, pencere) {
   const r = await ax('windows', '--pid', pid).catch(() => null);
@@ -773,7 +788,7 @@ async function pencereYerlestir(pid, pencere, [x, y, w, h]) {
   await yeriKaydet(pid, pencere);
   const r = await ax('setframe', x, y, w, h, '--pid', pid, ...(pencere ? ['--title', pencere] : []));
   const fark = Math.abs(r.w - w) > 8 || Math.abs(r.h - h) > 8;
-  return `${r.title || '(adsız pencere)'} (${r.w}×${r.h}${fark ? `; istenen ${w}×${h}, uygulama daha küçük/büyük olamıyor` : ''})`;
+  return T(`${r.title || '(adsız pencere)'} (${r.w}×${r.h}${fark ? `; istenen ${w}×${h}, uygulama daha küçük/büyük olamıyor` : ''})`, `${r.title || '(untitled window)'} (${r.w}×${r.h}${fark ? `; asked for ${w}×${h}, the app can't get smaller/bigger` : ''})`);
 }
 
 /**
@@ -785,20 +800,22 @@ export async function arrange(app, yer = 'tam', { pencere, ikinci, ekran = 1, uy
   await ensureTrusted();
   const liste = await ekranlar();
   const e = liste[Math.min(Math.max(1, Number(ekran) || 1), liste.length) - 1];
+  yer = YER_ALIAS[String(yer).toLowerCase()] || yer;
   if (yer === 'kucult') return kucult(app, pencere);
   if (yer === 'geri') return geriGetir(app, pencere);
   // ikiden fazla uygulama: ızgara (3 sütun, 2×2, 3×2...)
   const hepsi = [app, ...(uygulamalar || [])].filter(Boolean);
   if (hepsi.length > 2) return izgara(hepsi, e, liste);
-  if (!YERLER[yer]) throw new JevisError('BAD_ARGS', `yer şunlardan biri olmalı: ${Object.keys(YERLER).join(', ')}, kucult, geri`);
+  if (!YERLER[yer]) throw new JevisError('BAD_ARGS', T(`yer şunlardan biri olmalı: ${Object.keys(YERLER).join(', ')}, kucult, geri`, `yer must be one of: ${Object.keys(YER_EN).join(', ')} (in English: ${Object.values(YER_EN).join(', ')})`));
   if (hepsi.length === 2 && !ikinci) ikinci = hepsi[1];
   const [, pid] = await appArgs(app);
-  const yapilan = [`${app}: ${await pencereYerlestir(pid, pencere, YERLER[ikinci ? 'sol' : yer](e))} → ${ikinci ? 'sol' : yer}`];
+  const yapilan = [`${app}: ${await pencereYerlestir(pid, pencere, YERLER[ikinci ? 'sol' : yer](e))} → ${yerText(ikinci ? 'sol' : yer)}`];
   if (ikinci) {
     const [, pid2] = await appArgs(ikinci);
-    yapilan.push(`${ikinci}: ${await pencereYerlestir(pid2, '', YERLER.sag(e))} → sağ`);
+    yapilan.push(`${ikinci}: ${await pencereYerlestir(pid2, '', YERLER.sag(e))} → ${T('sağ', 'right')}`);
   }
-  return { note: `Yerleştirildi (ekran ${liste.indexOf(e) + 1}/${liste.length}):\n${yapilan.join('\n')}` };
+  const hangi = `${liste.indexOf(e) + 1}/${liste.length}`;
+  return { note: T(`Yerleştirildi (ekran ${hangi}):\n${yapilan.join('\n')}`, `Arranged (display ${hangi}):\n${yapilan.join('\n')}`) };
 }
 
 /** Izgara: n pencere için sütun × satır (3 → 3×1, 4 → 2×2, 5-6 → 3×2, 7-9 → 3×3) */
@@ -816,16 +833,18 @@ async function izgara(uygulamalar, e, liste) {
   for (const [i, app] of uygulamalar.entries()) {
     const [, pid] = await appArgs(app);
     const x = e.x + (i % sutun) * gw, y = e.y + Math.floor(i / sutun) * gh;
-    yapilan.push(`${app}: ${await pencereYerlestir(pid, '', [x, y, gw, gh])} → ${(i % sutun) + 1}. sütun, ${Math.floor(i / sutun) + 1}. satır`);
+    const [c, r] = [(i % sutun) + 1, Math.floor(i / sutun) + 1];
+    yapilan.push(`${app}: ${await pencereYerlestir(pid, '', [x, y, gw, gh])} → ${T(`${c}. sütun, ${r}. satır`, `column ${c}, row ${r}`)}`);
   }
-  return { note: `${uygulamalar.length} pencere ${sutun}×${satir} dizildi (ekran ${liste.indexOf(e) + 1}/${liste.length}):\n${yapilan.join('\n')}` };
+  const hangi = `${liste.indexOf(e) + 1}/${liste.length}`;
+  return { note: T(`${uygulamalar.length} pencere ${sutun}×${satir} dizildi (ekran ${hangi}):\n${yapilan.join('\n')}`, `${uygulamalar.length} windows arranged ${sutun}×${satir} (display ${hangi}):\n${yapilan.join('\n')}`) };
 }
 
 async function kucult(app, pencere) {
   const [, pid] = await appArgs(app);
   await yeriKaydet(pid, pencere);
   const r = await ax('minimize', '--pid', pid, ...(pencere ? ['--title', pencere] : []));
-  return { note: `${app}: ${r.title || 'pencere'} Dock'a küçültüldü.` };
+  return { note: T(`${app}: ${r.title || 'pencere'} Dock'a küçültüldü.`, `${app}: ${r.title || 'window'} minimized to the Dock.`) };
 }
 
 /** Pencereyi küçültmeden ya da yerleştirmeden önceki yerine ve boyutuna koyar (kayıt yoksa sadece açar) */
@@ -833,12 +852,12 @@ async function geriGetir(app, pencere) {
   const [, pid] = await appArgs(app);
   const r = await ax('windows', '--pid', pid);
   const w = r.windows.find(x => !pencere || String(x.title || '').toLocaleLowerCase('tr').includes(String(pencere).toLocaleLowerCase('tr')));
-  if (!w) throw new JevisError('NOT_FOUND', `${app} içinde böyle bir pencere yok.`);
+  if (!w) throw new JevisError('NOT_FOUND', T(`${app} içinde böyle bir pencere yok.`, `${app} has no such window.`));
   const kayit = (loadState().pencereYerleri || {})[`${r.app}|${w.title || ''}`];
   if (kayit) {
     const s = await ax('setframe', kayit.x, kayit.y, kayit.w, kayit.h, '--pid', pid, ...(w.title ? ['--title', w.title] : []));
-    return { note: `${app}: ${s.title || 'pencere'} eski yerine kondu (${s.w}×${s.h}).` };
+    return { note: T(`${app}: ${s.title || 'pencere'} eski yerine kondu (${s.w}×${s.h}).`, `${app}: ${s.title || 'window'} put back where it was (${s.w}×${s.h}).`) };
   }
   await ax('raise', w.index, '--pid', pid);
-  return { note: `${app}: ${w.title || 'pencere'} açıldı (eski yeri kayıtlı değildi).` };
+  return { note: T(`${app}: ${w.title || 'pencere'} açıldı (eski yeri kayıtlı değildi).`, `${app}: ${w.title || 'window'} brought up (where it was before wasn't saved).`) };
 }

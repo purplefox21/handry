@@ -1,9 +1,11 @@
-// Spoken replies with macOS `say` (Turkish voice). Only a short summary is
-// read aloud; the full answer stays on screen.
+// Spoken replies with macOS `say`, in a Turkish (voice.ttsVoice) or English
+// (voice.ttsVoiceEn) voice by Handry's language. Only a short summary is read
+// aloud; the full answer stays on screen.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { config, HOME } from '../core/config.js';
+import { T } from '../core/i18n.js';
 
 let speaking = null;
 
@@ -16,8 +18,14 @@ const flag = on => {
   } catch {}
 };
 
+/** The voice for Handry's language now ("Yelda" / "Samantha" by default). */
+export function ttsVoice() {
+  const v = config().voice;
+  return T(v.ttsVoice, v.ttsVoiceEn || 'Samantha');
+}
+
 export function ttsStatus() {
-  return fs.existsSync('/usr/bin/say') ? { ok: true, voice: config().voice.ttsVoice } : { ok: false, reason: '`say` bulunamadı' };
+  return fs.existsSync('/usr/bin/say') ? { ok: true, voice: ttsVoice() } : { ok: false, reason: T('`say` bulunamadı', '`say` was not found') };
 }
 
 /** Markdown, links and code stripped; the first sentences up to maxSpokenChars. */
@@ -52,7 +60,7 @@ export function speak(text, { toFile } = {}) {
   stopSpeaking();
   const line = speakable(text);
   if (!line) return Promise.resolve();
-  const child = spawn('/usr/bin/say', ['-v', config().voice.ttsVoice, ...(toFile ? ['-o', toFile] : []), line], { stdio: 'ignore' });
+  const child = spawn('/usr/bin/say', ['-v', ttsVoice(), ...(toFile ? ['-o', toFile] : []), line], { stdio: 'ignore' });
   speaking = child;
   if (!toFile) flag(true);
   return new Promise(resolve => child.on('close', () => {

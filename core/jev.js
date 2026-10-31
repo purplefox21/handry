@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT, config } from './config.js';
 import { JevisError } from './errors.js';
+import { T } from './i18n.js';
 
 // JEVIS_JEV_URL points the client somewhere else (tests use a local stand-in).
 const API_URL = process.env.JEVIS_JEV_URL || 'https://api.typesafe.ai/v1/systemone';
@@ -21,7 +22,7 @@ export function getApiKey() {
       if (match) apiKey = match[1].trim();
     } catch {}
   }
-  if (!apiKey) throw new Error('TypeSafe API anahtarı bulunamadı: .env dosyasına JEV_KEY=... ekleyin.');
+  if (!apiKey) throw new Error(T('TypeSafe API anahtarı bulunamadı: .env dosyasına JEV_KEY=... ekleyin.', 'No TypeSafe API key found: add JEV_KEY=... to the .env file.'));
   return apiKey;
 }
 
@@ -53,7 +54,7 @@ export async function ask(state, questions) {
       });
     } catch (err) {
       if (attempt < RETRY_WAITS.length) { await sleep(retryWait(attempt)); continue; }
-      throw new JevisError('JEV_DOWN', `Jev'e ulaşılamadı: ${err.message}`);
+      throw new JevisError('JEV_DOWN', `${T("Jev'e ulaşılamadı", "Couldn't reach Jev")}: ${err.message}`);
     }
     const text = await res.text();
     if (res.ok) {
@@ -62,7 +63,7 @@ export async function ask(state, questions) {
     }
     const busy = res.status === 429 || res.status >= 500;
     if (busy && attempt < RETRY_WAITS.length) { await sleep(retryWait(attempt, res)); continue; }
-    throw new JevisError(busy ? 'JEV_DOWN' : 'JEV_ERROR', `Jev API hatası (${res.status}): ${text.slice(0, 300)}`, { status: res.status });
+    throw new JevisError(busy ? 'JEV_DOWN' : 'JEV_ERROR', `${T('Jev API hatası', 'Jev API error')} (${res.status}): ${text.slice(0, 300)}`, { status: res.status });
   }
 }
 

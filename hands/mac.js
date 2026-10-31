@@ -3,6 +3,7 @@ import util from 'node:util';
 import path from 'node:path';
 import os from 'node:os';
 import { APP_NAME } from '../core/brand.js';
+import { T } from '../core/i18n.js';
 
 // execFile passes arguments straight to the program (no shell), so user text
 // with quotes or apostrophes ("Ali'ye") can neither break nor inject commands.
@@ -38,9 +39,9 @@ export async function openApp(appKey) {
   const appName = APP_NAMES[appKey] || appKey;
   try {
     await execFileAsync('open', ['-a', appName]);
-    return { success: true, message: `🚀 "${appName}" açıldı.` };
+    return { success: true, message: T(`🚀 "${appName}" açıldı.`, `🚀 "${appName}" opened.`) };
   } catch (err) {
-    return { success: false, error: `Uygulama açılamadı: ${err.message}` };
+    return { success: false, error: T(`Uygulama açılamadı: ${err.message}`, `Couldn't open the app: ${err.message}`) };
   }
 }
 
@@ -51,9 +52,9 @@ export async function quitApp(appKey) {
   const appName = APP_NAMES[appKey] || appKey;
   try {
     await runAppleScript(['on run argv', 'quit application (item 1 of argv)', 'end run'], [appName]);
-    return { success: true, message: `🛑 "${appName}" kapatıldı.` };
+    return { success: true, message: T(`🛑 "${appName}" kapatıldı.`, `🛑 "${appName}" closed.`) };
   } catch (err) {
-    return { success: false, error: `Uygulama kapatılamadı: ${err.message}` };
+    return { success: false, error: T(`Uygulama kapatılamadı: ${err.message}`, `Couldn't close the app: ${err.message}`) };
   }
 }
 
@@ -64,9 +65,9 @@ export async function setVolume(percent) {
   const vol = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
   try {
     await runAppleScript(`set volume output volume ${vol}`);
-    return { success: true, message: `🔊 Ses seviyesi %${vol} yapıldı.` };
+    return { success: true, message: T(`🔊 Ses seviyesi %${vol} yapıldı.`, `🔊 Volume set to ${vol}%.`) };
   } catch (err) {
-    return { success: false, error: `Ses ayarlanamadı: ${err.message}` };
+    return { success: false, error: T(`Ses ayarlanamadı: ${err.message}`, `Couldn't set the volume: ${err.message}`) };
   }
 }
 
@@ -76,9 +77,12 @@ const PLAYER_SCRIPT = (command) => [
   'else if application "Music" is running then',
   `  tell application "Music" to ${command}`,
   'else',
-  '  error "Açık bir müzik çalar (Spotify / Müzik) yok."',
+  T('  error "Açık bir müzik çalar (Spotify / Müzik) yok."', '  error "No music player (Spotify / Music) is open."'),
   'end if'
 ];
+
+// What a media action did, in English (the Turkish reply names the action).
+const MEDIA_DONE_EN = { play_pause: 'Play/pause pressed.', toggle: 'Play/pause pressed.', next: 'Next track.', previous: 'Previous track.', mute: 'Sound muted.', unmute: 'Sound back on.' };
 
 /**
  * Media player control (Spotify or Apple Music)
@@ -113,14 +117,14 @@ export async function mediaControl(action) {
       script = 'set volume output muted false';
       break;
     default:
-      return { success: false, error: `Bilinmeyen medya aksiyonu: ${action}` };
+      return { success: false, error: T(`Bilinmeyen medya aksiyonu: ${action}`, `Unknown media action: ${action}`) };
   }
 
   try {
     await runAppleScript(script);
-    return { success: true, message: `🎵 Medya aksiyonu uygulandı (${action}).` };
+    return { success: true, message: T(`🎵 Medya aksiyonu uygulandı (${action}).`, `🎵 ${MEDIA_DONE_EN[action]}`) };
   } catch (err) {
-    return { success: false, error: `Medya kontrol hatası: ${err.message}` };
+    return { success: false, error: T(`Medya kontrol hatası: ${err.message}`, `Media control failed: ${err.message}`) };
   }
 }
 
@@ -130,9 +134,9 @@ export async function mediaControl(action) {
 export async function playSpotifySearch(query) {
   try {
     await execFileAsync('open', [`spotify:search:${encodeURIComponent(query)}`]);
-    return { success: true, message: `🎵 Spotify'da "${query}" arandı ve açıldı.` };
+    return { success: true, message: T(`🎵 Spotify'da "${query}" arandı ve açıldı.`, `🎵 Searched Spotify for "${query}".`) };
   } catch (err) {
-    return { success: false, error: `Spotify açılamadı: ${err.message}` };
+    return { success: false, error: T(`Spotify açılamadı: ${err.message}`, `Couldn't open Spotify: ${err.message}`) };
   }
 }
 
@@ -140,7 +144,7 @@ export async function playSpotifySearch(query) {
  * Create a real note in Apple Notes
  */
 export async function createNote(title, body) {
-  const noteTitle = title || 'Yeni Not';
+  const noteTitle = title || T('Yeni Not', 'New Note');
   try {
     await runAppleScript([
       'on run argv',
@@ -148,9 +152,9 @@ export async function createNote(title, body) {
       'end run'
     ], [noteTitle, body || '']);
     await execFileAsync('open', ['-a', 'Notes']);
-    return { success: true, message: `📝 Notlar'a "${noteTitle}" notu eklendi.` };
+    return { success: true, message: T(`📝 Notlar'a "${noteTitle}" notu eklendi.`, `📝 Added the note "${noteTitle}" to Notes.`) };
   } catch (err) {
-    return { success: false, error: `Not oluşturulamadı: ${err.message}` };
+    return { success: false, error: T(`Not oluşturulamadı: ${err.message}`, `Couldn't create the note: ${err.message}`) };
   }
 }
 
@@ -172,16 +176,16 @@ export async function openWebSearch(query, platform = 'google', browser = 'defau
   try {
     if (browser === 'safari') {
       await execFileAsync('open', ['-a', 'Safari', targetUrl]);
-      return { success: true, message: `🌐 Safari'de açıldı: ${cleanQ} (${platform.toUpperCase()})` };
+      return { success: true, message: T(`🌐 Safari'de açıldı: ${cleanQ} (${platform.toUpperCase()})`, `🌐 Opened in Safari: ${cleanQ} (${platform.toUpperCase()})`) };
     } else if (browser === 'chrome') {
       await execFileAsync('open', ['-a', 'Google Chrome', targetUrl]);
-      return { success: true, message: `🌐 Chrome'da açıldı: ${cleanQ} (${platform.toUpperCase()})` };
+      return { success: true, message: T(`🌐 Chrome'da açıldı: ${cleanQ} (${platform.toUpperCase()})`, `🌐 Opened in Chrome: ${cleanQ} (${platform.toUpperCase()})`) };
     } else {
       await execFileAsync('open', [targetUrl]);
-      return { success: true, message: `🌐 Tarayıcıda açıldı: ${cleanQ} (${platform.toUpperCase()})` };
+      return { success: true, message: T(`🌐 Tarayıcıda açıldı: ${cleanQ} (${platform.toUpperCase()})`, `🌐 Opened in the browser: ${cleanQ} (${platform.toUpperCase()})`) };
     }
   } catch (err) {
-    return { success: false, error: `Tarayıcı açılamadı: ${err.message}` };
+    return { success: false, error: T(`Tarayıcı açılamadı: ${err.message}`, `Couldn't open the browser: ${err.message}`) };
   }
 }
 
@@ -191,15 +195,15 @@ export async function openWebSearch(query, platform = 'google', browser = 'defau
 export async function toggleDarkMode() {
   try {
     await runAppleScript('tell application "System Events" to tell appearance preferences to set dark mode to not dark mode');
-    return { success: true, message: `🌓 Görünüm modu (Açık/Koyu) değiştirildi.` };
+    return { success: true, message: T(`🌓 Görünüm modu (Açık/Koyu) değiştirildi.`, `🌓 Switched between light and dark mode.`) };
   } catch (err) {
-    if (err.message.includes('-1743') || err.message.includes('yetkisi yok')) {
+    if (err.message.includes('-1743') || err.message.includes('yetkisi yok') || /not authori[sz]ed/i.test(err.message)) {
       return {
         success: false,
-        error: `macOS Otomasyon İzni Gerekli: Lütfen "Sistem Ayarları > Gizlilik ve Güvenlik > Otomasyon" bölümünden izin verin.`
+        error: T(`macOS Otomasyon İzni Gerekli: Lütfen "Sistem Ayarları > Gizlilik ve Güvenlik > Otomasyon" bölümünden izin verin.`, `macOS Automation permission needed: allow it in "System Settings > Privacy & Security > Automation".`)
       };
     }
-    return { success: false, error: `Tema değiştirilemedi: ${err.message}` };
+    return { success: false, error: T(`Tema değiştirilemedi: ${err.message}`, `Couldn't change the appearance: ${err.message}`) };
   }
 }
 
@@ -208,16 +212,16 @@ export async function toggleDarkMode() {
  */
 export async function takeScreenshot() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `Ekran-Resmi-${timestamp}.png`;
+  const filename = `${T('Ekran-Resmi', 'Screenshot')}-${timestamp}.png`;
   const destPath = path.join(os.homedir(), 'Desktop', filename);
 
   try {
     await execFileAsync('screencapture', ['-x', destPath]);
-    return { success: true, message: `📸 Ekran görüntüsü Masaüstüne kaydedildi: ${filename}`, filePath: destPath };
+    return { success: true, message: T(`📸 Ekran görüntüsü Masaüstüne kaydedildi: ${filename}`, `📸 Screenshot saved to the Desktop: ${filename}`), filePath: destPath };
   } catch (err) {
     return {
       success: false,
-      error: `Ekran görüntüsü alınamadı (Ekran Kaydı izni gerekebilir): ${err.message}`
+      error: T(`Ekran görüntüsü alınamadı (Ekran Kaydı izni gerekebilir): ${err.message}`, `Couldn't take a screenshot (Screen Recording permission may be needed): ${err.message}`)
     };
   }
 }
@@ -233,9 +237,9 @@ export async function lockScreen() {
   } catch {}
   try {
     await execFileAsync('pmset', ['displaysleepnow']);
-    return { success: true, message: '🔒 Ekran kapatıldı (şifre isteniyorsa kilitlendi).' };
+    return { success: true, message: T('🔒 Ekran kapatıldı (şifre isteniyorsa kilitlendi).', '🔒 Display turned off (locked, if a password is required).') };
   } catch (err) {
-    return { success: false, error: `Ekran kilitlenemedi: ${err.message}` };
+    return { success: false, error: T(`Ekran kilitlenemedi: ${err.message}`, `Couldn't lock the screen: ${err.message}`) };
   }
 }
 
@@ -245,9 +249,9 @@ export async function lockScreen() {
 export async function notify(title, message) {
   try {
     await runAppleScript(['on run argv', 'display notification (item 2 of argv) with title (item 1 of argv)', 'end run'], [title || APP_NAME, message || '']);
-    return { success: true, message: `🔔 Bildirim gösterildi: ${message}` };
+    return { success: true, message: T(`🔔 Bildirim gösterildi: ${message}`, `🔔 Notification shown: ${message}`) };
   } catch (err) {
-    return { success: false, error: `Bildirim gösterilemedi: ${err.message}` };
+    return { success: false, error: T(`Bildirim gösterilemedi: ${err.message}`, `Couldn't show the notification: ${err.message}`) };
   }
 }
 
@@ -275,8 +279,8 @@ export async function nowPlaying() {
   try {
     const { stdout } = await runAppleScript(script);
     const song = stdout.trim();
-    return { success: true, message: song ? `🎵 Şu an çalıyor: ${song}` : '🎵 Şu an bir şey çalmıyor.' };
+    return { success: true, message: song ? T(`🎵 Şu an çalıyor: ${song}`, `🎵 Now playing: ${song}`) : T('🎵 Şu an bir şey çalmıyor.', '🎵 Nothing is playing right now.') };
   } catch (err) {
-    return { success: false, error: `Çalan şarkı okunamadı: ${err.message}` };
+    return { success: false, error: T(`Çalan şarkı okunamadı: ${err.message}`, `Couldn't read the song playing: ${err.message}`) };
   }
 }

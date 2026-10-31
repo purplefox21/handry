@@ -10,6 +10,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ROOT, config } from '../../core/config.js';
 import { APP, FOX, WAKE_LABEL, WAKE_SOURCE } from '../../core/brand.js';
+import { T } from '../../core/i18n.js';
 
 export const APP_PATH = path.join(ROOT, 'dist', `${APP.name}.app`);
 export const INSTALLED = path.join(os.homedir(), 'Applications', `${APP.name}.app`);
@@ -93,10 +94,15 @@ export function buildApp() {
     CFBundleVersion: '1',
     LSMinimumSystemVersion: '13.0',
     CFBundleIconFile: 'App',
-    NSMicrophoneUsageDescription: `${APP.name} sesli komutlarını dinlemek için mikrofonu kullanır.`,
-    NSSpeechRecognitionUsageDescription: `${APP.name} konuştukça söylediklerini yazmak ve "${WAKE_LABEL}" demeni duymak için bu Mac'te konuşma tanıma kullanır.`,
-    NSAppleEventsUsageDescription: `${APP.name}, senin isteğinle uygulamaları (Spotify, Müzik, Notlar, Anımsatıcılar, Takvim, Mesajlar, sistem ayarları) kontrol etmek için Apple Events kullanır.`,
-    // The name's Turkish endings, the fox's name and the wake word, for the Swift side.
+    // What macOS shows in its permission questions: in the language Handry speaks when the app is built
+    // (the Swift side switches at runtime; these are read by macOS, mostly on the first launch).
+    NSMicrophoneUsageDescription: T(`${APP.name} sesli komutlarını dinlemek için mikrofonu kullanır.`,
+      `${APP.name} uses the microphone to hear your voice commands.`),
+    NSSpeechRecognitionUsageDescription: T(`${APP.name} konuştukça söylediklerini yazmak ve "${WAKE_LABEL}" demeni duymak için bu Mac'te konuşma tanıma kullanır.`,
+      `${APP.name} uses speech recognition on this Mac to write down what you say as you speak and to hear you say "${WAKE_LABEL}".`),
+    NSAppleEventsUsageDescription: T(`${APP.name}, senin isteğinle uygulamaları (Spotify, Müzik, Notlar, Anımsatıcılar, Takvim, Mesajlar, sistem ayarları) kontrol etmek için Apple Events kullanır.`,
+      `${APP.name} uses Apple Events to control apps when you ask (Spotify, Music, Notes, Reminders, Calendar, Messages, system settings).`),
+    // The name's Turkish endings (Swift uses the plain name in English), the fox's name and the wake word, for the Swift side.
     AppDative: APP.dative,
     AppAccusative: APP.accusative,
     AppAblative: APP.ablative,

@@ -6,8 +6,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { homeDir } from '../core/config.js';
+import { T } from '../core/i18n.js';
 
-const WHERE = { 'claude-vscode': 'VS Code', cli: 'Terminal', 'claude-desktop': 'Claude uygulaması' };
+const WHERE = () => ({ 'claude-vscode': 'VS Code', cli: 'Terminal', 'claude-desktop': T('Claude uygulaması', 'Claude app') });
 let claudeCaller;
 
 /** A Handry MCP server runs under a Claude session: Claude Code's own session file names it. */
@@ -15,7 +16,7 @@ function callerFromClaude() {
   if (claudeCaller !== undefined) return claudeCaller;
   try {
     const s = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.claude', 'sessions', `${process.ppid}.json`), 'utf-8'));
-    claudeCaller = `${WHERE[s.entrypoint] || 'Claude'} · ${path.basename(s.cwd || '')}${s.name ? ` (${s.name})` : ''}`;
+    claudeCaller = `${WHERE()[s.entrypoint] || 'Claude'} · ${path.basename(s.cwd || '')}${s.name ? ` (${s.name})` : ''}`;
   } catch {
     claudeCaller = null;
   }
@@ -24,8 +25,8 @@ function callerFromClaude() {
 
 function who() {
   if (process.env.JEVIS_CALLER) return process.env.JEVIS_CALLER;
-  if (String(process.env.JEVIS_RUN_ID || '').startsWith('mcp-')) return callerFromClaude() || 'Claude oturumu';
-  return 'elle';
+  if (String(process.env.JEVIS_RUN_ID || '').startsWith('mcp-')) return callerFromClaude() || T('Claude oturumu', 'Claude session');
+  return T('elle', 'by hand');
 }
 
 const SECRET_ARGS = new Set(['password', 'secret_value']);

@@ -95,27 +95,30 @@ private func fullDiskRow() -> PermissionRow {
         h.closeFile()
         return true
     }
-    return PermissionRow(id: "fulldisk", symbol: "externaldrive.badge.checkmark", title: "Tam Disk Erişimi",
-                         why: "Telefondan onay ve komut (kendine \"\(APP_NAME), …\" yazmak) ve SMS kodları: Mesajlar'daki mesajlarını okumak. macOS bunu soramaz: Ayarlar'da \(APP_ACC) ekleyip aç, sonra \(APP_ACC) yeniden başlat.", needed: false,
+    return PermissionRow(id: "fulldisk", symbol: "externaldrive.badge.checkmark", title: L("Tam Disk Erişimi", "Full Disk Access"),
+                         why: L("Telefondan onay ve komut (kendine \"\(APP_NAME), …\" yazmak) ve SMS kodları: Mesajlar'daki mesajlarını okumak. macOS bunu soramaz: Ayarlar'da \(APP_ACC) ekleyip aç, sonra \(APP_ACC) yeniden başlat.",
+                                 "Approvals and commands from your phone (texting yourself \"\(APP_NAME), …\") and SMS codes: reading your messages in Messages. macOS can't ask for this one: add \(APP_NAME) in System Settings, turn it on, then restart \(APP_NAME)."), needed: false,
                          check: { readable() ? .granted : .denied },
                          ask: { openSettings("Privacy_AllFiles") })
 }
 
 func allPermissions() -> [PermissionRow] {
     var rows: [PermissionRow] = [
-        PermissionRow(id: "accessibility", symbol: "hand.point.up.left", title: "Erişilebilirlik",
-                      why: "Uygulamalarda düğmelere basmak, yazmak, menüleri kullanmak; tilkinin pencerelerin üstünde gezmesi.", needed: true,
+        PermissionRow(id: "accessibility", symbol: "hand.point.up.left", title: L("Erişilebilirlik", "Accessibility"),
+                      why: L("Uygulamalarda düğmelere basmak, yazmak, menüleri kullanmak; tilkinin pencerelerin üstünde gezmesi.",
+                             "Clicking buttons, typing and using menus in apps; the pet walking on top of windows."), needed: true,
                       check: { AXIsProcessTrusted() ? .granted : .missing },
                       ask: {
                           let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
                           if !AXIsProcessTrustedWithOptions([key: true] as CFDictionary) { openSettings("Privacy_Accessibility") }
                       }),
-        PermissionRow(id: "screen", symbol: "rectangle.dashed.badge.record", title: "Ekran Kaydı",
-                      why: "Gerektiğinde ekrana bakmak (ekran görüntüsü). Verdikten sonra \(APP_ACC) bir kez yeniden aç.", needed: false,
+        PermissionRow(id: "screen", symbol: "rectangle.dashed.badge.record", title: L("Ekran Kaydı", "Screen Recording"),
+                      why: L("Gerektiğinde ekrana bakmak (ekran görüntüsü). Verdikten sonra \(APP_ACC) bir kez yeniden aç.",
+                             "Looking at the screen when needed (screenshots). After allowing it, open \(APP_NAME) again once."), needed: false,
                       check: { CGPreflightScreenCaptureAccess() ? .granted : .missing },
                       ask: { if !CGRequestScreenCaptureAccess() { openSettings("Privacy_ScreenCapture") } }),
-        PermissionRow(id: "mic", symbol: "mic", title: "Mikrofon",
-                      why: "Sesli komutlar ve \"\(WAKE_LABEL)\".", needed: true,
+        PermissionRow(id: "mic", symbol: "mic", title: L("Mikrofon", "Microphone"),
+                      why: L("Sesli komutlar ve \"\(WAKE_LABEL)\".", "Voice commands and \"\(WAKE_LABEL)\"."), needed: true,
                       check: {
                           switch AVCaptureDevice.authorizationStatus(for: .audio) {
                           case .authorized: return .granted
@@ -127,8 +130,9 @@ func allPermissions() -> [PermissionRow] {
                           if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined { AVCaptureDevice.requestAccess(for: .audio) { _ in } }
                           else { openSettings("Privacy_Microphone") }
                       }),
-        PermissionRow(id: "speech", symbol: "waveform", title: "Konuşma Tanıma",
-                      why: "Konuşurken söylediklerini yazmak ve \"\(WAKE_LABEL)\" demeni duymak (bu Mac'te, internetsiz).", needed: true,
+        PermissionRow(id: "speech", symbol: "waveform", title: L("Konuşma Tanıma", "Speech Recognition"),
+                      why: L("Konuşurken söylediklerini yazmak ve \"\(WAKE_LABEL)\" demeni duymak (bu Mac'te, internetsiz).",
+                             "Writing down what you say as you speak, and hearing \"\(WAKE_LABEL)\" (on this Mac, offline)."), needed: true,
                       check: {
                           switch SFSpeechRecognizer.authorizationStatus() {
                           case .authorized: return .granted
@@ -140,19 +144,19 @@ func allPermissions() -> [PermissionRow] {
                           if SFSpeechRecognizer.authorizationStatus() == .notDetermined { SFSpeechRecognizer.requestAuthorization { _ in } }
                           else { openSettings("Privacy_SpeechRecognition") }
                       }),
-        folderRow("Desktop", "Masaüstü klasörü", "\(APP_GEN) kendi dosyaları burada (~/Desktop/jev); dosya işleri.", needed: true),
-        folderRow("Documents", "Belgeler klasörü", "\"Belgelerimde şunu bul\" gibi dosya işleri.", needed: false),
-        folderRow("Downloads", "İndirilenler klasörü", "İndirilen dosyaları bulmak, taşımak.", needed: false),
+        folderRow("Desktop", L("Masaüstü klasörü", "Desktop folder"), L("\(APP_GEN) kendi dosyaları burada (~/Desktop/jev); dosya işleri.", "\(APP_NAME)'s own files are here (~/Desktop/jev); file tasks."), needed: true),
+        folderRow("Documents", L("Belgeler klasörü", "Documents folder"), L("\"Belgelerimde şunu bul\" gibi dosya işleri.", "File tasks like \"find this in my Documents\"."), needed: false),
+        folderRow("Downloads", L("İndirilenler klasörü", "Downloads folder"), L("İndirilen dosyaları bulmak, taşımak.", "Finding and moving downloaded files."), needed: false),
         fullDiskRow()
     ]
     let apps: [(String, String, String, String)] = [
-        ("com.apple.systemevents", "System Events", "Karanlık mod gibi sistem ayarları.", "gearshape"),
-        ("com.spotify.client", "Spotify", "Şarkı çalmak, durdurmak, ne çaldığını söylemek.", "music.note"),
-        ("com.apple.Music", "Müzik", "Müzik uygulamasında çalmak.", "music.note.list"),
-        ("com.apple.Notes", "Notlar", "Not almak ve notlarda aramak.", "note.text"),
-        ("com.apple.reminders", "Anımsatıcılar", "Anımsatıcı eklemek ve okumak.", "checklist"),
-        ("com.apple.iCal", "Takvim", "Takvime bakmak ve etkinlik eklemek.", "calendar"),
-        ("com.apple.MobileSMS", "Mesajlar", "Seni telefonundan iMessage ile haberdar etmek.", "message")
+        ("com.apple.systemevents", "System Events", L("Karanlık mod gibi sistem ayarları.", "System settings like Dark Mode."), "gearshape"),
+        ("com.spotify.client", "Spotify", L("Şarkı çalmak, durdurmak, ne çaldığını söylemek.", "Playing and pausing songs, saying what's playing."), "music.note"),
+        ("com.apple.Music", L("Müzik", "Music"), L("Müzik uygulamasında çalmak.", "Playing in the Music app."), "music.note.list"),
+        ("com.apple.Notes", L("Notlar", "Notes"), L("Not almak ve notlarda aramak.", "Taking notes and searching them."), "note.text"),
+        ("com.apple.reminders", L("Anımsatıcılar", "Reminders"), L("Anımsatıcı eklemek ve okumak.", "Adding and reading reminders."), "checklist"),
+        ("com.apple.iCal", L("Takvim", "Calendar"), L("Takvime bakmak ve etkinlik eklemek.", "Checking your calendar and adding events."), "calendar"),
+        ("com.apple.MobileSMS", L("Mesajlar", "Messages"), L("Seni telefonundan iMessage ile haberdar etmek.", "Letting you know on your phone by iMessage."), "message")
     ]
     rows += apps.compactMap { automationRow($0.0, $0.1, $0.2, symbol: $0.3) }
     return rows
@@ -192,8 +196,9 @@ struct PermissionsView: View {
                     Image(nsImage: icon).resizable().frame(width: 56, height: 56)
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("\(APP_GEN) izinleri").font(.title2.bold())
-                    Text("\(APP_GEN) senin yerine çalışabilmesi için macOS bu izinleri soruyor. Her satırda \"İzin Ver\"e bas; izin verince satır kendiliğinden yeşile döner.")
+                    Text(L("\(APP_GEN) izinleri", "\(APP_NAME) Permissions")).font(.title2.bold())
+                    Text(L("\(APP_GEN) senin yerine çalışabilmesi için macOS bu izinleri soruyor. Her satırda \"İzin Ver\"e bas; izin verince satır kendiliğinden yeşile döner.",
+                            "macOS asks for these so \(APP_NAME) can work for you. Click \"Allow\" on each row; a row turns green by itself once it's allowed."))
                         .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -207,10 +212,10 @@ struct PermissionsView: View {
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
             }
             HStack {
-                Text(model.allGranted ? "Hepsi tamam. 🦊" : model.missingNeeded ? "Kırmızı olanlar olmadan \(APP_NAME) düzgün çalışmaz." : "Gerekenler tamam; gerisi isteğe bağlı.")
+                Text(model.allGranted ? L("Hepsi tamam. 🦊", "All set. 🦊") : model.missingNeeded ? L("Kırmızı olanlar olmadan \(APP_NAME) düzgün çalışmaz.", "\(APP_NAME) won't work properly without the red ones.") : L("Gerekenler tamam; gerisi isteğe bağlı.", "The needed ones are done; the rest are optional."))
                     .foregroundStyle(model.missingNeeded ? Color.red : Color.secondary)
                 Spacer()
-                Button(model.missingNeeded ? "Sonra" : "Bitti", action: close).keyboardShortcut(.defaultAction)
+                Button(model.missingNeeded ? L("Sonra", "Later") : L("Bitti", "Done"), action: close).keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
@@ -228,18 +233,18 @@ struct PermissionRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(row.title).font(.headline)
-                    if row.needed { Text("gerekli").font(.caption2.bold()).padding(.horizontal, 5).padding(.vertical, 1).background(Capsule().fill(Color.orange.opacity(0.2))) }
+                    if row.needed { Text(L("gerekli", "needed")).font(.caption2.bold()).padding(.horizontal, 5).padding(.vertical, 1).background(Capsule().fill(Color.orange.opacity(0.2))) }
                 }
                 Text(row.why).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
             switch state {
             case .granted:
-                Label("Verildi", systemImage: "checkmark.circle.fill").foregroundStyle(.green).labelStyle(.titleAndIcon)
+                Label(L("Verildi", "Allowed"), systemImage: "checkmark.circle.fill").foregroundStyle(.green).labelStyle(.titleAndIcon)
             case .denied:
-                Button("Ayarları Aç", action: row.ask)
+                Button(L("Ayarları Aç", "Open Settings"), action: row.ask)
             default:
-                Button("İzin Ver", action: row.ask).buttonStyle(.borderedProminent)
+                Button(L("İzin Ver", "Allow"), action: row.ask).buttonStyle(.borderedProminent)
             }
         }
         .padding(.horizontal, 12)
@@ -257,7 +262,7 @@ final class PermissionsWindow: NSObject, NSWindowDelegate {
     func show() {
         if window == nil {
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 640), styleMask: [.titled, .closable], backing: .buffered, defer: false)
-            w.title = "\(APP_NAME) İzinleri"
+            w.title = L("\(APP_NAME) İzinleri", "\(APP_NAME) Permissions")
             w.isReleasedWhenClosed = false
             w.delegate = self
             w.contentView = NSHostingView(rootView: PermissionsView(model: model, close: { [weak w] in w?.close() }))

@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { HOME } from '../core/config.js';
 import * as desktop from './desktop.js';
+import { T } from '../core/i18n.js';
 
 export const POWER_ACTIONS = ['lock', 'sleep', 'restart', 'shutdown'];
 
@@ -18,22 +19,29 @@ const ITEMS = {
   shutdown: ['Sistemi Kapat…', 'Shut Down…']
 };
 
+// [Turkish, English]
 const DONE = {
-  lock: '🔒 Ekran kilitlendi.',
-  sleep: '😴 Mac uyku moduna geçiyor.',
-  restart: '🔄 Mac yeniden başlatılıyor (macOS bir dakika içinde kendisi devam eder; istersen Vazgeç de).',
-  shutdown: '⏻ Mac kapatılıyor (macOS bir dakika içinde kendisi devam eder; istersen Vazgeç de).'
+  lock: ['🔒 Ekran kilitlendi.', '🔒 Screen locked.'],
+  sleep: ['😴 Mac uyku moduna geçiyor.', '😴 The Mac is going to sleep.'],
+  restart: ['🔄 Mac yeniden başlatılıyor (macOS bir dakika içinde kendisi devam eder; istersen Vazgeç de).', '🔄 Restarting the Mac (macOS goes ahead by itself within a minute; you can still press Cancel).'],
+  shutdown: ['⏻ Mac kapatılıyor (macOS bir dakika içinde kendisi devam eder; istersen Vazgeç de).', '⏻ Shutting down the Mac (macOS goes ahead by itself within a minute; you can still press Cancel).']
 };
 
-export const POWER_NAMES = { lock: 'ekranı kilitle', sleep: "Mac'i uyut", restart: "Mac'i yeniden başlat", shutdown: "Mac'i kapat" };
+// Getters: POWER_NAMES.lock is read in the language spoken at that moment.
+export const POWER_NAMES = {
+  get lock() { return T('ekranı kilitle', 'lock the screen'); },
+  get sleep() { return T("Mac'i uyut", 'put the Mac to sleep'); },
+  get restart() { return T("Mac'i yeniden başlat", 'restart the Mac'); },
+  get shutdown() { return T("Mac'i kapat", 'shut down the Mac'); }
+};
 
 export async function power(action) {
-  if (!ITEMS[action]) throw new Error(`Bilinmeyen güç işlemi: ${action}`);
+  if (!ITEMS[action]) throw new Error(T(`Bilinmeyen güç işlemi: ${action}`, `Unknown power action: ${action}`));
   if (process.env.JEVIS_TEST_POWER === 'record') {
     fs.mkdirSync(HOME, { recursive: true });
     fs.appendFileSync(path.join(HOME, 'power-test.log'), `${JSON.stringify({ action, at: Date.now() })}\n`);
-    return { success: true, message: `${DONE[action]} (test: kaydedildi)` };
+    return { success: true, message: `${T(...DONE[action])} ${T('(test: kaydedildi)', '(test: recorded)')}` };
   }
   await desktop.pressAppleMenu(ITEMS[action]);
-  return { success: true, message: DONE[action] };
+  return { success: true, message: T(...DONE[action]) };
 }

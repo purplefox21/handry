@@ -2,14 +2,15 @@
 // come in through MCP; only those tools are allowed.
 import { spawn } from 'node:child_process';
 import { homeDir, config } from '../core/config.js';
-import { BRAIN_PROMPT, findBinary, mcpConfigFile, shortName, resultText } from './common.js';
+import { brainPrompt, findBinary, mcpConfigFile, shortName, resultText } from './common.js';
 import { MCP_NAME } from '../core/brand.js';
+import { T } from '../core/i18n.js';
 
 export const id = 'claude-code';
-export const label = 'Claude Code (abonelik)';
+export const label = () => T('Claude Code (abonelik)', 'Claude Code (subscription)');
 
 export async function available() {
-  return findBinary('claude') ? { ok: true } : { ok: false, reason: 'claude komutu bulunamadı' };
+  return findBinary('claude') ? { ok: true } : { ok: false, reason: T('claude komutu bulunamadı', 'the claude command was not found') };
 }
 
 /**
@@ -27,8 +28,9 @@ export function run({ text, sessionId, onEvent, signal, model, effort }) {
     '--mcp-config', mcpConfigFile(), '--strict-mcp-config',
     '--allowedTools', `mcp__${MCP_NAME}`
   ];
-  if (settings.lean === false) args.push('--append-system-prompt', BRAIN_PROMPT);
-  else args.push('--tools', '', '--system-prompt', BRAIN_PROMPT);
+  const prompt = brainPrompt();
+  if (settings.lean === false) args.push('--append-system-prompt', prompt);
+  else args.push('--tools', '', '--system-prompt', prompt);
   const chosenModel = model || settings.model;
   const chosenEffort = effort || settings.effort;
   if (chosenModel) args.push('--model', chosenModel);
@@ -55,7 +57,7 @@ export function run({ text, sessionId, onEvent, signal, model, effort }) {
         try { ev = JSON.parse(line); } catch { continue; }
         if (ev.type === 'system' && ev.subtype === 'init') {
           session = ev.session_id;
-          onEvent({ type: 'status', text: 'Claude başladı' });
+          onEvent({ type: 'status', text: T('Claude başladı', 'Claude started') });
         } else if (ev.type === 'assistant') {
           for (const block of ev.message?.content || []) {
             if (block.type === 'text' && block.text.trim()) onEvent({ type: 'text', text: block.text });
@@ -81,8 +83,8 @@ export function run({ text, sessionId, onEvent, signal, model, effort }) {
     child.stderr.on('data', chunk => { errText += chunk; });
     child.on('error', reject);
     child.on('close', code => {
-      if (signal?.aborted) return resolve({ text: 'Durduruldu.', sessionId: session, stopped: true });
-      if (code !== 0 && !finalText) return reject(new Error(`Claude Code hata verdi (${code}): ${errText.slice(-400)}`));
+      if (signal?.aborted) return resolve({ text: T('Durduruldu.', 'Stopped.'), sessionId: session, stopped: true });
+      if (code !== 0 && !finalText) return reject(new Error(T(`Claude Code hata verdi (${code}): ${errText.slice(-400)}`, `Claude Code failed (${code}): ${errText.slice(-400)}`)));
       resolve({ text: finalText, sessionId: session });
     });
   });

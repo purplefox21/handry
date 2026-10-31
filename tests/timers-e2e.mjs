@@ -3,6 +3,7 @@
 // shutting down and iMessages are only written down (JEVIS_TEST_POWER /
 // JEVIS_TEST_NOTIFY = record), nothing really happens to the Mac. Uses Jev for
 // the fast-path decisions; the brain is a stand-in that records what it gets.
+// The English rules and texts are checked with JEVIS_LANG=en.
 // Usage: node tests/timers-e2e.mjs
 import fs from 'node:fs';
 import os from 'node:os';
@@ -98,6 +99,73 @@ try {
       if (!good) wrong.push(`${text} → ${JSON.stringify(got)}`);
     }
     return { ok: !wrong.length, note: wrong.join('\n') };
+  });
+
+  await check('Kurallar İngilizce de: "in 10 minutes", "at 3 pm", "tomorrow at 9", "when the Claude sessions are done", "don\'t shut down" (36 cümle)', () => {
+    const now = new Date('2026-10-01T00:59:46').getTime();
+    const at = (h, m, day = 1) => new Date(`2026-10-${String(day).padStart(2, '0')}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`).getTime();
+    const cases = [
+      ['lock the screen in 10 minutes', { type: 'schedule', action: 'lock', at: now + 10 * 60000 }],
+      ['in an hour, shut down the computer', { type: 'schedule', action: 'shutdown', at: now + 3600000 }],
+      ['put the Mac to sleep in half an hour', { type: 'schedule', action: 'sleep', at: now + 1800000 }],
+      ['restart the mac in an hour and a half', { type: 'schedule', action: 'restart', at: now + 5400000 }],
+      ['Lock the screen in 1 hour 20 minutes', { type: 'schedule', action: 'lock', at: now + 80 * 60000 }],
+      ['lock the screen at 3', { type: 'schedule', action: 'lock', at: at(3, 0) }],
+      ['shut down the computer at 3 pm', { type: 'schedule', action: 'shutdown', at: at(15, 0) }],
+      ['lock the screen at 15:30', { type: 'schedule', action: 'lock', at: at(15, 30) }],
+      ['restart the Mac tomorrow at 9', { type: 'schedule', action: 'restart', at: at(9, 0, 2) }],
+      ['shut down tonight at 11', { type: 'schedule', action: 'shutdown', at: at(23, 0) }],
+      ['put the computer to sleep at 8 in the evening', { type: 'schedule', action: 'sleep', at: at(20, 0) }],
+      ['Shut down when the Claude sessions are done', { type: 'schedule', action: 'shutdown', claude: true }],
+      ['turn off the computer once the VS Code tasks are finished', { type: 'schedule', action: 'shutdown', claude: true }],
+      ["don't shut down", { type: 'negated' }],
+      ['Don’t turn off the computer', { type: 'negated' }],
+      ['cancel the timers', { type: 'cancel' }],
+      ['cancel the shutdown', { type: 'cancel' }],
+      ["what's scheduled?", { type: 'list' }],
+      ['show me my timers', { type: 'list' }],
+      ['shut down the Mac', { type: 'now', action: 'shutdown' }],
+      ['restart the computer', { type: 'now', action: 'restart' }],
+      ['put the mac to sleep', { type: 'now', action: 'sleep' }],
+      ['can you lock the screen please', { type: 'now', action: 'lock' }],
+      ['every 5 minutes check if the download is done and then shut down', { type: 'brain' }],
+      ['pause spotify in 10 minutes', { type: 'brain' }],
+      ['restart the mac on monday at 9', { type: 'brain' }],
+      ["what's on my calendar tomorrow", null],
+      ['when is my next meeting', null],
+      ['quit calculator', null],
+      ['turn off dark mode', null],
+      ['search for lock screen wallpapers', null],
+      ['shut down spotify', null],
+      ['set the volume at 20', null],
+      ['look at 3 files', null],
+      ["I'm going to sleep, good night", null],
+      ['cancel the meeting tomorrow', null]
+    ];
+    const wrong = [];
+    for (const [text, want] of cases) {
+      const got = timers.parseSchedule(text, now);
+      const good = want === null ? got === null : got && Object.entries(want).every(([k, v]) => (k === 'at' ? Math.abs(got.at - v) < 1000 : got[k] === v));
+      if (!good) wrong.push(`${text} → ${JSON.stringify(got)}`);
+    }
+    return { ok: !wrong.length, note: wrong.join('\n') };
+  });
+
+  await check('İngilizce metinler: iş listesi, onay cümlesi ve etiketler', () => {
+    process.env.JEVIS_LANG = 'en';
+    try {
+      const d = new Date();
+      d.setHours(23, 59, 0, 0);
+      const lock = { action: 'lock', at: d.getTime(), until: null, created: Date.now(), every: 300000, countdown: 0 };
+      const watch = { action: 'shutdown', at: Date.now(), until: { claude: [{ name: 'iş geliştirme' }, { name: 'ornek-proje' }] }, created: Date.now(), every: 30000, countdown: 30 };
+      const texts = [timers.describe(lock), timers.confirmText(lock), timers.describe(watch), timers.confirmText(watch), timers.jobView(watch).when, timers.formatJobs([])];
+      const want = [/^⏰ at 11:59 PM → lock the screen$/, /^OK: I'll lock the screen at 11:59 PM\. If you change your mind, say "cancel the timers"\.$/, /^👀 when "iş geliştirme", "ornek-proje" are done → shut down the Mac$/,
+        /I'm checking every 30 seconds\. First there's a 30-second countdown/, /^When "iş geliştirme", "ornek-proje" are done$/, /^Nothing is scheduled\.$/];
+      const bad = texts.filter((t, i) => !want[i].test(t));
+      return { ok: !bad.length, note: bad.join(' | ') };
+    } finally {
+      delete process.env.JEVIS_LANG;
+    }
   });
 
   timers.startScheduler();
@@ -218,6 +286,22 @@ try {
     const ran = await waitFor(() => chats.loadChat(asked).entries.some(e => e.source === 'timer'), 15000);
     await waitFor(() => chats.loadChat(asked).entries.at(-1)?.role === 'jevis', 10000);
     return { ok: job.chatId === asked && ran && chats.peekChat().id === current && !chats.loadChat(current).entries.length, note: `iş: ${job.chatId} · sohbet: ${asked} · açık olan: ${chats.peekChat().id}` };
+  });
+
+  await check('İngilizce hızlı yol: "lock the screen in 10 minutes" kuruluyor, "don\'t shut down" bekleyen kapatmayı iptal ediyor', async () => {
+    reset();
+    process.env.JEVIS_LANG = 'en';
+    try {
+      const set = await say('lock the screen in 10 minutes');
+      const job = timers.listJobs()[0];
+      const setOk = set.fast && job?.action === 'lock' && Math.abs(job.at - (Date.now() + 10 * 60000)) < 30000 && job.label?.what === 'Lock the screen' && !powered().length;
+      timers.cancelJobs('all');
+      timers.addJob({ action: 'shutdown', at: Date.now() + 3600000 });
+      const no = await say("don't shut down");
+      return { ok: setOk && no.fast && /^OK, I won't\. Cancelled: ⏰ .+ → shut down the Mac$/.test(no.text) && !timers.listJobs().length, note: `${set.text}\n${no.text}` };
+    } finally {
+      delete process.env.JEVIS_LANG;
+    }
   });
 
   await check('"bilgisayarı kapatma": bekleyen kapatmayı iptal ediyor', async () => {

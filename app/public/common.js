@@ -22,15 +22,39 @@ const store = {
 // The app's name and its Turkish endings (core/brand.js, put into the page by the server).
 const BRAND = (() => { try { return JSON.parse(decodeURIComponent(document.querySelector('meta[name="app-brand"]').content)); } catch { return {}; } })();
 const APP_NAME = BRAND.name || 'Handry';
-const SAY_TO = `${BRAND.dative || "Handry'ye"} söyle…`;
+
+// The language Handry speaks (core/i18n.js), as the server said when it sent
+// the page. It stays the same until the page reloads (a change in Settings
+// reloads it), so texts picked once at load are fine here.
+const LANG = BRAND.lang === 'en' ? 'en' : 'tr';
+/** The Turkish or the English text, by the page's language. */
+const T = (tr, en) => (LANG === 'en' ? en : tr);
+const LOCALE = T('tr-TR', 'en-US');
+/** "3 adım" / "3 steps" */
+const stepCount = n => T(`${n} adım`, `${n} ${n === 1 ? 'step' : 'steps'}`);
+
+// The HTML is in Turkish; English sits next to it in data-en (the element's
+// HTML: fixed text from our own files, never user data), data-en-placeholder,
+// data-en-title, data-en-aria-label and data-en-cmd (a suggestion's command).
+function applyLanguage() {
+  document.documentElement.lang = LANG;
+  if (LANG !== 'en') return;
+  for (const node of document.querySelectorAll('[data-en]')) node.innerHTML = node.dataset.en;
+  for (const [from, to] of [['placeholder', 'placeholder'], ['title', 'title'], ['aria-label', 'aria-label'], ['cmd', 'data-cmd']]) {
+    for (const node of document.querySelectorAll(`[data-en-${from}]`)) node.setAttribute(to, node.getAttribute(`data-en-${from}`));
+  }
+}
+applyLanguage();
+
+const SAY_TO = T(`${BRAND.dative || "Handry'ye"} söyle…`, `Tell ${APP_NAME}…`);
 
 const MODEL_NAMES = { 'claude-sonnet-5-5': 'Sonnet 5.5', 'claude-sonnet-5': 'Sonnet 5', 'claude-opus-5-5': 'Opus 5.5', 'claude-haiku-4-5': 'Haiku 4.5' };
-const BRAIN_NAMES = { 'claude-code': 'Claude Code', codex: 'Codex', anthropic: 'Claude API', openai: 'OpenAI uyumlu', ollama: 'Ollama' };
+const BRAIN_NAMES = { 'claude-code': 'Claude Code', codex: 'Codex', anthropic: 'Claude API', openai: T('OpenAI uyumlu', 'OpenAI-compatible'), ollama: 'Ollama' };
 const ROUTE_NAMES = {
-  volume: 'ses', mute: 'ses', music: 'müzik', now_playing: 'çalan şarkı', app_open: 'uygulama açma', app_quit: 'uygulama kapatma',
-  web_open: 'site açma', web_search: 'arama', page_click: 'sayfada tıklama', dark_mode: 'görünüm', lock_screen: 'ekran kilidi', screenshot: 'ekran görüntüsü',
-  spotify_play: 'Spotify', note_add: 'not', calendar_show: 'takvim', reminders_show: 'anımsatıcılar',
-  timer: 'zamanlayıcı', power_lock: 'ekran kilidi', power_sleep: 'uyku', power_restart: 'yeniden başlatma', power_shutdown: 'kapatma'
+  volume: T('ses', 'volume'), mute: T('ses', 'volume'), music: T('müzik', 'music'), now_playing: T('çalan şarkı', 'now playing'), app_open: T('uygulama açma', 'opening an app'), app_quit: T('uygulama kapatma', 'quitting an app'),
+  web_open: T('site açma', 'opening a site'), web_search: T('arama', 'search'), page_click: T('sayfada tıklama', 'clicking on the page'), dark_mode: T('görünüm', 'appearance'), lock_screen: T('ekran kilidi', 'screen lock'), screenshot: T('ekran görüntüsü', 'screenshot'),
+  spotify_play: 'Spotify', note_add: T('not', 'note'), calendar_show: T('takvim', 'calendar'), reminders_show: T('anımsatıcılar', 'reminders'),
+  timer: T('zamanlayıcı', 'timer'), power_lock: T('ekran kilidi', 'screen lock'), power_sleep: T('uyku', 'sleep'), power_restart: T('yeniden başlatma', 'restart'), power_shutdown: T('kapatma', 'shut down')
 };
 
 // Small DOM helpers
@@ -93,80 +117,80 @@ const pretty = name => String(name).replace(/-/g, ' ');
 // What each tool call looks like to a person
 
 const MAC_ACTIONS = {
-  volume: a => `Ses %${a.value} yapılıyor`, volume_up: () => 'Ses açılıyor', volume_down: () => 'Ses kısılıyor', mute: () => 'Ses kapatılıyor', unmute: () => 'Ses açılıyor',
-  now_playing: () => 'Çalan şarkıya bakılıyor', screenshot: () => 'Ekran görüntüsü alınıyor',
-  play_pause: () => 'Müzik başlat/durdur', next_track: () => 'Sonraki şarkı', previous_track: () => 'Önceki şarkı',
-  dark_mode: () => 'Görünüm değiştiriliyor', lock_screen: () => 'Ekran kilitleniyor', sleep: () => 'Mac uyutuluyor', restart: () => 'Mac yeniden başlatılıyor', shutdown: () => 'Mac kapatılıyor', notify: a => `Bildirim: ${short(a.value)}`,
-  spotify_search: a => `Spotify'da aranıyor: ${short(a.value)}`, note: a => `Not ekleniyor: ${short(a.title || a.value)}`
+  volume: a => T(`Ses %${a.value} yapılıyor`, `Setting the volume to ${a.value}%`), volume_up: () => T('Ses açılıyor', 'Turning the volume up'), volume_down: () => T('Ses kısılıyor', 'Turning the volume down'), mute: () => T('Ses kapatılıyor', 'Muting'), unmute: () => T('Ses açılıyor', 'Unmuting'),
+  now_playing: () => T('Çalan şarkıya bakılıyor', 'Checking what is playing'), screenshot: () => T('Ekran görüntüsü alınıyor', 'Taking a screenshot'),
+  play_pause: () => T('Müzik başlat/durdur', 'Play/pause music'), next_track: () => T('Sonraki şarkı', 'Next song'), previous_track: () => T('Önceki şarkı', 'Previous song'),
+  dark_mode: () => T('Görünüm değiştiriliyor', 'Changing the appearance'), lock_screen: () => T('Ekran kilitleniyor', 'Locking the screen'), sleep: () => T('Mac uyutuluyor', 'Putting the Mac to sleep'), restart: () => T('Mac yeniden başlatılıyor', 'Restarting the Mac'), shutdown: () => T('Mac kapatılıyor', 'Shutting down the Mac'), notify: a => T(`Bildirim: ${short(a.value)}`, `Notification: ${short(a.value)}`),
+  spotify_search: a => T(`Spotify'da aranıyor: ${short(a.value)}`, `Searching Spotify: ${short(a.value)}`), note: a => T(`Not ekleniyor: ${short(a.title || a.value)}`, `Adding a note: ${short(a.title || a.value)}`)
 };
 
 const STEPS = {
-  browser_open: [a => `Sayfa açılıyor: ${host(a.url)}`, 'globe'],
-  browser_read: [() => 'Sayfa okunuyor', 'eye'],
-  browser_click: [a => `Tıklanıyor: ${short(a.target)}`, 'pointer'],
-  browser_type: [a => `Yazılıyor: “${short(a.text, 40)}” → ${short(a.target, 30)}`, 'type'],
-  browser_select: [a => `Seçiliyor: ${short(a.option, 30)} (${short(a.target, 30)})`, 'list'],
-  browser_check: [a => `${a.checked === false ? 'İşaret kaldırılıyor' : 'İşaretleniyor'}: ${short(a.target)}`, 'check-square'],
-  browser_upload: [a => `Dosya yükleniyor: ${String(a.file_path || '').split('/').pop()}`, 'upload'],
-  browser_fill_secret: [a => `Şifre giriliyor (${a.secret})`, 'lock'],
-  wait_for_user: [a => `Seni bekliyor: ${short(a.message, 80)}`, 'user'],
-  human_mode: [a => (a.on === false ? 'İnsan gibi giriş kapatılıyor' : a.on ? 'İnsan gibi giriş açılıyor (engel var)' : 'İnsan gibi giriş durumuna bakılıyor'), 'user'],
-  browser_press: [a => `Tuş: ${a.key}`, 'command'],
-  browser_scroll: [a => `Sayfa kaydırılıyor${a.direction === 'up' ? ' (yukarı)' : ''}`, 'arrow-down'],
-  browser_back: [() => 'Geri gidiliyor', 'back'],
-  browser_tabs: [a => (a.action === 'switch' ? `Sekmeye geçiliyor: ${short(a.tab)}` : a.action === 'close' ? 'Sekme kapatılıyor' : 'Sekmelere bakılıyor'), 'layers'],
-  browser_screenshot: [() => 'Sayfanın görüntüsü alınıyor', 'camera'],
-  browser_verify: [a => `Kontrol ediliyor: ${short(a.expectation, 70)}`, 'check-circle'],
-  browser_wait: [a => (a.text ? `Bekleniyor: “${short(a.text, 40)}”` : 'Bekleniyor'), 'clock'],
-  desktop_apps: [() => 'Açık uygulamalara bakılıyor', 'grid'],
-  desktop_open_app: [a => `Uygulama açılıyor: ${a.name}`, 'monitor'],
-  desktop_quit_app: [a => `Uygulama kapatılıyor: ${a.name}`, 'power'],
-  desktop_read: [a => `${a.app || 'Öndeki uygulama'} okunuyor`, 'eye'],
-  desktop_click: [a => `Basılıyor: ${short(a.target)}${a.app ? ` (${a.app})` : ''}`, 'pointer'],
-  desktop_type: [a => `Yazılıyor: “${short(a.text, 40)}”${a.target ? ` → ${short(a.target, 30)}` : ''}`, 'type'],
-  desktop_key: [a => `Kısayol: ${a.keys}`, 'command'],
-  desktop_screenshot: [() => 'Pencerenin görüntüsü alınıyor', 'camera'],
-  desktop_click_at: [a => `Ekranda tıklanıyor: ${short(a.description)}`, 'pointer'],
-  desktop_windows: [a => `${a.app || 'Öndeki uygulama'} pencerelerine bakılıyor`, 'layers'],
-  desktop_focus_window: [a => `Pencereye geçiliyor: ${short(a.window, 40)} (${a.app})`, 'layers'],
-  desktop_wait: [a => `${a.gone ? 'Kaybolması bekleniyor' : 'Bekleniyor'}: “${short(a.text, 40)}”`, 'clock'],
-  files_list: [a => `Klasöre bakılıyor: ${short(a.path, 50)}`, 'folder'],
-  files_search: [a => `Dosya aranıyor: “${short(a.query, 40)}”`, 'folder'],
-  files_recent: [a => ({ apps: 'Son kullanılan uygulamalara bakılıyor', projects: 'Son projelere bakılıyor' }[a.kind] || 'Son açılan dosyalara bakılıyor'), 'clock'],
-  files_read: [a => `Dosya okunuyor: ${String(a.path || '').split('/').pop()}`, 'file'],
-  files_open: [a => `Açılıyor: ${String(a.path || '').split('/').pop()}${a.app ? ` (${a.app})` : ''}`, 'folder'],
-  project_activity: [a => `Projede ne yapıldığına bakılıyor: ${String(a.path || '').split('/').filter(Boolean).pop()}`, 'layers'],
-  spotify_play: [a => (a.liked ? 'Spotify: Beğenilen Şarkılar çalınıyor' : `Spotify'da çalınıyor: ${short(a.what, 40)}`), 'play'],
-  music_play: [a => `Müzik'te çalınıyor: ${short(a.query, 40)}`, 'play'],
-  notes_add: [a => `Not ekleniyor: ${short(a.title || a.text, 50)}`, 'file'],
-  notes_find: [a => `Notlarda aranıyor: “${short(a.query, 40)}”`, 'file'],
-  reminders_add: [a => `Anımsatıcı ekleniyor: ${short(a.text, 50)}`, 'clock'],
-  reminders_list: [() => 'Anımsatıcılara bakılıyor', 'clock'],
-  calendar_events: [a => (a.from === 1 ? 'Yarının takvimine bakılıyor' : (a.days || 1) > 1 ? 'Haftanın takvimine bakılıyor' : 'Bugünün takvimine bakılıyor'), 'clock'],
-  calendar_add: [a => `Takvime ekleniyor: ${short(a.title, 40)}`, 'clock'],
+  browser_open: [a => T(`Sayfa açılıyor: ${host(a.url)}`, `Opening a page: ${host(a.url)}`), 'globe'],
+  browser_read: [() => T('Sayfa okunuyor', 'Reading the page'), 'eye'],
+  browser_click: [a => T(`Tıklanıyor: ${short(a.target)}`, `Clicking: ${short(a.target)}`), 'pointer'],
+  browser_type: [a => T(`Yazılıyor: “${short(a.text, 40)}” → ${short(a.target, 30)}`, `Typing: “${short(a.text, 40)}” → ${short(a.target, 30)}`), 'type'],
+  browser_select: [a => T(`Seçiliyor: ${short(a.option, 30)} (${short(a.target, 30)})`, `Choosing: ${short(a.option, 30)} (${short(a.target, 30)})`), 'list'],
+  browser_check: [a => `${a.checked === false ? T('İşaret kaldırılıyor', 'Unticking') : T('İşaretleniyor', 'Ticking')}: ${short(a.target)}`, 'check-square'],
+  browser_upload: [a => T(`Dosya yükleniyor: ${String(a.file_path || '').split('/').pop()}`, `Uploading a file: ${String(a.file_path || '').split('/').pop()}`), 'upload'],
+  browser_fill_secret: [a => T(`Şifre giriliyor (${a.secret})`, `Filling in a password (${a.secret})`), 'lock'],
+  wait_for_user: [a => T(`Seni bekliyor: ${short(a.message, 80)}`, `Waiting for you: ${short(a.message, 80)}`), 'user'],
+  human_mode: [a => (a.on === false ? T('İnsan gibi giriş kapatılıyor', 'Turning off human-like input') : a.on ? T('İnsan gibi giriş açılıyor (engel var)', 'Turning on human-like input (the site blocks bots)') : T('İnsan gibi giriş durumuna bakılıyor', 'Checking human-like input')), 'user'],
+  browser_press: [a => T(`Tuş: ${a.key}`, `Key: ${a.key}`), 'command'],
+  browser_scroll: [a => `${T('Sayfa kaydırılıyor', 'Scrolling the page')}${a.direction === 'up' ? T(' (yukarı)', ' (up)') : ''}`, 'arrow-down'],
+  browser_back: [() => T('Geri gidiliyor', 'Going back'), 'back'],
+  browser_tabs: [a => (a.action === 'switch' ? T(`Sekmeye geçiliyor: ${short(a.tab)}`, `Switching to a tab: ${short(a.tab)}`) : a.action === 'close' ? T('Sekme kapatılıyor', 'Closing a tab') : T('Sekmelere bakılıyor', 'Checking the tabs')), 'layers'],
+  browser_screenshot: [() => T('Sayfanın görüntüsü alınıyor', 'Taking a picture of the page'), 'camera'],
+  browser_verify: [a => T(`Kontrol ediliyor: ${short(a.expectation, 70)}`, `Checking: ${short(a.expectation, 70)}`), 'check-circle'],
+  browser_wait: [a => (a.text ? T(`Bekleniyor: “${short(a.text, 40)}”`, `Waiting for: “${short(a.text, 40)}”`) : T('Bekleniyor', 'Waiting')), 'clock'],
+  desktop_apps: [() => T('Açık uygulamalara bakılıyor', 'Checking the open apps'), 'grid'],
+  desktop_open_app: [a => T(`Uygulama açılıyor: ${a.name}`, `Opening an app: ${a.name}`), 'monitor'],
+  desktop_quit_app: [a => T(`Uygulama kapatılıyor: ${a.name}`, `Quitting an app: ${a.name}`), 'power'],
+  desktop_read: [a => T(`${a.app || 'Öndeki uygulama'} okunuyor`, `Reading ${a.app || 'the front app'}`), 'eye'],
+  desktop_click: [a => T(`Basılıyor: ${short(a.target)}${a.app ? ` (${a.app})` : ''}`, `Clicking: ${short(a.target)}${a.app ? ` (${a.app})` : ''}`), 'pointer'],
+  desktop_type: [a => T(`Yazılıyor: “${short(a.text, 40)}”`, `Typing: “${short(a.text, 40)}”`) + (a.target ? ` → ${short(a.target, 30)}` : ''), 'type'],
+  desktop_key: [a => T(`Kısayol: ${a.keys}`, `Shortcut: ${a.keys}`), 'command'],
+  desktop_screenshot: [() => T('Pencerenin görüntüsü alınıyor', 'Taking a picture of the window'), 'camera'],
+  desktop_click_at: [a => T(`Ekranda tıklanıyor: ${short(a.description)}`, `Clicking on the screen: ${short(a.description)}`), 'pointer'],
+  desktop_windows: [a => T(`${a.app || 'Öndeki uygulama'} pencerelerine bakılıyor`, `Checking the windows of ${a.app || 'the front app'}`), 'layers'],
+  desktop_focus_window: [a => T(`Pencereye geçiliyor: ${short(a.window, 40)} (${a.app})`, `Switching to a window: ${short(a.window, 40)} (${a.app})`), 'layers'],
+  desktop_wait: [a => `${a.gone ? T('Kaybolması bekleniyor', 'Waiting for it to go') : T('Bekleniyor', 'Waiting for')}: “${short(a.text, 40)}”`, 'clock'],
+  files_list: [a => T(`Klasöre bakılıyor: ${short(a.path, 50)}`, `Looking in a folder: ${short(a.path, 50)}`), 'folder'],
+  files_search: [a => T(`Dosya aranıyor: “${short(a.query, 40)}”`, `Searching files: “${short(a.query, 40)}”`), 'folder'],
+  files_recent: [a => ({ apps: T('Son kullanılan uygulamalara bakılıyor', 'Checking recently used apps'), projects: T('Son projelere bakılıyor', 'Checking recent projects') }[a.kind] || T('Son açılan dosyalara bakılıyor', 'Checking recently opened files')), 'clock'],
+  files_read: [a => T(`Dosya okunuyor: ${String(a.path || '').split('/').pop()}`, `Reading a file: ${String(a.path || '').split('/').pop()}`), 'file'],
+  files_open: [a => T(`Açılıyor: ${String(a.path || '').split('/').pop()}${a.app ? ` (${a.app})` : ''}`, `Opening: ${String(a.path || '').split('/').pop()}${a.app ? ` (${a.app})` : ''}`), 'folder'],
+  project_activity: [a => T(`Projede ne yapıldığına bakılıyor: ${String(a.path || '').split('/').filter(Boolean).pop()}`, `Checking what was done in the project: ${String(a.path || '').split('/').filter(Boolean).pop()}`), 'layers'],
+  spotify_play: [a => (a.liked ? T('Spotify: Beğenilen Şarkılar çalınıyor', 'Spotify: playing Liked Songs') : T(`Spotify'da çalınıyor: ${short(a.what, 40)}`, `Playing on Spotify: ${short(a.what, 40)}`)), 'play'],
+  music_play: [a => T(`Müzik'te çalınıyor: ${short(a.query, 40)}`, `Playing in Music: ${short(a.query, 40)}`), 'play'],
+  notes_add: [a => T(`Not ekleniyor: ${short(a.title || a.text, 50)}`, `Adding a note: ${short(a.title || a.text, 50)}`), 'file'],
+  notes_find: [a => T(`Notlarda aranıyor: “${short(a.query, 40)}”`, `Searching Notes: “${short(a.query, 40)}”`), 'file'],
+  reminders_add: [a => T(`Anımsatıcı ekleniyor: ${short(a.text, 50)}`, `Adding a reminder: ${short(a.text, 50)}`), 'clock'],
+  reminders_list: [() => T('Anımsatıcılara bakılıyor', 'Checking Reminders'), 'clock'],
+  calendar_events: [a => (a.from === 1 ? T('Yarının takvimine bakılıyor', "Checking tomorrow's calendar") : (a.days || 1) > 1 ? T('Haftanın takvimine bakılıyor', "Checking the week's calendar") : T('Bugünün takvimine bakılıyor', "Checking today's calendar")), 'clock'],
+  calendar_add: [a => T(`Takvime ekleniyor: ${short(a.title, 40)}`, `Adding to the calendar: ${short(a.title, 40)}`), 'clock'],
   mac_action: [a => (MAC_ACTIONS[a.action] || (() => a.action))(a), 'sliders'],
-  jev_ask: [() => 'Jev\'e soruluyor', 'zap'],
-  files_make_folder: [a => `Klasör oluşturuluyor: ${short(a.path, 50)}`, 'folder'],
-  files_move: [a => `Taşınıyor: ${short([].concat(a.from || []).map(p => String(p).split('/').pop()).join(', '), 40)} → ${short(a.to, 40)}`, 'folder'],
-  files_copy: [a => `Kopyalanıyor: ${short([].concat(a.from || []).map(p => String(p).split('/').pop()).join(', '), 40)} → ${short(a.to, 40)}`, 'folder'],
-  files_trash: [a => `Çöp Sepeti'ne atılıyor: ${short([].concat(a.paths || []).map(p => String(p).split('/').pop()).join(', '), 50)}`, 'trash'],
-  files_undo: [() => 'Son dosya işi geri alınıyor', 'back'],
-  schedule_task: [a => `Zamanlayıcı kuruluyor: ${short(a.said || a.text || a.action, 50)}`, 'clock'],
-  scheduled_tasks: [() => 'Zamanlayıcılara bakılıyor', 'clock'],
-  cancel_scheduled: [() => 'Zamanlayıcı iptal ediliyor', 'clock'],
-  claude_sessions: [() => 'Açık Claude oturumlarına bakılıyor', 'layers'],
-  claude_start: [a => `VS Code'da Claude'a yazılıyor: ${short(a.task, 50)}`, 'layers'],
-  claude_send: [a => `"${short(a.session, 30)}" oturumuna yazılıyor: ${short(a.text, 40)}`, 'layers'],
-  handry_do: [a => `Hızlı yola veriliyor: “${short(a.command, 50)}”`, 'zap'],
-  handry_teach: [a => `Öğreniliyor: “${short(a.command, 50)}”`, 'bookmark'],
-  inaro_do: [a => `Hızlı yola veriliyor: “${short(a.command, 50)}”`, 'zap'],
-  inaro_teach: [a => `Öğreniliyor: “${short(a.command, 50)}”`, 'bookmark'],
-  browser_fill: [a => `Form dolduruluyor (${Object.keys(a.fields || {}).length} alan)`, 'type'],
-  browser_sessions: [() => 'Girişlere bakılıyor', 'user'],
-  browser_download: [a => `İndiriliyor: ${short(a.target, 40)}`, 'arrow-down'],
-  browser_save_value: [a => `Değer kaydediliyor: ${short(a.target, 40)}`, 'lock'],
-  browser_table: [a => `Tablo okunuyor${a.which ? `: ${short(a.which, 30)}` : ''}`, 'list'],
-  site_note: [a => `Site notu: ${short(a.note || a.site, 50)}`, 'bookmark']
+  jev_ask: [() => T('Jev\'e soruluyor', 'Asking Jev'), 'zap'],
+  files_make_folder: [a => T(`Klasör oluşturuluyor: ${short(a.path, 50)}`, `Making a folder: ${short(a.path, 50)}`), 'folder'],
+  files_move: [a => `${T('Taşınıyor', 'Moving')}: ${short([].concat(a.from || []).map(p => String(p).split('/').pop()).join(', '), 40)} → ${short(a.to, 40)}`, 'folder'],
+  files_copy: [a => `${T('Kopyalanıyor', 'Copying')}: ${short([].concat(a.from || []).map(p => String(p).split('/').pop()).join(', '), 40)} → ${short(a.to, 40)}`, 'folder'],
+  files_trash: [a => `${T("Çöp Sepeti'ne atılıyor", 'Moving to the Trash')}: ${short([].concat(a.paths || []).map(p => String(p).split('/').pop()).join(', '), 50)}`, 'trash'],
+  files_undo: [() => T('Son dosya işi geri alınıyor', 'Undoing the last file change'), 'back'],
+  schedule_task: [a => T(`Zamanlayıcı kuruluyor: ${short(a.said || a.text || a.action, 50)}`, `Setting a timer: ${short(a.said || a.text || a.action, 50)}`), 'clock'],
+  scheduled_tasks: [() => T('Zamanlayıcılara bakılıyor', 'Checking what is scheduled'), 'clock'],
+  cancel_scheduled: [() => T('Zamanlayıcı iptal ediliyor', 'Cancelling a timer'), 'clock'],
+  claude_sessions: [() => T('Açık Claude oturumlarına bakılıyor', 'Checking the open Claude sessions'), 'layers'],
+  claude_start: [a => T(`VS Code'da Claude'a yazılıyor: ${short(a.task, 50)}`, `Writing to Claude in VS Code: ${short(a.task, 50)}`), 'layers'],
+  claude_send: [a => T(`"${short(a.session, 30)}" oturumuna yazılıyor: ${short(a.text, 40)}`, `Writing to the "${short(a.session, 30)}" session: ${short(a.text, 40)}`), 'layers'],
+  handry_do: [a => T(`Hızlı yola veriliyor: “${short(a.command, 50)}”`, `Handing to the fast path: “${short(a.command, 50)}”`), 'zap'],
+  handry_teach: [a => T(`Öğreniliyor: “${short(a.command, 50)}”`, `Learning: “${short(a.command, 50)}”`), 'bookmark'],
+  inaro_do: [a => T(`Hızlı yola veriliyor: “${short(a.command, 50)}”`, `Handing to the fast path: “${short(a.command, 50)}”`), 'zap'],
+  inaro_teach: [a => T(`Öğreniliyor: “${short(a.command, 50)}”`, `Learning: “${short(a.command, 50)}”`), 'bookmark'],
+  browser_fill: [a => T(`Form dolduruluyor (${Object.keys(a.fields || {}).length} alan)`, `Filling in a form (${Object.keys(a.fields || {}).length} fields)`), 'type'],
+  browser_sessions: [() => T('Girişlere bakılıyor', 'Checking the logins'), 'user'],
+  browser_download: [a => T(`İndiriliyor: ${short(a.target, 40)}`, `Downloading: ${short(a.target, 40)}`), 'arrow-down'],
+  browser_save_value: [a => T(`Değer kaydediliyor: ${short(a.target, 40)}`, `Saving a value: ${short(a.target, 40)}`), 'lock'],
+  browser_table: [a => `${T('Tablo okunuyor', 'Reading a table')}${a.which ? `: ${short(a.which, 30)}` : ''}`, 'list'],
+  site_note: [a => T(`Site notu: ${short(a.note || a.site, 50)}`, `Site note: ${short(a.note || a.site, 50)}`), 'bookmark']
 };
 
 function describe(name, args = {}) {
@@ -187,7 +211,7 @@ async function runStream(body, onEvent, signal) {
   const res = await api('/api/run', { method: 'POST', body: JSON.stringify(body), signal });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    onEvent({ type: 'error', message: err.error || `Sunucu hata verdi (${res.status}).` });
+    onEvent({ type: 'error', message: err.error || T(`Sunucu hata verdi (${res.status}).`, `The server returned an error (${res.status}).`) });
     return;
   }
   const reader = res.body.getReader();
@@ -225,14 +249,14 @@ async function cancelTimer(id) {
   await api('/api/timers/cancel', { method: 'POST', body: JSON.stringify(id === 'all' ? { all: true } : { id }) });
 }
 
-// "2 sa 14 dk", "12 dk 3 sn", "45 sn"
+// "2 sa 14 dk", "12 dk 3 sn", "45 sn" (English: "2 h 14 min", "12 min 3 s", "45 s")
 function timeLeft(ms) {
   const s = Math.max(0, Math.round(ms / 1000));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
-  if (h) return `${h} sa ${m} dk`;
-  if (m) return `${m} dk ${s % 60} sn`;
-  return `${s} sn`;
+  if (h) return T(`${h} sa ${m} dk`, `${h} h ${m} min`);
+  if (m) return T(`${m} dk ${s % 60} sn`, `${m} min ${s % 60} s`);
+  return T(`${s} sn`, `${s} s`);
 }
 
 const TIMER_ICONS = { shutdown: 'power', restart: 'power', sleep: 'clock', lock: 'lock', remind: 'message', command: 'play' };
@@ -243,12 +267,12 @@ const countdownLeft = job => (job.firing ? Math.max(0, Math.ceil((job.firing.sta
 
 function timerSub(job) {
   const left = countdownLeft(job);
-  if (left !== null) return `${left} sn sonra ${job.action === 'restart' ? 'yeniden başlıyor' : 'kapanıyor'}`;
-  if (job.kind === 'watch') return `${job.when}${job.note ? ` · son bakış: ${job.note}` : ' · bakılıyor'}`;
-  return `${job.when} · ${timeLeft(job.at - Date.now())} kaldı`;
+  if (left !== null) return T(`${left} sn sonra ${job.action === 'restart' ? 'yeniden başlıyor' : 'kapanıyor'}`, `${job.action === 'restart' ? 'Restarting' : 'Shutting down'} in ${left} s`);
+  if (job.kind === 'watch') return `${job.when}${job.note ? T(` · son bakış: ${job.note}`, ` · last check: ${job.note}`) : T(' · bakılıyor', ' · checking')}`;
+  return T(`${job.when} · ${timeLeft(job.at - Date.now())} kaldı`, `${job.when} · ${timeLeft(job.at - Date.now())} left`);
 }
 
-/** A button that asks "emin misin?" first; the second press within 3 s does it. */
+/** A button that asks "emin misin?" ("sure?") first; the second press within 3 s does it. */
 function twoStep(button, sureLabel, action) {
   const label = button.textContent;
   button.addEventListener('click', async e => {

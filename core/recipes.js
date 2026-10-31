@@ -7,6 +7,7 @@ import path from 'node:path';
 import { ROOT, HOME } from './config.js';
 import { callTool } from './tools.js';
 import { actionsOfRun } from '../guard/log.js';
+import { T } from './i18n.js';
 
 const DIR = path.join(ROOT, 'recipes');
 // Recipes Handry learned by itself (core/learn.js) hold the user's own
@@ -56,7 +57,7 @@ export function listRecipes() {
 
 export function loadRecipe(name) {
   const file = fileOf(name);
-  if (!fs.existsSync(file)) throw new Error(`"${name}" adında bir tarif yok.`);
+  if (!fs.existsSync(file)) throw new Error(T(`"${name}" adında bir tarif yok.`, `There is no recipe named "${name}".`));
   return JSON.parse(fs.readFileSync(file, 'utf-8'));
 }
 
@@ -72,14 +73,14 @@ export function stepsFromRun(runId, { since = 0 } = {}) {
     if (e.tool === 'browser_tabs' && e.args.action === 'list') continue;
     const args = { ...e.args };
     if (e.tool === 'desktop_click_at') {
-      const hit = e.summary.match(/altında \[(\w+)\] (.+)$/m);
-      if (hit && PRESSABLE.has(hit[1]) && hit[2] !== '(isimsiz)') steps.push({ tool: 'desktop_click', args: { target: hit[2] } });
-      else steps.push({ ask_brain: `Ekranda şuna tıkla: ${args.description} (desktop_screenshot, sonra desktop_click_at).` });
+      const hit = e.summary.match(/(?:altında|under(?: it)?) \[(\w+)\] (.+)$/m);
+      if (hit && PRESSABLE.has(hit[1]) && !/^\((isimsiz|unnamed|no name)\)$/.test(hit[2])) steps.push({ tool: 'desktop_click', args: { target: hit[2] } });
+      else steps.push({ ask_brain: T(`Ekranda şuna tıkla: ${args.description} (desktop_screenshot, sonra desktop_click_at).`, `On the screen, click this: ${args.description} (desktop_screenshot, then desktop_click_at).`) });
       continue;
     }
     // "#12" only meant something on that page load; keep the element's name instead.
     if (typeof args.target === 'string' && /^#/.test(args.target)) {
-      const named = e.summary.match(/Öğe: "([^"]+)"/);
+      const named = e.summary.match(/(?:Öğe|Element): "([^"]+)"/);
       if (named) args.target = named[1];
     }
     // the same form filled again (e.g. after waiting for an approval, the page had changed): once is enough
@@ -93,7 +94,7 @@ export function stepsFromRun(runId, { since = 0 } = {}) {
 /** Turns the logged, successful actions of a run into a recipe. */
 export function saveFromRun(name, runId, { description = '' } = {}) {
   const steps = stepsFromRun(runId);
-  if (!steps.length) throw new Error('Bu işte tekrar oynatılabilecek bir adım yok.');
+  if (!steps.length) throw new Error(T('Bu işte tekrar oynatılabilecek bir adım yok.', 'This task has no steps that can be replayed.'));
   const recipe = { name: slug(name), description, created: new Date().toISOString(), fromRun: runId, steps };
   fs.mkdirSync(DIR, { recursive: true });
   fs.writeFileSync(path.join(DIR, `${slug(name)}.json`), `${JSON.stringify(recipe, null, 2)}\n`);
@@ -117,15 +118,15 @@ export const fillVars = fill;
 export async function runRecipe(name, { vars = {}, onEvent = () => {}, signal, askBrain } = {}) {
   const recipe = loadRecipe(name);
   const missing = varsIn(recipe.steps).filter(v => !(v in vars));
-  if (missing.length) throw new Error(`Tarif şu değerleri istiyor: ${missing.join(', ')} (ör. --var=${missing[0]}=…)`);
+  if (missing.length) throw new Error(T(`Tarif şu değerleri istiyor: ${missing.join(', ')} (ör. --var=${missing[0]}=…)`, `The recipe needs these values: ${missing.join(', ')} (e.g. --var=${missing[0]}=…)`));
   const steps = fill(recipe.steps, vars);
-  onEvent({ type: 'status', text: `📌 "${recipe.name}" tarifi: ${steps.length} adım, beyin kullanılmadan` });
+  onEvent({ type: 'status', text: T(`📌 "${recipe.name}" tarifi: ${steps.length} adım, beyin kullanılmadan`, `📌 "${recipe.name}" recipe: ${steps.length} steps, no brain`) });
   for (let i = 0; i < steps.length; i++) {
     if (signal?.aborted) return { ok: false, stopped: true, failedAt: i };
     const step = steps[i];
     if (step.ask_brain) {
-      if (!askBrain) return { ok: false, failedAt: i, step, error: 'Bu adım bir beyin gerektiriyor.', remaining: steps.slice(i) };
-      onEvent({ type: 'status', text: `🧠 Tarifin düşünme adımı: ${step.ask_brain}` });
+      if (!askBrain) return { ok: false, failedAt: i, step, error: T('Bu adım bir beyin gerektiriyor.', 'This step needs a brain.'), remaining: steps.slice(i) };
+      onEvent({ type: 'status', text: T(`🧠 Tarifin düşünme adımı: ${step.ask_brain}`, `🧠 The recipe's thinking step: ${step.ask_brain}`) });
       await askBrain(step.ask_brain);
       continue;
     }

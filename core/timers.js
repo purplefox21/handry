@@ -24,10 +24,11 @@ import * as desktop from '../hands/desktop.js';
 import * as browser from '../hands/browser.js';
 import { claudeSessions, stateText } from '../hands/claude-sessions.js';
 import { sessionReport } from '../hands/files.js';
-import { power, POWER_NAMES } from '../hands/power.js';
+import { power } from '../hands/power.js';
 import { alertUser, resolveAlert, sendIMessage } from '../guard/notify.js';
 import { stopRequestedSince } from '../guard/stop.js';
 import { APP_NAME } from './brand.js';
+import { T, lang } from './i18n.js';
 
 const MIN = 60_000;
 const LATE_MS = 10 * MIN;
@@ -36,7 +37,7 @@ export const POWER = new Set(['lock', 'sleep', 'restart', 'shutdown']);
 const OFF = new Set(['restart', 'shutdown']);
 const ACTIONS = new Set([...POWER, 'remind', 'command', 'report']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-export const TITLE = 'Zamanlayıcı'; // notices from here (the bar shows them without "Handry goes on by itself")
+export const timerTitle = () => T('Zamanlayıcı', 'Timer'); // notices from here (the bar shows them without "Handry goes on by itself")
 
 const file = () => path.join(HOME, 'timers.json');
 const lockFile = () => path.join(HOME, 'timers.lock');
@@ -45,7 +46,7 @@ const tickMs = () => Number(process.env.JEVIS_TIMER_TICK_MS) || 5000;
 const stableMs = () => Number(process.env.JEVIS_TIMER_STABLE_MS) || MIN;
 
 // ---------------------------------------------------------------------------
-// Saying times in Turkish: "01:01'de", "03:30'da", "yarın 09:00'da"
+// Saying times: "01:01'de", "03:30'da", "yarın 09:00'da"; in English "at 1:01 AM", "tomorrow at 9:00 AM"
 // ---------------------------------------------------------------------------
 
 const ONES = ['sıfır', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz'];
@@ -62,37 +63,58 @@ function ending(t, kind = 'de') {
   return `${hard ? 't' : 'd'}${back ? 'a' : 'e'}${kind === 'den' ? 'n' : ''}`;
 }
 
-const hhmm = t => new Date(t).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+const hhmm = t => T(new Date(t).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }), new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\u202f/g, ' '));
 
+/** kind 'den': "from then on" ("01:01'den" / "after 1:01 AM"). */
 function whenText(t, kind = 'de') {
   const days = Math.round((new Date(new Date(t).toDateString()) - new Date(new Date().toDateString())) / 86400000);
+  if (lang() === 'en') {
+    const day = days === 0 ? '' : days === 1 ? 'tomorrow ' : `on ${new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} `;
+    return `${day}${kind === 'den' ? 'after' : 'at'} ${hhmm(t)}`;
+  }
   const day = days === 0 ? '' : days === 1 ? 'yarın ' : `${new Date(t).toLocaleDateString('tr-TR')} `;
   return `${day}${hhmm(t)}'${ending(t, kind)}`;
 }
 
-const HOLDING = { lock: 'kilitlemeyi', sleep: 'uyutmayı', restart: 'yeniden başlatmayı', shutdown: 'kapatmayı', remind: 'hatırlatmayı', command: 'işi' };
-const FUTURE = { lock: 'ekranı kilitleyeceğim', sleep: "Mac'i uyutacağım", restart: "Mac'i yeniden başlatacağım", shutdown: "Mac'i kapatacağım", report: 'sana son cevabını yazacağım' };
-const whatText = job => (job.action === 'remind' ? `"${job.text}" diye hatırlat` : job.action === 'command' ? `"${job.text}" komutunu çalıştır` : job.action === 'report' ? 'haber ver' : POWER_NAMES[job.action]);
-const futureText = job => (job.action === 'remind' ? `"${job.text}" diye hatırlatacağım` : job.action === 'command' ? `"${job.text}" komutunu çalıştıracağım` : FUTURE[job.action]);
+const holding = action => T(
+  { lock: 'kilitlemeyi', sleep: 'uyutmayı', restart: 'yeniden başlatmayı', shutdown: 'kapatmayı', remind: 'hatırlatmayı', command: 'işi' },
+  { lock: 'locking the screen', sleep: 'putting the Mac to sleep', restart: 'restarting the Mac', shutdown: 'shutting down the Mac', remind: 'the reminder', command: 'the task' }
+)[action];
+const powerText = action => T(
+  { lock: 'ekranı kilitle', sleep: "Mac'i uyut", restart: "Mac'i yeniden başlat", shutdown: "Mac'i kapat" },
+  { lock: 'lock the screen', sleep: 'put the Mac to sleep', restart: 'restart the Mac', shutdown: 'shut down the Mac' }
+)[action];
+const future = action => T(
+  { lock: 'ekranı kilitleyeceğim', sleep: "Mac'i uyutacağım", restart: "Mac'i yeniden başlatacağım", shutdown: "Mac'i kapatacağım", report: 'sana son cevabını yazacağım' },
+  { lock: "I'll lock the screen", sleep: "I'll put the Mac to sleep", restart: "I'll restart the Mac", shutdown: "I'll shut down the Mac", report: "I'll send you its last answer" }
+)[action];
+const whatText = job => (job.action === 'remind' ? T(`"${job.text}" diye hatırlat`, `remind you "${job.text}"`) : job.action === 'command' ? T(`"${job.text}" komutunu çalıştır`, `run "${job.text}"`) : job.action === 'report' ? T('haber ver', 'let you know') : powerText(job.action));
+const futureText = job => (job.action === 'remind' ? T(`"${job.text}" diye hatırlatacağım`, `I'll remind you "${job.text}"`) : job.action === 'command' ? T(`"${job.text}" komutunu çalıştıracağım`, `I'll run "${job.text}"`) : future(job.action));
 
 function conditionText(u) {
+  if (lang() === 'en') {
+    if (u.claude) return `when ${u.claude.map(s => `"${s.name}"`).join(', ')} ${u.claude.length > 1 ? 'are' : 'is'} done`;
+    const where = u.app ? `the ${u.app} window` : `the "${u.page}" tab`;
+    if (u.app && u.closed) return `when ${u.app} quits`;
+    return u.contains ? `when "${u.contains}" shows up in ${where}` : `when "${u.expect}" is true in ${where}`;
+  }
   if (u.claude) return `${u.claude.map(s => `"${s.name}"`).join(', ')} bitince`;
   const where = u.app ? `${u.app} penceresinde` : `"${u.page}" sekmesinde`;
   if (u.app && u.closed) return `${u.app} kapanınca`;
   return u.contains ? `${where} "${u.contains}" görününce` : `${where} "${u.expect}" olunca`;
 }
 
-const capital = t => t.charAt(0).toLocaleUpperCase('tr') + t.slice(1);
-const whatLabel = job => (job.action === 'command' ? capital(job.text) : job.action === 'remind' ? `Hatırlat: "${job.text}"` : capital(whatText(job)));
+const capital = t => t.charAt(0).toLocaleUpperCase(T('tr', 'en')) + t.slice(1);
+const whatLabel = job => (job.action === 'command' ? capital(job.text) : job.action === 'remind' ? T(`Hatırlat: "${job.text}"`, `Remind: "${job.text}"`) : capital(whatText(job)));
 
 function whenPart(job) {
   const parts = [];
-  if (job.at && (!job.until || job.at > job.created + 5000)) parts.push(job.until ? `${whenText(job.at, 'den')} sonra` : whenText(job.at));
+  if (job.at && (!job.until || job.at > job.created + 5000)) parts.push(job.until ? T(`${whenText(job.at, 'den')} sonra`, whenText(job.at, 'den')) : whenText(job.at));
   if (job.until) parts.push(conditionText(job.until));
   return parts.join(', ');
 }
 
-/** "⏰ 01:01'de → ekranı kilitle", "👀 "iş geliştirme" bitince → Mac'i kapat". */
+/** "⏰ 01:01'de → ekranı kilitle", "👀 "iş geliştirme" bitince → Mac'i kapat"; "⏰ at 1:01 AM → lock the screen". */
 export function describe(job) {
   return `${job.until ? '👀' : '⏰'} ${whenPart(job)} → ${whatText(job)}`;
 }
@@ -153,7 +175,7 @@ export function resolveAt(at, now = Date.now()) {
     return d.getTime();
   }
   const t = new Date(String(at).trim()).getTime();
-  if (Number.isNaN(t)) throw new Error(`Saati anlayamadım: "${at}". "HH:MM" ya da "YYYY-MM-DDTHH:MM" ver.`);
+  if (Number.isNaN(t)) throw new Error(T(`Saati anlayamadım: "${at}". "HH:MM" ya da "YYYY-MM-DDTHH:MM" ver.`, `I couldn't read the time "${at}". Give "HH:MM" or "YYYY-MM-DDTHH:MM".`));
   return t;
 }
 
@@ -168,9 +190,9 @@ export function claudeTargets(names = []) {
 }
 
 export function addJob({ action, text = '', at = null, until = null, every, countdown, said = '', source = '', chatId = null }) {
-  if (!ACTIONS.has(action)) throw new Error(`Bilinmeyen iş: ${action}`);
-  if ((action === 'remind' || action === 'command') && !String(text).trim()) throw new Error('Ne hatırlatayım ya da ne yapayım? text boş.');
-  if (!at && !until) throw new Error('Ne zaman? Bir saat (at), bir süre (in_minutes) ya da bir koşul (until) ver.');
+  if (!ACTIONS.has(action)) throw new Error(T(`Bilinmeyen iş: ${action}`, `Unknown task: ${action}`));
+  if ((action === 'remind' || action === 'command') && !String(text).trim()) throw new Error(T('Ne hatırlatayım ya da ne yapayım? text boş.', 'What should I remind you of, or do? text is empty.'));
+  if (!at && !until) throw new Error(T('Ne zaman? Bir saat (at), bir süre (in_minutes) ya da bir koşul (until) ver.', 'When? Give a time (at), a delay (in_minutes) or a condition (until).'));
   const now = Date.now();
   const job = {
     id: `t${now.toString(36)}${Math.random().toString(36).slice(2, 4)}`,
@@ -194,6 +216,14 @@ export function addJob({ action, text = '', at = null, until = null, every, coun
 
 /** What Handry says after setting a task. */
 export function confirmText(job) {
+  if (lang() === 'en') {
+    const lines = [`OK: ${futureText(job)} ${whenPart(job)}.`];
+    const every = (n, unit) => (n === 1 ? `every ${unit}` : `every ${n} ${unit}s`);
+    if (job.until) lines.push(`I'm checking ${job.every >= MIN ? every(Math.round(job.every / MIN), 'minute') : every(Math.max(1, Math.round(job.every / 1000)), 'second')}.`);
+    if (OFF.has(job.action)) lines.push(`First there's a ${job.countdown}-second countdown; to cancel, press ⌥Esc or say "stop".`);
+    lines.push('If you change your mind, say "cancel the timers".');
+    return lines.join(' ');
+  }
   const lines = [`Tamam: ${whenPart(job)} ${futureText(job)}.`];
   if (job.until) lines.push(`${job.every >= MIN ? `${Math.round(job.every / MIN)} dakikada` : `${Math.max(1, Math.round(job.every / 1000))} saniyede`} bir bakıyorum.`);
   if (OFF.has(job.action)) lines.push(`Önce ${job.countdown} sn geri sayım olacak; iptal için ⌥Esc'ye bas ya da "dur" de.`);
@@ -227,8 +257,8 @@ export function jobView(job) {
 }
 
 export function formatJobs(jobs = listJobs()) {
-  if (!jobs.length) return 'Bekleyen zamanlanmış iş yok.';
-  return jobs.map((j, i) => `${i + 1}. ${describe(j)}${j.lastNote ? ` — son bakış: ${j.lastNote}` : ''} (id ${j.id})`).join('\n');
+  if (!jobs.length) return T('Bekleyen zamanlanmış iş yok.', 'Nothing is scheduled.');
+  return jobs.map((j, i) => `${i + 1}. ${describe(j)}${j.lastNote ? ` — ${T('son bakış', 'last check')}: ${j.lastNote}` : ''} (id ${j.id})`).join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -238,10 +268,10 @@ export function formatJobs(jobs = listJobs()) {
 async function textCondition(u, text, where, strict) {
   if (u.contains) {
     const met = text.toLocaleLowerCase('tr').includes(String(u.contains).toLocaleLowerCase('tr'));
-    return { met, note: met ? `"${u.contains}" göründü` : `"${u.contains}" henüz yok` };
+    return { met, note: met ? T(`"${u.contains}" göründü`, `"${u.contains}" showed up`) : T(`"${u.contains}" henüz yok`, `no "${u.contains}" yet`) };
   }
   const v = await jev.checkState(u.expect, { ...where, text: text.slice(0, 6000) });
-  return { met: v.p >= (strict ? 0.75 : 0.6), note: `%${Math.round(v.p * 100)} "${u.expect}"` };
+  return { met: v.p >= (strict ? 0.75 : 0.6), note: T(`%${Math.round(v.p * 100)} "${u.expect}"`, `${Math.round(v.p * 100)}% "${u.expect}"`) };
 }
 
 export async function checkCondition(job) {
@@ -255,7 +285,7 @@ export async function checkCondition(job) {
     return {
       met: status.every(x => x.state === 'idle' || x.state === 'gone'),
       waiting: status.filter(x => x.state === 'waiting').map(x => x.t.name),
-      note: status.map(x => `${x.t.name}: ${x.s ? stateText(x.s) : 'kapandı'}`).join(' · ')
+      note: status.map(x => `${x.t.name}: ${x.s ? stateText(x.s) : T('kapandı', 'closed')}`).join(' · ')
     };
   }
   const strict = POWER.has(job.action);
@@ -263,8 +293,8 @@ export async function checkCondition(job) {
     const wanted = String(u.app).toLocaleLowerCase('tr');
     const running = (await desktop.apps()).find(a => a.name.toLocaleLowerCase('tr') === wanted || a.bundleId.toLowerCase() === wanted)
       || (await desktop.apps()).find(a => a.name.toLocaleLowerCase('tr').includes(wanted));
-    if (u.closed) return { met: !running, note: running ? `${u.app} açık` : `${u.app} kapandı` };
-    if (!running) return { met: false, note: `${u.app} açık değil` };
+    if (u.closed) return { met: !running, note: running ? T(`${u.app} açık`, `${u.app} is open`) : T(`${u.app} kapandı`, `${u.app} quit`) };
+    if (!running) return { met: false, note: T(`${u.app} açık değil`, `${u.app} is not open`) };
     const r = await desktop.read({ app: running.pid, remember: false });
     return textCondition(u, [r.window, ...r.texts, ...r.elements.map(e => e.name)].join('\n'), { app: r.app, window: r.window }, strict);
   }
@@ -272,7 +302,7 @@ export async function checkCondition(job) {
     const tab = await browser.tabText(u.page);
     return textCondition(u, `${tab.title}\n${tab.text}`, { url: tab.url, title: tab.title }, strict);
   }
-  return { met: false, note: 'koşul anlaşılmadı' };
+  return { met: false, note: T('koşul anlaşılmadı', 'the condition was not understood') };
 }
 
 // ---------------------------------------------------------------------------
@@ -367,32 +397,32 @@ async function tick() {
     const off = OFF.has(job.action) || job.action === 'sleep';
     if (job.expires && now > job.expires) {
       removeJob(job.id);
-      alertUser(`Beklediğim şey 24 saatte olmadı, bıraktım: ${describe(job)}`, { title: TITLE, speak: false });
+      alertUser(T(`Beklediğim şey 24 saatte olmadı, bıraktım: ${describe(job)}`, `What I was waiting for didn't happen in 24 hours, so I stopped: ${describe(job)}`), { title: timerTitle(), speak: false });
       continue;
     }
     if (woke && off) {
       updateJob(job.id, { notBefore: now + LATE_MS });
-      alertUser(`Mac uykudan uyandı. Bekleyen bir iş var: ${describe(job)}. 10 dakika bir şey yapmayacağım; istemiyorsan "zamanlayıcıyı iptal et" de.`, { title: TITLE, speak: false });
+      alertUser(T(`Mac uykudan uyandı. Bekleyen bir iş var: ${describe(job)}. 10 dakika bir şey yapmayacağım; istemiyorsan "zamanlayıcıyı iptal et" de.`, `The Mac woke up from sleep. A task is waiting: ${describe(job)}. I won't do anything for 10 minutes; if you don't want it, say "cancel the timers".`), { title: timerTitle(), speak: false });
       continue;
     }
     if (job.notBefore && now < job.notBefore) continue;
     if (job.at && now < job.at) continue;
     if (job.at && !job.until && off && now - job.at > LATE_MS) {
       removeJob(job.id);
-      alertUser(`Mac uyuduğu için ${whenText(job.at)} yapılacak işi zamanında yapamadım, geç de yapmadım: ${describe(job)}`, { title: TITLE, speak: false });
+      alertUser(T(`Mac uyuduğu için ${whenText(job.at)} yapılacak işi zamanında yapamadım, geç de yapmadım: ${describe(job)}`, `The Mac was asleep, so I couldn't do the task due ${whenText(job.at)} on time, and I didn't do it late: ${describe(job)}`), { title: timerTitle(), speak: false });
       continue;
     }
     if (job.until) {
       if (now < (job.nextCheck || 0)) continue;
       let r;
-      try { r = await checkCondition(job); } catch (err) { r = { met: false, note: `bakılamadı: ${err.message}` }; }
+      try { r = await checkCondition(job); } catch (err) { r = { met: false, note: `${T('bakılamadı', 'could not check')}: ${err.message}` }; }
       const patch = { lastCheck: now, lastNote: r.note, nextCheck: now + job.every };
       // A Claude session that needs an answer can't finish: tell the user once (an iMessage if they don't come).
       if (r.waiting?.length && !job.waitAlert) {
         const who = r.waiting.map(n => `"${n}"`).join(', ');
         patch.waitAlert = job.action === 'report'
-          ? alertUser(`${who} senden cevap bekliyor (VS Code'da).`, { title: 'Claude', imessage: true, speak: false })
-          : alertUser(`${who} senden cevap bekliyor. O bitmeden ${HOLDING[job.action]} bekletiyorum.`, { title: TITLE, imessage: true, speak: false });
+          ? alertUser(T(`${who} senden cevap bekliyor (VS Code'da).`, `${who} is waiting for your answer (in VS Code).`), { title: 'Claude', imessage: true, speak: false })
+          : alertUser(T(`${who} senden cevap bekliyor. O bitmeden ${holding(job.action)} bekletiyorum.`, `${who} is waiting for your answer. Until it's done, I'm holding off on ${holding(job.action)}.`), { title: timerTitle(), imessage: true, speak: false });
       } else if (!r.waiting?.length && job.waitAlert) {
         resolveAlert(job.waitAlert);
         patch.waitAlert = null;
@@ -418,16 +448,17 @@ async function tick() {
 function report(job) {
   const lines = job.until.claude.map(t => {
     const last = t.sessionId ? sessionReport(t.sessionId)?.lastReply : '';
-    return `"${t.name}" (${t.project}) bitti.${last ? ` Son cevabı: ${last.length > 600 ? `${last.slice(0, 599)}…` : last}` : ''}`;
+    const said = last ? (last.length > 600 ? `${last.slice(0, 599)}…` : last) : '';
+    return T(`"${t.name}" (${t.project}) bitti.${said ? ` Son cevabı: ${said}` : ''}`, `"${t.name}" (${t.project}) is done.${said ? ` Its last answer: ${said}` : ''}`);
   });
   if (job.waitAlert) resolveAlert(job.waitAlert);
   alertUser(lines.join('\n'), { title: 'Claude', imessage: true, speak: false });
 }
 
 function reasonOf(job) {
-  if (job.until?.claude) return `Claude işleri bitti (${job.until.claude.map(s => s.name).join(', ')}).`;
-  if (job.until) return `Beklediğin oldu (${job.lastNote}).`;
-  return `Saat ${hhmm(job.at)} oldu.`;
+  if (job.until?.claude) return T(`Claude işleri bitti (${job.until.claude.map(s => s.name).join(', ')}).`, `The Claude sessions are done (${job.until.claude.map(s => s.name).join(', ')}).`);
+  if (job.until) return T(`Beklediğin oldu (${job.lastNote}).`, `What you were waiting for happened (${job.lastNote}).`);
+  return T(`Saat ${hhmm(job.at)} oldu.`, `It's ${hhmm(job.at)}.`);
 }
 
 async function fire(job) {
@@ -436,28 +467,28 @@ async function fire(job) {
     const reason = reasonOf(job);
     if (OFF.has(job.action) && job.countdown > 0) {
       const started = Date.now();
-      const verb = job.action === 'restart' ? 'yeniden başlayacak' : 'kapanacak';
-      const alertId = alertUser(`${reason} Mac ${job.countdown} saniye sonra ${verb}. İptal için ⌥Esc'ye bas ya da "dur" de.`, { title: TITLE, speak: false });
+      const restart = job.action === 'restart';
+      const alertId = alertUser(T(`${reason} Mac ${job.countdown} saniye sonra ${restart ? 'yeniden başlayacak' : 'kapanacak'}. İptal için ⌥Esc'ye bas ya da "dur" de.`, `${reason} The Mac will ${restart ? 'restart' : 'shut down'} in ${job.countdown} seconds. To cancel, press ⌥Esc or say "stop".`), { title: timerTitle(), speak: false });
       updateJob(job.id, { firing: started });
       while (Date.now() - started < job.countdown * 1000) {
         await sleep(500);
         if (!listJobs().some(j => j.id === job.id) || stopRequestedSince(started)) {
           resolveAlert(alertId);
           removeJob(job.id);
-          alertUser(job.action === 'restart' ? 'Yeniden başlatma iptal edildi.' : 'Kapatma iptal edildi.', { title: TITLE, speak: false });
+          alertUser(restart ? T('Yeniden başlatma iptal edildi.', 'Restart cancelled.') : T('Kapatma iptal edildi.', 'Shutdown cancelled.'), { title: timerTitle(), speak: false });
           return;
         }
       }
       resolveAlert(alertId);
       if (!removeJob(job.id)) return; // cancelled at the last moment
       // The user finds out on the phone what happened while they were away.
-      await Promise.race([sendIMessage(`${APP_NAME}: ${reason} Mac'i ${job.action === 'restart' ? 'yeniden başlatıyorum' : 'kapatıyorum'}.`), sleep(20000)]).catch(() => {});
+      await Promise.race([sendIMessage(`${APP_NAME}: ${reason} ${T(`Mac'i ${restart ? 'yeniden başlatıyorum' : 'kapatıyorum'}.`, restart ? 'Restarting the Mac.' : 'Shutting down the Mac.')}`), sleep(20000)]).catch(() => {});
       await power(job.action);
       return;
     }
     removeJob(job.id);
     if (POWER.has(job.action)) await power(job.action);
-    else if (job.action === 'remind') alertUser(job.text, { title: 'Hatırlatma' });
+    else if (job.action === 'remind') alertUser(job.text, { title: T('Hatırlatma', 'Reminder') });
     else if (job.action === 'report') report(job);
     else if (runCommandFn) await runCommandFn(job.text, job);
     else {
@@ -465,14 +496,14 @@ async function fire(job) {
       await runCommand({ text: job.text, source: 'timer', chatId: job.chatId, switchChat: false });
     }
   } catch (err) {
-    alertUser(`Zamanlanmış iş yapılamadı (${describe(job)}): ${err.message}`, { title: TITLE, imessage: true });
+    alertUser(T(`Zamanlanmış iş yapılamadı (${describe(job)}): ${err.message}`, `A scheduled task didn't work (${describe(job)}): ${err.message}`), { title: timerTitle(), imessage: true });
   } finally {
     firing.delete(job.id);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Understanding it in Turkish, without an LLM (the fast path uses this)
+// Understanding it in Turkish or English, without an LLM (the fast path uses this)
 // ---------------------------------------------------------------------------
 
 const NUMS = { bir: 1, iki: 2, 'üç': 3, 'dört': 4, 'beş': 5, 'altı': 6, yedi: 7, sekiz: 8, dokuz: 9, on: 10, 'on beş': 15, yirmi: 20, 'yirmi beş': 25, otuz: 30, 'kırk': 40, 'kırk beş': 45, elli: 50, 'altmış': 60, 'yarım': 0.5, 'çeyrek': 0.25 };
@@ -509,6 +540,12 @@ function absolute(t, now, tomorrow) {
   else if (word === 'öğlen') hours = [h < 7 ? h + 12 : h];
   else if (h >= 13 || h === 0 || hs.startsWith('0')) hours = [h];
   else hours = [h, (h + 12) % 24];
+  const at = soonest(hours, min, now, tomorrow);
+  return at ? { at, match: m[0] } : null;
+}
+
+/** The first of these hours (today or tomorrow) still to come, or null. */
+function soonest(hours, min, now, tomorrow) {
   const candidates = [];
   for (const hh of hours) {
     for (const day of tomorrow ? [1] : [0, 1]) {
@@ -518,7 +555,7 @@ function absolute(t, now, tomorrow) {
       if (d.getTime() > now + 5000) candidates.push(d.getTime());
     }
   }
-  return candidates.length ? { at: Math.min(...candidates), match: m[0] } : null;
+  return candidates.length ? Math.min(...candidates) : null;
 }
 
 const END_RE = '(?=$|[\\s.,!?;:])';
@@ -549,33 +586,112 @@ const CLAUDE_DONE = /(iş|görev|claude|vs\s*code|vscode|kod|oturum|proje)\S*[^.
 const CONDITION = /(bitince|bittiğinde|bitirince|olunca|olduğunda|gelince|geldiğinde|kapanınca|kapandığında|açılınca|tamamlanınca|görününce|dakikada\s+bir|saatte\s+bir|kontrol\s+et)/u;
 const LATER = /(haftaya|pazartesi|salı|çarşamba|perşembe|cuma|cumartesi|pazar(?![\p{L}])|ayın|sonra\b)/u;
 
-/**
- * Timers and power commands the fast path can do without an LLM:
- *   { type: 'list' } · { type: 'cancel' } · { type: 'negated', actions } ("bilgisayarı kapatma")
- *   { type: 'now', action } · { type: 'schedule', action, at?, claude? }
- *   { type: 'brain' }: it is about later / a condition / mixed, but too much for these rules
- *   null: not about timers or power at all.
- */
-export function parseSchedule(text, now = Date.now()) {
-  const t = ` ${String(text).toLocaleLowerCase('tr').replace(/\s+/g, ' ').trim()} `;
-  if (CANCEL.test(t)) return { type: 'cancel' };
-  if (LIST.test(t)) return { type: 'list' };
+const TR = { cancel: CANCEL, list: LIST, relative, absolute, tomorrow: /yarın/u, claude: CLAUDE_DONE, condition: CONDITION, later: LATER, actions: ACTION_RES, cut: ' ' };
+
+// English: "in 10 minutes", "in an hour and a half", "at 3 pm", "tomorrow at 9", "when the Claude sessions are done"
+const EN_NUMS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, fifteen: 15, twenty: 20, 'twenty five': 25, thirty: 30, forty: 40, 'forty five': 45, fifty: 50, sixty: 60, 'half an': 0.5, 'half a': 0.5, 'a quarter of an': 0.25, 'quarter of an': 0.25, 'a couple of': 2, 'a few': 3 };
+const EN_NUM = '(\\d+(?:[.,]\\d+)?|a\\s+quarter\\s+of\\s+an?|quarter\\s+of\\s+an?|half\\s+an?|a\\s+couple\\s+of|a\\s+few|twenty\\s+five|forty\\s+five|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty)';
+const EN_AMOUNT = `${EN_NUM}(\\s+and\\s+a\\s+half)?\\s*(hours?|hrs?|h|minutes?|mins?|seconds?|secs?)\\.?(\\s+and\\s+a\\s+half)?(?:\\s*(?:and\\s+)?${EN_NUM}\\s*(minutes?|mins?|seconds?|secs?)\\.?)?`;
+const EN_REL = [new RegExp(`\\b(?:in|after|within)\\s+${EN_AMOUNT}${END}`), new RegExp(`\\b${EN_AMOUNT}\\s+from\\s+now${END}`)];
+const numEn = w => EN_NUMS[w.replace(/\s+/g, ' ')] ?? Number(String(w).replace(',', '.'));
+const unitEn = u => (u.startsWith('h') ? 60 : u.startsWith('m') ? 1 : 1 / 60);
+
+function relativeEn(t) {
+  const m = t.match(EN_REL[0]) || t.match(EN_REL[1]);
+  if (!m) return null;
+  let minutes = numEn(m[1]) * unitEn(m[3]) + (m[2] || m[4] ? 0.5 * unitEn(m[3]) : 0);
+  if (m[5]) minutes += numEn(m[5]) * unitEn(m[6]);
+  return minutes > 0 ? { minutes, match: m[0] } : null;
+}
+
+const EN_AT = /(?:\b(tonight|this\s+(?:morning|afternoon|evening)|morning|afternoon|evening|night)\s+)?\b(?:at|around|about)\s+(?:(noon|midnight)|(\d{1,2})(?:[:.](\d{2}))?(?:\s*(a\.?m\.?|p\.?m\.?)|\s*o'?clock)?)(?:\s+(in\s+the\s+(?:morning|afternoon|evening)|at\s+night|tonight))?(?=$|[\s.,!?;:])/;
+const EN_AMPM = /\b(\d{1,2})(?:[:.](\d{2}))?\s*(a\.?m\.?|p\.?m\.?)(?=$|[\s.,!?;:])/;
+const EN_POWER_WORD = /\b(lock|sleep|restart|reboot|shut|turn\s+off|switch\s+off|power)\b/;
+
+// "at 3", "at 3 pm", "at 15:30", "tonight at 11", "at 8 in the evening", "at noon", "9:30 am"
+function absoluteEn(t, now, tomorrow) {
+  let word, special, hs, ms, ampm, after;
+  let m = t.match(EN_AT);
+  if (m) [, word, special, hs, ms, ampm, after] = m;
+  else if ((m = t.match(EN_AMPM))) [, hs, ms, ampm] = m;
+  if (!m) return null;
+  const h = special === 'noon' ? 12 : special === 'midnight' ? 0 : Number(hs);
+  const min = Number(ms || 0);
+  if (h > 23 || min > 59) return null;
+  // a bare "at 3" is a time only next to a power word ("look at 3 files" is not)
+  if (!special && !ampm && ms === undefined && !word && !after && !/o'?clock/.test(m[0]) && !EN_POWER_WORD.test(t)) return null;
+  const part = String(word || after || '').replace(/^(?:in\s+the|at|this)\s+/, '');
+  let hours;
+  if (special) hours = [h];
+  else if (ampm) {
+    if (h < 1 || h > 12) return null;
+    hours = [ampm.startsWith('p') ? (h % 12) + 12 : h % 12];
+  } else if (part === 'evening' || part === 'afternoon') hours = [h < 12 ? h + 12 : h];
+  else if (part === 'morning') hours = [h];
+  else if (part === 'night' || part === 'tonight') hours = [h >= 7 && h < 12 ? h + 12 : h];
+  else if (h >= 13 || h === 0 || hs.startsWith('0')) hours = [h];
+  else hours = [h, (h + 12) % 24];
+  const at = soonest(hours, min, now, tomorrow);
+  return at ? { at, match: m[0] } : null;
+}
+
+// A command verb stands at the start, after a comma, or after words like "please", "can you", "and".
+const LEAD = "(?:^|[.,!?;:]|\\b(?:please|pls|kindly|ok|okay|hey|and|then|also|now|just|so|you(?:\\s+to)?|go\\s+ahead\\s+and|handry|done|finished|finishes))\\s*";
+const EN_NOUN = '(?:mac|computer|pc|laptop|machine|system)';
+const THE = "(?:(?:the|my|this)\\s+)?";
+// After a bare "shut down" / "restart": nothing, or words about when, not an app's name ("shut down Spotify")
+const BARE = "(?=$|[\\s.,!?;:])(?!\\s+(?:the|my|this|that|all|every|a|an)\\b)(?!\\s+(?!(?:when|once|after|as|at|in|now|right|tonight|tomorrow|please|then|and|but|so|for|by|around|about|if|before|until|later|immediately|asap)\\b)[a-z]{2,})";
+const NOT = "\\b(?:don'?t|do\\s+not|never|no\\s+need\\s+to)\\s+";
+const EN_ACTIONS = {
+  lock: [
+    new RegExp(`${LEAD}lock(?:\\s+up)?\\s+${THE}(?:screen|${EN_NOUN})\\b`),
+    new RegExp(`${NOT}lock\\b`)
+  ],
+  sleep: [
+    new RegExp(`${LEAD}(?:(?:put|send)\\s+${THE}(?:${EN_NOUN}|it)\\s+to\\s+sleep|sleep\\s+${THE}${EN_NOUN})\\b`),
+    new RegExp(`${NOT}(?:put\\s+${THE}(?:${EN_NOUN}|it)\\s+to\\s+sleep|sleep\\s+${THE}${EN_NOUN}|let\\s+${THE}(?:${EN_NOUN}|it)\\s+sleep)\\b`)
+  ],
+  restart: [
+    new RegExp(`${LEAD}(?:restart|reboot)(?:\\s+${THE}${EN_NOUN})?${BARE}`),
+    new RegExp(`${NOT}(?:restart|reboot)\\b`)
+  ],
+  shutdown: [
+    new RegExp(`${LEAD}(?:(?:shut\\s*down|power\\s+(?:off|down))(?:\\s+${THE}${EN_NOUN})?${BARE}|(?:turn|switch)\\s+off\\s+${THE}${EN_NOUN}\\b|(?:shut|turn|switch|power)\\s+${THE}${EN_NOUN}\\s+(?:down|off)\\b)`),
+    new RegExp(`${NOT}(?:shut\\s*down|power\\s+(?:off|down)|(?:turn|switch)\\s+off\\s+${THE}${EN_NOUN}|(?:shut|turn|switch|power)\\s+${THE}(?:${EN_NOUN}|it)\\s+(?:down|off))\\b`)
+  ]
+};
+const EN_CANCEL = /\b(?:cancel|call\s+off|abort|clear|stop|kill|delete|remove|turn\s+off|never\s*mind|forget(?:\s+about)?)\s+(?:the\s+|my\s+|all\s+(?:the\s+|my\s+)?|that\s+|this\s+|any\s+|those\s+)?(?:timers?|countdowns?|scheduled\s+(?:tasks?|jobs?|things?|shutdowns?|restarts?|reminders?)|watch(?:es)?|shutdown|shut\s*down|shutting\s+down|restart(?:ing)?|reboot|sleep\s+timer)\b/;
+const EN_LIST = /\b(?:what(?:'?s|\s+is|\s+are)?|show(?:\s+me)?|list|any(?:thing)?|which|do\s+i\s+have|are\s+there|tell\s+me)\b[^.!?]{0,30}?\b(?:timers?|countdowns?|scheduled\b(?!\s+(?:for|on|in|this|today|tonight|tomorrow|meetings?|calls?|events?)\b))/;
+const EN_CLAUDE_DONE = /\b(?:when|once|after|as\s+soon\s+as|until)\b[^.!?]{0,60}?\b(?:claude|vs\s*code|vscode|sessions?|tasks?|jobs?|work|coding|agents?|projects?)\b[^.!?]{0,30}?\b(?:done|finish(?:es|ed)?|complete[ds]?|over|through|ends?|ended|stops?|stopped)\b/;
+// "when …" is a condition, but not "when is my meeting?"
+const EN_CONDITION = /\b(?:once|as\s+soon\s+as|whenever|until|unless)\b|(?<!^\s*)\bwhen\b|^\s*when\b(?!\s+(?:is|are|was|were|do|does|did|will|would|can|could|should|am|'?s)\b)|\b(?:after|once)\b[^.!?]{0,50}?\b(?:finish(?:es|ed)?|is\s+done|are\s+done|completes?|ends|closes|quits|opens|appears|shows\s+up)\b|\bevery\s+(?:\d+\s+|few\s+|couple\s+of\s+)?(?:minutes?|mins?|hours?|seconds?)\b|\bkeep\s+checking\b|\bcheck\s+(?:every|back)\b/;
+const EN_LATER = /\b(?:next\s+(?:week|month)|(?:on\s+|next\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|later|tonight|this\s+(?:evening|afternoon|weekend)|in\s+the\s+(?:morning|evening|afternoon))\b/;
+// strictDays: a day word alone ("what's on tomorrow") is not ours, and a weekday with a time is more than these rules know.
+const EN = { cancel: EN_CANCEL, list: EN_LIST, relative: relativeEn, absolute: absoluteEn, tomorrow: /\btomorrow\b/, claude: EN_CLAUDE_DONE, condition: EN_CONDITION, later: EN_LATER, actions: EN_ACTIONS, cut: ' ; ', strictDays: true };
+
+function readSchedule(t, rules, now) {
+  if (rules.cancel.test(t)) return { type: 'cancel' };
+  if (rules.list.test(t)) return { type: 'list' };
   let rest = t;
-  const rel = relative(rest);
-  if (rel) rest = rest.replace(rel.match, ' ');
-  const abs = rel ? null : absolute(rest, now, /yarın/u.test(rest));
-  if (abs) rest = rest.replace(abs.match, ' ');
-  const claude = CLAUDE_DONE.test(rest);
-  const otherCondition = !claude && CONDITION.test(rest);
-  const later = LATER.test(rest) || (/yarın/u.test(rest) && !abs);
+  const rel = rules.relative(rest);
+  if (rel) rest = rest.replace(rel.match, rules.cut);
+  const abs = rel ? null : rules.absolute(rest, now, rules.tomorrow.test(rest));
+  if (abs) rest = rest.replace(abs.match, rules.cut);
+  const claude = rules.claude.test(rest);
+  const otherCondition = !claude && rules.condition.test(rest);
+  const later = rules.later.test(rest) || (rules.tomorrow.test(rest) && !abs);
   const positive = new Set();
   const negated = new Set();
-  for (const [action, [yes, no]] of Object.entries(ACTION_RES)) {
+  for (const [action, [yes, no]] of Object.entries(rules.actions)) {
     if (no.test(rest)) negated.add(action);
-    if (yes.test(rest.replace(no, ' '))) positive.add(action);
+    if (yes.test(rest.replace(no, rules.cut))) positive.add(action);
   }
   const timed = Boolean(rel || abs || claude || otherCondition || later);
   if (!timed && !positive.size && !negated.size) return null;
+  if (rules.strictDays) {
+    if (!positive.size && !negated.size && !rel && !abs && !claude && !otherCondition) return null;
+    if (rules.later.test(rest)) return { type: 'brain' };
+  }
   if (otherCondition || (later && !rel && !abs && !claude)) return { type: 'brain' };
   if (positive.size !== 1) {
     if (!positive.size && negated.size && !timed) return { type: 'negated', actions: [...negated] };
@@ -585,4 +701,21 @@ export function parseSchedule(text, now = Date.now()) {
   if (negated.has(action)) return { type: 'brain' };
   if (!timed) return negated.size ? { type: 'brain' } : { type: 'now', action };
   return { type: 'schedule', action, at: rel ? now + Math.round(rel.minutes * MIN) : abs ? abs.at : null, claude };
+}
+
+/**
+ * Timers and power commands the fast path can do without an LLM, said in
+ * Turkish (first) or English:
+ *   { type: 'list' } · { type: 'cancel' } · { type: 'negated', actions } ("bilgisayarı kapatma", "don't shut down")
+ *   { type: 'now', action } · { type: 'schedule', action, at?, claude? }
+ *   { type: 'brain' }: it is about later / a condition / mixed, but too much for these rules
+ *   null: not about timers or power at all.
+ */
+export function parseSchedule(text, now = Date.now()) {
+  const t = ` ${String(text).toLocaleLowerCase('tr').replace(/\s+/g, ' ').trim()} `;
+  const turkish = readSchedule(t, TR, now);
+  if (turkish) return turkish;
+  // English is read lower-cased without the Turkish dotless ı ("I" → "i"), with ’ as ' and "twenty-five" as "twenty five".
+  const e = ` ${String(text).toLowerCase().replace(/[’‘]/g, "'").replace(/(\p{L})-(\p{L})/gu, '$1 $2').replace(/\s+/g, ' ').trim()} `;
+  return readSchedule(e, EN, now);
 }

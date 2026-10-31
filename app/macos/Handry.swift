@@ -30,7 +30,37 @@ func findNode() -> String? {
     ([NODE] + NODE_FALLBACKS).first { FileManager.default.isExecutableFile(atPath: $0) }
 }
 let URL_BASE = "http://127.0.0.1:\(PORT)/"
+
+// The language the app speaks, by the same rule as core/i18n.js: config "language" ("tr", "en" or "auto")
+// in ~/.jevis/config.json, else in the project's handry.config.json; "auto" (the default) is Turkish when
+// the Mac's first language is Turkish, English otherwise; JEVIS_LANG=tr|en overrides it. Fixed at launch:
+// when it changes (the Dil / Language menu or the window's Settings) the app opens itself again (watchLanguage).
+func languageSetting() -> String {
+    let project = ["handry.config.json", "jevis.config.json"].map { "\(ROOT)/\($0)" }.first { FileManager.default.fileExists(atPath: $0) }
+    for file in ["\(HOME)/.jevis/config.json", project].compactMap({ $0 }) {
+        guard let data = FileManager.default.contents(atPath: file),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let value = json["language"], !(value is NSNull) else { continue }
+        if let s = value as? String, s == "tr" || s == "en" { return s }
+        return "auto"
+    }
+    return "auto"
+}
+
+/// "tr" or "en": what the setting gives now.
+func currentLanguage() -> String {
+    if let forced = env["JEVIS_LANG"], forced == "tr" || forced == "en" { return forced }
+    let setting = languageSetting()
+    if setting != "auto" { return setting }
+    return (Locale.preferredLanguages.first ?? "").lowercased().hasPrefix("tr") ? "tr" : "en"
+}
+
+let LANG = currentLanguage()
+/// The Turkish or the English text, by the language the app started in: L("\(APP_NAME) başlıyor…", "\(APP_NAME) is starting…")
+func L(_ tr: String, _ en: String) -> String { LANG == "en" ? en : tr }
+
 // The app's name and its Turkish endings, the fox's name and the wake word (core/brand.js, via Info.plist).
+// In English only the plain name is used.
 let APP_NAME = info["CFBundleDisplayName"] as? String ?? "Handry"
 let APP_ACC = info["AppAccusative"] as? String ?? "\(APP_NAME)'yu"
 let APP_ABL = info["AppAblative"] as? String ?? "\(APP_NAME)'dan"
@@ -64,6 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     var server: Process?
     var hotKeys: [EventHotKeyRef?] = []
     var quitting = false
+    var relaunching = false
     var restarts: [Date] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -75,6 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         setUpListener()
         watchAttention()
         watchTimers()
+        watchLanguage()
         registerHotKeys()
         makeFox()
         overlay = Overlay()
@@ -111,15 +143,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         let waiting = """
         <meta name="color-scheme" content="light dark">
         <body style="font:15px -apple-system;margin:0;display:flex;align-items:center;gap:10px;height:\(Int(BAR_HEIGHT))px;padding:0 18px;color:#8e8e93;background:transparent">
-        <b style="color:CanvasText;font-weight:600">\(APP_NAME) başlıyor…</b> macOS bir izin soruyorsa <b>İzin Ver</b>'e bas.</body>
+        <b style="color:CanvasText;font-weight:600">\(L("\(APP_NAME) başlıyor…", "\(APP_NAME) is starting…"))</b> \(L("macOS bir izin soruyorsa <b>İzin Ver</b>'e bas.", "If macOS asks for a permission, click <b>Allow</b>."))</body>
         """
         barReady = false
         barWeb.loadHTMLString(waiting, baseURL: nil)
         webView.loadHTMLString("""
         <meta name="color-scheme" content="light dark">
         <body style="font:15px -apple-system;display:grid;place-items:center;height:90vh;text-align:center;color:#8e8e93">
-        <div><h2 style="color:CanvasText;font-weight:600">\(APP_NAME) başlıyor…</h2>
-        <p>macOS bir izin soruyorsa (ör. Masaüstü klasörü) <b>İzin Ver</b>'e bas.</p></div></body>
+        <div><h2 style="color:CanvasText;font-weight:600">\(L("\(APP_NAME) başlıyor…", "\(APP_NAME) is starting…"))</h2>
+        <p>\(L("macOS bir izin soruyorsa (ör. Masaüstü klasörü) <b>İzin Ver</b>'e bas.", "If macOS asks for a permission (the Desktop folder, for example), click <b>Allow</b>."))</p></div></body>
         """, baseURL: nil)
         startServer { [weak self] ok in
             guard let self else { return }
@@ -128,8 +160,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
                 self.webView.load(URLRequest(url: URL(string: URL_BASE)!))
                 self.barWeb.load(URLRequest(url: URL(string: URL_BASE + "bar.html")!))
             } else {
-                self.webView.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:15px -apple-system;padding:2em'><h2>\(APP_NAME) sunucusu başlamadı</h2><p>Kayıt: ~/.jevis/logs/app-server.log</p><p>Menüden \(APP_NAME) › Sunucuyu Yeniden Başlat'ı dene.</p></body>", baseURL: nil)
-                self.barWeb.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:14px -apple-system;margin:0;padding:18px;color:#e5383b;background:transparent'>\(APP_NAME) sunucusu başlamadı. Menüden “Sunucuyu Yeniden Başlat”ı dene.</body>", baseURL: nil)
+                self.webView.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:15px -apple-system;padding:2em'>" + L(
+                    "<h2>\(APP_NAME) sunucusu başlamadı</h2><p>Kayıt: ~/.jevis/logs/app-server.log</p><p>Menüden \(APP_NAME) › Sunucuyu Yeniden Başlat'ı dene.</p>",
+                    "<h2>\(APP_NAME)'s server didn't start</h2><p>Log: ~/.jevis/logs/app-server.log</p><p>Try \(APP_NAME) › Restart Server in the menu.</p>") + "</body>", baseURL: nil)
+                self.barWeb.loadHTMLString("<meta name='color-scheme' content='light dark'><body style='font:14px -apple-system;margin:0;padding:18px;color:#e5383b;background:transparent'>" + L(
+                    "\(APP_NAME) sunucusu başlamadı. Menüden “Sunucuyu Yeniden Başlat”ı dene.",
+                    "\(APP_NAME)'s server didn't start. Try “Restart Server” in the menu.") + "</body>", baseURL: nil)
             }
         }
     }
@@ -140,41 +176,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         let main = NSMenu()
         let appItem = NSMenuItem()
         let appMenu = NSMenu(title: APP_NAME)
-        appMenu.addItem(NSMenuItem(title: "\(APP_NAME) Hakkında", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+        appMenu.addItem(NSMenuItem(title: L("\(APP_NAME) Hakkında", "About \(APP_NAME)"), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
         appMenu.addItem(.separator())
-        appMenu.addItem(item("\(APP_NAME) Çubuğu   ⌥Space", #selector(toggleBar)))
-        appMenu.addItem(item("Büyük Pencere", #selector(openWindow)))
+        appMenu.addItem(item(L("\(APP_NAME) Çubuğu   ⌥Space", "\(APP_NAME) Bar   ⌥Space"), #selector(toggleBar)))
+        appMenu.addItem(item(L("Büyük Pencere", "\(APP_NAME) Window"), #selector(openWindow)))
         appMenu.addItem(wakeItem())
         appMenu.addItem(.separator())
-        appMenu.addItem(item("İzinler…", #selector(checkPermissions)))
-        appMenu.addItem(item("Sunucuyu Yeniden Başlat", #selector(restartServer)))
-        appMenu.addItem(item("Tarayıcıda Aç", #selector(openInBrowser)))
+        appMenu.addItem(item(L("İzinler…", "Permissions…"), #selector(checkPermissions)))
+        appMenu.addItem(languageMenuItem())
+        appMenu.addItem(item(L("Sunucuyu Yeniden Başlat", "Restart Server"), #selector(restartServer)))
+        appMenu.addItem(item(L("Tarayıcıda Aç", "Open in Browser"), #selector(openInBrowser)))
         appMenu.addItem(.separator())
-        appMenu.addItem(item("⛔ Acil Durdur   ⌥Esc", #selector(emergencyStop)))
+        appMenu.addItem(item(L("⛔ Acil Durdur   ⌥Esc", "⛔ Emergency Stop   ⌥Esc"), #selector(emergencyStop)))
         appMenu.addItem(.separator())
-        appMenu.addItem(NSMenuItem(title: "\(APP_ACC) Gizle", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
-        appMenu.addItem(NSMenuItem(title: "\(APP_ABL) Çık", action: #selector(quit), keyEquivalent: "q"))
+        appMenu.addItem(NSMenuItem(title: L("\(APP_ACC) Gizle", "Hide \(APP_NAME)"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
+        appMenu.addItem(NSMenuItem(title: L("\(APP_ABL) Çık", "Quit \(APP_NAME)"), action: #selector(quit), keyEquivalent: "q"))
         appItem.submenu = appMenu
         main.addItem(appItem)
 
         let editItem = NSMenuItem()
-        let edit = NSMenu(title: "Düzen")
-        edit.addItem(NSMenuItem(title: "Geri Al", action: Selector(("undo:")), keyEquivalent: "z"))
-        let redo = NSMenuItem(title: "Yinele", action: Selector(("redo:")), keyEquivalent: "z")
+        let edit = NSMenu(title: L("Düzen", "Edit"))
+        edit.addItem(NSMenuItem(title: L("Geri Al", "Undo"), action: Selector(("undo:")), keyEquivalent: "z"))
+        let redo = NSMenuItem(title: L("Yinele", "Redo"), action: Selector(("redo:")), keyEquivalent: "z")
         redo.keyEquivalentModifierMask = [.command, .shift]
         edit.addItem(redo)
         edit.addItem(.separator())
-        edit.addItem(NSMenuItem(title: "Kes", action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
-        edit.addItem(NSMenuItem(title: "Kopyala", action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
-        edit.addItem(NSMenuItem(title: "Yapıştır", action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
-        edit.addItem(NSMenuItem(title: "Tümünü Seç", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
+        edit.addItem(NSMenuItem(title: L("Kes", "Cut"), action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
+        edit.addItem(NSMenuItem(title: L("Kopyala", "Copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
+        edit.addItem(NSMenuItem(title: L("Yapıştır", "Paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
+        edit.addItem(NSMenuItem(title: L("Tümünü Seç", "Select All"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
         editItem.submenu = edit
         main.addItem(editItem)
 
         let windowItem = NSMenuItem()
-        let windowMenu = NSMenu(title: "Pencere")
-        windowMenu.addItem(NSMenuItem(title: "Küçült", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m"))
-        windowMenu.addItem(NSMenuItem(title: "Kapat", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
+        let windowMenu = NSMenu(title: L("Pencere", "Window"))
+        windowMenu.addItem(NSMenuItem(title: L("Küçült", "Minimize"), action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m"))
+        windowMenu.addItem(NSMenuItem(title: L("Kapat", "Close"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
         windowItem.submenu = windowMenu
         main.addItem(windowItem)
         NSApp.mainMenu = main
@@ -198,20 +235,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         statusItem.button?.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         let menu = NSMenu()
         menu.delegate = self // the timers are put at the top each time it opens
-        menu.addItem(item("\(APP_NAME) Çubuğu   ⌥Space", #selector(toggleBar)))
-        menu.addItem(item("Büyük Pencere", #selector(openWindow)))
+        menu.addItem(item(L("\(APP_NAME) Çubuğu   ⌥Space", "\(APP_NAME) Bar   ⌥Space"), #selector(toggleBar)))
+        menu.addItem(item(L("Büyük Pencere", "\(APP_NAME) Window"), #selector(openWindow)))
         menu.addItem(wakeItem())
-        menu.addItem(item("Bas-Konuş   ⌥⇧Space (basılı tut)", #selector(toggleBar)))
-        menu.addItem(item("⛔ Acil Durdur   ⌥Esc", #selector(emergencyStop)))
+        menu.addItem(item(L("Bas-Konuş   ⌥⇧Space (basılı tut)", "Push to Talk   ⌥⇧Space (hold)"), #selector(toggleBar)))
+        menu.addItem(item(L("⛔ Acil Durdur   ⌥Esc", "⛔ Emergency Stop   ⌥Esc"), #selector(emergencyStop)))
         menu.addItem(.separator())
         menu.addItem(foxMenuItem())
         menu.addItem(dotItem())
         menu.addItem(.separator())
-        menu.addItem(item("Tarayıcıda Aç", #selector(openInBrowser)))
-        menu.addItem(item("İzinler…", #selector(checkPermissions)))
-        menu.addItem(item("Sunucuyu Yeniden Başlat", #selector(restartServer)))
+        menu.addItem(item(L("Tarayıcıda Aç", "Open in Browser"), #selector(openInBrowser)))
+        menu.addItem(item(L("İzinler…", "Permissions…"), #selector(checkPermissions)))
+        menu.addItem(languageMenuItem())
+        menu.addItem(item(L("Sunucuyu Yeniden Başlat", "Restart Server"), #selector(restartServer)))
         menu.addItem(.separator())
-        menu.addItem(item("\(APP_ABL) Çık", #selector(quit)))
+        menu.addItem(item(L("\(APP_ABL) Çık", "Quit \(APP_NAME)"), #selector(quit)))
         statusItem.menu = menu
     }
 
@@ -222,7 +260,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     }
 
     func wakeItem() -> NSMenuItem {
-        let i = item("“\(WAKE_LABEL)” ile Dinle", #selector(toggleWake))
+        let i = item(L("“\(WAKE_LABEL)” ile Dinle", "Listen for “\(WAKE_LABEL)”"), #selector(toggleWake))
         i.state = UserDefaults.standard.bool(forKey: "heyJev") ? .on : .off
         wakeItems.append(i)
         return i
@@ -232,12 +270,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
     /// The pets: their sprites in the app (Resources/pets/<id>) or in the project, and their names in the menu.
     static let pets: [(id: String, name: String, acc: String, project: String)] = [
-        ("hand", "El", "Eli", "app/hand/sprites"),
-        ("fox", "Tilki", "Tilkiyi", "app/foxie/sprites")
+        ("hand", L("El", "Hand"), L("Eli", "Hand"), "app/hand/sprites"),
+        ("fox", L("Tilki", "Fox"), L("Tilkiyi", "Fox"), "app/foxie/sprites")
     ]
     var pet: (id: String, name: String, acc: String, project: String) {
         let id = UserDefaults.standard.string(forKey: "pet") ?? "hand"
         return Self.pets.first { $0.id == id } ?? Self.pets[0]
+    }
+    var petMenuTitle: String { L("Ekrandaki \(pet.name)", "\(pet.name) on Screen") }
+    var petToggleTitle: String {
+        fox?.visible == false ? L("\(pet.acc) Göster", "Show \(pet.name)") : L("\(pet.acc) Gizle", "Hide \(pet.name)")
     }
 
     func makeFox() {
@@ -249,16 +291,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
     /// "Ekrandaki El ▸": show or hide it, put it to sleep, its size, which one.
     func foxMenuItem() -> NSMenuItem {
-        let root = NSMenuItem(title: "Ekrandaki \(pet.name)", action: nil, keyEquivalent: "")
+        let root = NSMenuItem(title: petMenuTitle, action: nil, keyEquivalent: "")
         root.tag = 913
         let menu = NSMenu()
         menu.delegate = self
-        let toggle = item(fox?.visible == false ? "\(pet.acc) Göster" : "\(pet.acc) Gizle", #selector(toggleFox))
+        let toggle = item(petToggleTitle, #selector(toggleFox))
         toggle.tag = 910
         menu.addItem(toggle)
-        menu.addItem(item("Uyut", #selector(foxSleep)))
+        menu.addItem(item(L("Uyut", "Sleep"), #selector(foxSleep)))
         menu.addItem(.separator())
-        for (title, value) in [("Küçük", 0.5), ("Orta", 1.0), ("Büyük", 1.5)] {
+        for (title, value) in [(L("Küçük", "Small"), 0.5), (L("Orta", "Medium"), 1.0), (L("Büyük", "Large"), 1.5)] {
             let size = item(title, #selector(foxSize(_:)))
             size.representedObject = value
             size.tag = 911
@@ -286,7 +328,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
     /// "Üstteki Nokta": the dot under the notch (or the menu bar) that shows what Handry is doing. Drawings stay either way.
     func dotItem() -> NSMenuItem {
-        let it = item("Üstteki Nokta", #selector(toggleDot(_:)))
+        let it = item(L("Üstteki Nokta", "Dot at the Top"), #selector(toggleDot(_:)))
         it.state = (UserDefaults.standard.object(forKey: "overlayDot") as? Bool ?? true) ? .on : .off
         return it
     }
@@ -339,7 +381,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             let label = j["label"] as? [String: Any]
             let countdown = j["countdown"] as? Double ?? 0
             return TimerJob(id: id,
-                            what: label?["what"] as? String ?? j["text"] as? String ?? "Zamanlanmış iş",
+                            what: label?["what"] as? String ?? j["text"] as? String ?? L("Zamanlanmış iş", "Timer"),
                             when: label?["when"] as? String ?? "",
                             note: j["lastNote"] as? String ?? "",
                             at: j["at"] as? Double,
@@ -349,10 +391,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         }
     }
 
-    /// "8:12" under an hour, "2 sa 14 dk" above.
+    /// "8:12" under an hour, "2 sa 14 dk" ("2 h 14 min") above.
     func timeLeft(_ ms: Double) -> String {
         let s = max(0, Int((ms / 1000).rounded()))
-        return s >= 3600 ? "\(s / 3600) sa \((s % 3600) / 60) dk" : String(format: "%d:%02d", s / 60, s % 60)
+        return s >= 3600 ? L("\(s / 3600) sa \((s % 3600) / 60) dk", "\(s / 3600) h \((s % 3600) / 60) min") : String(format: "%d:%02d", s / 60, s % 60)
     }
 
     /// The hand in the menu bar widens to the left while something waits: the nearest time, how many there are, a shutdown countdown.
@@ -364,56 +406,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             let mark = self.statusItem.button?.image == nil ? "🦊" : ""
             var title = mark
             if let end = jobs.compactMap({ $0.firingEnd }).min() {
-                title = "\(mark) ⏻ \(max(0, Int(((end - now) / 1000).rounded(.up)))) sn"
+                title = "\(mark) ⏻ \(max(0, Int(((end - now) / 1000).rounded(.up)))) \(L("sn", "s"))"
             } else if let next = jobs.compactMap({ $0.at }).filter({ $0 > now - 60000 }).min() {
                 title = "\(mark) ⏰ \(self.timeLeft(next - now))" + (jobs.count > 1 ? " · \(jobs.count)" : "")
             } else if !jobs.isEmpty {
                 title = "\(mark) 👀 \(jobs.count)"
             }
             if self.statusItem.button?.title != title { self.statusItem.button?.title = title }
-            self.statusItem.button?.toolTip = jobs.isEmpty ? APP_NAME : "\(APP_NAME) · \(jobs.count) zamanlanmış iş"
+            self.statusItem.button?.toolTip = jobs.isEmpty ? APP_NAME : "\(APP_NAME) · \(jobs.count) \(L("zamanlanmış iş", "scheduled"))"
         }
     }
 
     /// Before the menu opens: the timers at the top, each with "Sohbeti Aç" / "İptal Et".
     func menuNeedsUpdate(_ menu: NSMenu) {
-        for entry in menu.items where entry.tag == 910 { entry.title = fox?.visible == false ? "\(pet.acc) Göster" : "\(pet.acc) Gizle" }
+        for entry in menu.items where entry.tag == 910 { entry.title = petToggleTitle }
         for entry in menu.items where entry.tag == 912 { entry.state = entry.representedObject as? String == pet.id ? .on : .off }
-        for entry in menu.items where entry.tag == 913 { entry.title = "Ekrandaki \(pet.name)" }
+        for entry in menu.items where entry.tag == 913 { entry.title = petMenuTitle }
         for entry in menu.items where entry.tag == 911 { entry.state = abs(Double(fox?.scale ?? 0) - (entry.representedObject as? Double ?? -1)) < 0.01 ? .on : .off }
+        // the language can also have been changed in the window's Settings
+        if menu.items.contains(where: { $0.tag == 914 }) {
+            let setting = languageSetting()
+            for entry in menu.items where entry.tag == 914 { entry.state = entry.representedObject as? String == setting ? .on : .off }
+        }
         guard menu === statusItem.menu else { return }
         for old in menu.items where old.tag == 900 { menu.removeItem(old) }
         let jobs = readTimers()
         guard !jobs.isEmpty else { return }
         let now = Date().timeIntervalSince1970 * 1000
         var added: [NSMenuItem] = []
-        let header = NSMenuItem(title: "Zamanlayıcılar", action: nil, keyEquivalent: "")
+        let header = NSMenuItem(title: L("Zamanlayıcılar", "Scheduled"), action: nil, keyEquivalent: "")
         header.isEnabled = false
         added.append(header)
         for job in jobs {
             let icon = job.firingEnd != nil ? "⏻" : job.watch && job.at == nil ? "👀" : "⏰"
             let row = NSMenuItem(title: "\(icon) \(job.what)", action: nil, keyEquivalent: "")
             if let end = job.firingEnd {
-                row.subtitle = "\(timeLeft(end - now)) sonra"
+                row.subtitle = L("\(timeLeft(end - now)) sonra", "in \(timeLeft(end - now))")
             } else if let at = job.at, !job.watch {
-                row.subtitle = "\(job.when) · \(timeLeft(at - now)) kaldı"
+                row.subtitle = L("\(job.when) · \(timeLeft(at - now)) kaldı", "\(job.when) · \(timeLeft(at - now)) left")
             } else {
                 row.subtitle = job.note.isEmpty ? job.when : "\(job.when) · \(job.note)"
             }
             let sub = NSMenu()
             if let chat = job.chatId {
-                let open = item("Kurulduğu Sohbeti Aç", #selector(openTimerChat(_:)))
+                let open = item(L("Kurulduğu Sohbeti Aç", "Open Its Chat"), #selector(openTimerChat(_:)))
                 open.representedObject = chat
                 sub.addItem(open)
             }
-            let cancel = item("İptal Et", #selector(cancelTimerItem(_:)))
+            let cancel = item(L("İptal Et", "Cancel"), #selector(cancelTimerItem(_:)))
             cancel.representedObject = job.id
             sub.addItem(cancel)
             row.submenu = sub
             added.append(row)
         }
         if jobs.count > 1 {
-            let all = item("Hepsini İptal Et", #selector(cancelTimerItem(_:)))
+            let all = item(L("Hepsini İptal Et", "Cancel All"), #selector(cancelTimerItem(_:)))
             all.representedObject = "all"
             added.append(all)
         }
@@ -481,8 +528,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (String?) -> Void) {
         let alert = NSAlert()
         alert.messageText = prompt
-        alert.addButton(withTitle: "Tamam")
-        alert.addButton(withTitle: "Vazgeç")
+        alert.addButton(withTitle: L("Tamam", "OK"))
+        alert.addButton(withTitle: L("Vazgeç", "Cancel"))
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
         field.stringValue = defaultText ?? ""
         alert.accessoryView = field
@@ -678,7 +725,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             guard let self else { return }
             guard mic else {
                 self.showBar(mode: "voice")
-                self.sendVoice(["type": "error", "message": "Mikrofon izni yok: Sistem Ayarları › Gizlilik ve Güvenlik › Mikrofon'da \(APP_ACC) aç."])
+                self.sendVoice(["type": "error", "message": L("Mikrofon izni yok: Sistem Ayarları › Gizlilik ve Güvenlik › Mikrofon'da \(APP_ACC) aç.",
+                                                              "No microphone permission: turn on \(APP_NAME) in System Settings › Privacy & Security › Microphone.")])
                 return
             }
             self.showBar(mode: "voice")
@@ -774,6 +822,79 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         NSApp.terminate(nil)
     }
 
+    // MARK: Language (the same setting as core/i18n.js)
+
+    /// "Dil / Language ▸": Türkçe, English, or the Mac's own language; the check is on the current setting.
+    func languageMenuItem() -> NSMenuItem {
+        let root = NSMenuItem(title: "Dil / Language", action: nil, keyEquivalent: "")
+        let menu = NSMenu()
+        menu.delegate = self
+        let setting = languageSetting()
+        for (value, title) in [("tr", "Türkçe"), ("en", "English"), ("auto", L("Mac'in dili", "Same as the Mac"))] {
+            let choice = item(title, #selector(chooseLanguage(_:)))
+            choice.representedObject = value
+            choice.tag = 914
+            choice.state = value == setting ? .on : .off
+            menu.addItem(choice)
+        }
+        root.submenu = menu
+        return root
+    }
+
+    /// Saves the choice as "language" in ~/.jevis/config.json, keeping everything else there (the server
+    /// reads it from there too). A file that isn't JSON is left alone rather than written over.
+    @objc func chooseLanguage(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? String else { return }
+        let dir = "\(HOME)/.jevis", file = "\(dir)/config.json"
+        var json: [String: Any] = [:]
+        if let data = FileManager.default.contents(atPath: file), !data.isEmpty {
+            guard let saved = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                let alert = NSAlert()
+                alert.messageText = L("Dil kaydedilemedi", "Couldn't save the language")
+                alert.informativeText = L("~/.jevis/config.json okunamadı (geçerli JSON değil).", "~/.jevis/config.json couldn't be read (it isn't valid JSON).")
+                alert.runModal()
+                return
+            }
+            json = saved
+        }
+        json["language"] = value
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        guard let out = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]) else { return }
+        try? (out + Data("\n".utf8)).write(to: URL(fileURLWithPath: file))
+        for entry in sender.menu?.items ?? [] { entry.state = entry === sender ? .on : .off }
+        if currentLanguage() != LANG { relaunch() }
+    }
+
+    /// Every second: when the setting now gives another language than the one the app started in (this
+    /// menu, or the window's Settings through the server), the app opens itself again in it.
+    func watchLanguage() {
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self, !self.relaunching, currentLanguage() != LANG else { return }
+            self.relaunch()
+        }
+    }
+
+    /// A shell outside the app waits until this app and its server have quit, then opens the app again
+    /// (which starts the server again; one started by `npm start` is not ours and keeps running). The new
+    /// app starts in the language the setting gives, so it has no reason to relaunch; still, at most once
+    /// in 10 s, so nothing can make it spin.
+    func relaunch() {
+        let now = Date().timeIntervalSince1970
+        guard !relaunching, now - UserDefaults.standard.double(forKey: "relaunchedAt") > 10 else { return }
+        relaunching = true
+        UserDefaults.standard.set(now, forKey: "relaunchedAt")
+        let pids = ([ProcessInfo.processInfo.processIdentifier] + [server?.processIdentifier].compactMap { $0 }).map { String($0) }.joined(separator: " ")
+        let bundle = Bundle.main.bundlePath.replacingOccurrences(of: "'", with: "'\\''")
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", "sleep 1; for pid in \(pids); do i=0; while kill -0 $pid 2>/dev/null && [ $i -lt 50 ]; do sleep 0.2; i=$((i+1)); done; done; open '\(bundle)'"]
+        p.standardInput = FileHandle.nullDevice
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return } // no shell: stays as it is, in the old language
+        quit()
+    }
+
     // MARK: Server
 
     /// Our own server answers /api/ping with {"jevis": true}; anything else on the port (another dev server) does not count.
@@ -800,7 +921,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
                 // The node the app was built with can be gone (Homebrew deletes the old versioned folder on an upgrade):
                 // look for another one, and say in the log what happened instead of leaving it empty.
                 guard let node = findNode() else {
-                    log?.write(Data("node bulunamadı. Aranan yerler: \(NODE), \(NODE_FALLBACKS.joined(separator: ", ")). Node kurulu mu? (brew install node), sonra uygulamayı yeniden kur: node cli.js app install\n".utf8))
+                    log?.write(Data(L("node bulunamadı. Aranan yerler: \(NODE), \(NODE_FALLBACKS.joined(separator: ", ")). Node kurulu mu? (brew install node), sonra uygulamayı yeniden kur: node cli.js app install\n",
+                                      "node not found. Looked in: \(NODE), \(NODE_FALLBACKS.joined(separator: ", ")). Is Node installed? (brew install node), then install the app again: node cli.js app install\n").utf8))
                     return completion(false)
                 }
                 let p = Process()
@@ -823,7 +945,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
                     }
                 }
                 do { try p.run() } catch {
-                    log?.write(Data("Sunucu başlatılamadı (\(node), klasör \(ROOT)): \(error.localizedDescription)\n".utf8))
+                    log?.write(Data(L("Sunucu başlatılamadı (\(node), klasör \(ROOT)): \(error.localizedDescription)\n",
+                                      "Couldn't start the server (\(node), folder \(ROOT)): \(error.localizedDescription)\n").utf8))
                     return completion(false)
                 }
                 self.server = p

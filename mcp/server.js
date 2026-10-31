@@ -11,13 +11,16 @@ import { MCP_NAME } from '../core/brand.js';
 // unless Handry started this server for one of its own runs.
 process.env.JEVIS_RUN_ID ||= `mcp-${Date.now().toString(36)}`;
 
+// Texts may be functions, so they come in the language Handry speaks when they are asked for.
+const now = text => (typeof text === 'function' ? text() : text);
+
 const server = new Server(
   { name: MCP_NAME, version: '0.3.0' },
-  { capabilities: { tools: {} }, instructions: INSTRUCTIONS }
+  { capabilities: { tools: {} }, instructions: now(INSTRUCTIONS) }
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: TOOLS.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))
+  tools: TOOLS.map(({ name, description, inputSchema }) => ({ name, description: now(description), inputSchema }))
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async request =>

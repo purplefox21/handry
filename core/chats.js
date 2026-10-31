@@ -15,20 +15,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { homeDir, loadState, saveState } from './config.js';
-import { APP } from './brand.js';
+import { APP, APP_NAME } from './brand.js';
+import { T } from './i18n.js';
 
 export const ROTATE_TURNS = 12;
 export const IDLE_MS = 2 * 60 * 60 * 1000;
 const MAX_CHATS = 100;
 const SUMMARY_EXCHANGES = 10;
 
-export const NEW_CHAT = /^\s*(yeni\s+(bir\s+)?(sohbet|konu)(\s+(aç|başlat|başlayalım))?|new\s+chat)\s*[.!]*\s*$/i;
+export const NEW_CHAT = /^\s*(yeni\s+(bir\s+)?(sohbet|konu)(\s+(aç|başlat|başlayalım))?|new\s+chat|((let'?s\s+)?(start|open)\s+(a\s+)?)?new\s+(chat|conversation|topic)|start\s+over)\s*[.!]*\s*$/i;
 
 const dir = () => homeDir('chats');
 const fileOf = id => path.join(dir(), `${String(id).replace(/[^\w-]/g, '')}.json`);
 const clip = (s, n) => { const t = String(s ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
-const hhmm = t => new Date(t).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-const VIA = { fast: 'hızlı yol', learned: 'öğrenilmiş iş', recipe: 'tarif', brain: 'Claude' };
+const hhmm = t => T(new Date(t).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }), new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(/\u202f/g, ' '));
+const via = v => T({ fast: 'hızlı yol', learned: 'öğrenilmiş iş', recipe: 'tarif', brain: 'Claude' }, { fast: 'fast path', learned: 'learned task', recipe: 'recipe', brain: 'Claude' })[v];
 
 export function loadChat(id) {
   if (!id) return null;
@@ -53,7 +54,7 @@ export function listChats() {
   return fs.readdirSync(dir()).filter(f => f.endsWith('.json')).map(f => {
     try {
       const c = JSON.parse(fs.readFileSync(path.join(dir(), f), 'utf-8'));
-      return { id: c.id, title: c.title || 'Yeni sohbet', created: c.created, updated: c.updated, count: c.entries.filter(e => e.role === 'user').length };
+      return { id: c.id, title: c.title || T('Yeni sohbet', 'New chat'), created: c.created, updated: c.updated, count: c.entries.filter(e => e.role === 'user').length };
     } catch {
       return null;
     }
@@ -83,7 +84,7 @@ export function peekChat() {
 
 export function switchChat(id) {
   const chat = loadChat(id);
-  if (!chat) throw new Error('Böyle bir sohbet yok.');
+  if (!chat) throw new Error(T('Böyle bir sohbet yok.', 'There is no such chat.'));
   saveState({ chat: chat.id });
   return chat;
 }
@@ -117,7 +118,7 @@ function exchanges(chat) {
   return out;
 }
 
-const line = ({ asked, answer }) => `- ${hhmm(answer.at)} "${clip(asked?.text, 100)}" → ${clip(answer.text, 180) || '(cevap yok)'}${answer.via && answer.via !== 'brain' ? ` (${VIA[answer.via] || answer.via})` : ''}${answer.steps?.length ? ` [${answer.steps.slice(0, 6).join(', ')}]` : ''}`;
+const line = ({ asked, answer }) => `- ${hhmm(answer.at)} "${clip(asked?.text, 100)}" → ${clip(answer.text, 180) || T('(cevap yok)', '(no answer)')}${answer.via && answer.via !== 'brain' ? ` (${via(answer.via) || answer.via})` : ''}${answer.steps?.length ? ` [${answer.steps.slice(0, 6).join(', ')}]` : ''}`;
 
 /**
  * The message for the brain and the session to continue. A fresh session
@@ -133,13 +134,13 @@ export function brainTurn(chat, text, { key, screen }) {
   const all = exchanges(chat);
   if (fresh) {
     const earlier = all.slice(-SUMMARY_EXCHANGES).map(line);
-    if (earlier.length) parts.push(`[Bu sohbette daha önce (${APP.genitive} özeti):\n${earlier.join('\n')}]`);
+    if (earlier.length) parts.push(T(`[Bu sohbette daha önce (${APP.genitive} özeti):\n${earlier.join('\n')}]`, `[Earlier in this chat (${APP_NAME}'s summary):\n${earlier.join('\n')}]`));
   } else {
     const lastBrain = all.findLastIndex(x => x.answer.via === 'brain');
     const without = all.slice(lastBrain + 1).map(line);
-    if (without.length) parts.push(`[Sen yokken ${APP.genitive} Claude'suz yaptıkları:\n${without.join('\n')}]`);
+    if (without.length) parts.push(T(`[Sen yokken ${APP.genitive} Claude'suz yaptıkları:\n${without.join('\n')}]`, `[While you were away, what ${APP_NAME} did without Claude:\n${without.join('\n')}]`));
   }
-  if (screen) parts.push(`[Şu an ekranda: ${screen}]`);
+  if (screen) parts.push(T(`[Şu an ekranda: ${screen}]`, `[On screen now: ${screen}]`));
   parts.push(text);
   return { message: parts.join('\n\n'), sessionId: fresh ? null : c.sessionId, fresh };
 }
@@ -154,6 +155,6 @@ export function brainDone(chat, { sessionId, key, fresh }) {
 export function stepText(name, args = {}) {
   const tool = String(name).replace(/^mcp__.+?__/, '');
   const arg = args.url || args.target || args.name || args.what || args.command || args.query || args.text || args.action
-    || (args.fields && typeof args.fields === 'object' ? `${Object.keys(args.fields).length} alan` : '');
+    || (args.fields && typeof args.fields === 'object' ? T(`${Object.keys(args.fields).length} alan`, `${Object.keys(args.fields).length} fields`) : '');
   return `${tool}${arg ? `(${clip(arg, 40)})` : ''}`;
 }

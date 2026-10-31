@@ -7,7 +7,8 @@
 // itself, no double run when texting yourself shows a message twice; a slow
 // task gets a "üzerindeyim"; "ekranı göster" sends a screenshot without the
 // brain; phone_send sends text (always with the name in front) and a real
-// screenshot of this Mac (recorded, not sent).
+// screenshot of this Mac (recorded, not sent). In English (JEVIS_LANG=en):
+// "Handry, …" runs, "I'm on it" and "show me the screen" work the same.
 // Usage: node tests/phone-e2e.mjs
 import fs from 'node:fs';
 import os from 'node:os';
@@ -57,7 +58,7 @@ async function check(name, fn) {
 
 // the stand-in brain: remembers what it was asked; "yavaş" takes a while
 const ran = [];
-const run = async command => { ran.push(command); if (/yavaş/.test(command)) await sleep(1500); return { text: `Yaptım: ${command}` }; };
+const run = async command => { ran.push(command); if (/yavaş|slow/.test(command)) await sleep(1500); return { text: `Yaptım: ${command}` }; };
 const shots = [];
 const shoot = async () => { const p = path.join(home, `shot-${shots.length}.jpg`); fs.writeFileSync(p, 'jpg'); shots.push(p); return { path: p }; };
 
@@ -115,6 +116,30 @@ try {
     insert('Handry ekranı göster');
     const file = await waitFor(() => sent().find(m => m.imessageFile));
     return { ok: Boolean(file) && file.imessageFile === shots[0] && ran.length === before && file.to === '+90 555 111 22 33', note: file?.imessageFile };
+  });
+
+  await check('İngilizce: "Handry, …" çalışıyor, uzun işte önce "I’m on it", "show me the screen" ekran görüntüsü gönderiyor; "lock the screen" göndermiyor', async () => {
+    process.env.JEVIS_LANG = 'en';
+    try {
+      const names = [['Handry, turn the volume down', 'turn the volume down'], ['Hey Handry show me the screen', 'show me the screen'], ['hey handry: what time is it', 'what time is it']];
+      const badName = names.filter(([t, want]) => phone.commandOf(t) !== want).map(([t]) => t);
+      const yes = ['show me the screen', 'send a screenshot', 'take a screenshot', "what's on the screen", 'screen'];
+      const no = ['lock the screen', 'turn off the screen', 'screen brightness up', 'record the screen', 'show me my screen time'];
+      const badScreen = [...yes.filter(t => !phone.wantsScreen(t)), ...no.filter(t => phone.wantsScreen(t))];
+      const before = ran.length;
+      const shotsBefore = shots.length;
+      insert('Handry, do a slow task');
+      const answer = await waitFor(() => sent().find(m => m.imessage === 'Handry: Yaptım: do a slow task'));
+      const all = sent().map(m => m.imessage);
+      const ackAt = all.indexOf('Handry: OK, I’m on it…');
+      insert('Handry, show me the screen');
+      const file = await waitFor(() => shots.length > shotsBefore && sent().find(m => m.imessageFile === shots.at(-1)));
+      await watcher.idle();
+      const ok = !badName.length && !badScreen.length && Boolean(answer) && ackAt >= 0 && ackAt < all.indexOf(answer.imessage) && Boolean(file) && ran.length === before + 1;
+      return { ok, note: ok ? '' : `ad: ${badName.join(', ')} · ekran: ${badScreen.join(', ')} · üzerindeyim: ${ackAt} · çalışanlar: ${JSON.stringify(ran.slice(before))}` };
+    } finally {
+      delete process.env.JEVIS_LANG;
+    }
   });
 
   watcher.stop();

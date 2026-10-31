@@ -5,6 +5,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { config, HOME } from '../core/config.js';
 import { APP_NAME } from '../core/brand.js';
+import { T } from '../core/i18n.js';
 import { actionKind } from '../core/jev.js';
 import { remoteReady, startRemote } from './remote-approve.js';
 
@@ -49,15 +50,15 @@ export function needsConfirm(element, riskP, host = '') {
   const label = `${element.name || ''} ${element.ctx || ''}`;
   const always = alwaysAsk.find(w => hasWord(label, w));
   if (!always && neverAsk.some(w => hasWord(label, w))) return { ask: false };
-  if (always) return { ask: true, hard: true, reason: `her zaman sorulacaklar listesinde: "${always}"` };
+  if (always) return { ask: true, hard: true, reason: T(`her zaman sorulacaklar listesinde: "${always}"`, `on the always-ask list: "${always}"`) };
   // Strong words always ask. Soft ones ("sil", "delete") ask unless Jev is
   // nearly sure it's harmless, like "Tümünü Sil" on a calculator.
   const keyword = c.keywords.find(w => hasWord(element.name || '', w));
-  if (keyword) return { ask: true, hard: true, reason: `riskli kelime: "${keyword}"` };
+  if (keyword) return { ask: true, hard: true, reason: T(`riskli kelime: "${keyword}"`, `risky word: "${keyword}"`) };
   const soft = c.softKeywords.find(w => hasWord(element.name || '', w));
-  if (soft && (riskP === null || riskP === undefined || riskP >= c.keywordFloor)) return { ask: true, reason: `riskli kelime: "${soft}"` };
+  if (soft && (riskP === null || riskP === undefined || riskP >= c.keywordFloor)) return { ask: true, reason: T(`riskli kelime: "${soft}"`, `risky word: "${soft}"`) };
   if (riskP !== null && riskP !== undefined && riskP >= c.riskThreshold) {
-    return { ask: true, reason: `Jev bu işlemi riskli buldu (%${Math.round(riskP * 100)})` };
+    return { ask: true, reason: T(`Jev bu işlemi riskli buldu (%${Math.round(riskP * 100)})`, `Jev found this action risky (${Math.round(riskP * 100)}%)`) };
   }
   return { ask: false };
 }
@@ -74,7 +75,8 @@ export async function harmlessByKind(verdict, action) {
 }
 
 /**
- * Shows "<app name> … İzin veriyor musun?" and resolves true only on "Evet".
+ * Shows "<app name> … İzin veriyor musun?" and resolves true only on "Evet"
+ * (in English "Yes"; the buttons are in the language Handry speaks when it asks).
  * No answer within the timeout counts as "Hayır". When the phone can be asked
  * (notify.imessageTo set, Messages readable), an unanswered dialog also goes to
  * the phone as an iMessage with a code (guard/remote-approve.js), the wait grows
@@ -96,10 +98,11 @@ export async function confirmAction(message, { timeoutSec = config().confirm.tim
   if (!dialogShown && !phone) return false;
   const waitSec = phone ? Math.max(1, Number(config().confirm.remoteTimeoutSec) || 600) : timeoutSec;
   // remember: { host, name } — a third button, "Bu sitede hep": the same button on this site is not asked again
-  const buttons = remember ? '{"Hayır", "Bu sitede hep", "Evet"}' : '{"Hayır", "Evet"}';
+  const yes = T('Evet', 'Yes'), no = T('Hayır', 'No'), always = T('Bu sitede hep', 'Always on this site');
+  const buttons = remember ? `{"${no}", "${always}", "${yes}"}` : `{"${no}", "${yes}"}`;
   const script = [
     'on run argv',
-    `set r to display dialog (item 1 of argv) with title (item 3 of argv) buttons ${buttons} default button "Hayır" cancel button "Hayır" with icon caution giving up after ((item 2 of argv) as integer)`,
+    `set r to display dialog (item 1 of argv) with title (item 3 of argv) buttons ${buttons} default button "${no}" cancel button "${no}" with icon caution giving up after ((item 2 of argv) as integer)`,
     'if gave up of r then return "timeout"',
     'return button returned of r',
     'end run'
@@ -120,8 +123,8 @@ export async function confirmAction(message, { timeoutSec = config().confirm.tim
       dialog = execFile('osascript', ['-e', script, message, String(waitSec), APP_NAME], (err, stdout) => {
         if (done) return;
         const answer = err ? '' : stdout.trim();
-        if (answer === 'Bu sitede hep' && remember) allowOnSite(remember.host, remember.name);
-        finish(answer === 'Evet' || answer === 'Bu sitede hep', answer === 'timeout' ? 'timeout' : 'mac');
+        if (answer === always && remember) allowOnSite(remember.host, remember.name);
+        finish(answer === yes || answer === always, answer === 'timeout' ? 'timeout' : 'mac');
       });
     }
     if (phone) remote = startRemote({ message, onAnswer: ok => finish(ok, 'phone') });
@@ -169,14 +172,17 @@ export function waitForUser(message, { timeoutSec = config().guard.waitForUserTi
   if (process.env.JEVIS_TEST_CONFIRM === 'allow') return Promise.resolve('done');
   if (process.env.JEVIS_TEST_CONFIRM === 'deny') return Promise.resolve('cancel');
   // No default button: an Enter meant for the web page must not say "done".
+  const cancel = T('Vazgeç', 'Cancel'), okButton = T('Tamam', 'OK');
   const script = [
     'on run argv',
-    'set r to display dialog (item 1 of argv) with title (item 3 of argv) buttons {"Vazgeç", "Tamam"} cancel button "Vazgeç" with icon note giving up after ((item 2 of argv) as integer)',
+    `set r to display dialog (item 1 of argv) with title (item 3 of argv) buttons {"${cancel}", "${okButton}"} cancel button "${cancel}" with icon note giving up after ((item 2 of argv) as integer)`,
     'if gave up of r then return "timeout"',
     'return button returned of r',
     'end run'
   ].join('\n');
-  const text = `${message}\n\n${until ? 'Bitirince kendiliğinden devam ederim; istersen "Tamam"a da basabilirsin.' : 'Bitince "Tamam"a bas.'}`;
+  const text = `${message}\n\n${until
+    ? T('Bitirince kendiliğinden devam ederim; istersen "Tamam"a da basabilirsin.', 'I go on by myself when you\'re done; you can also press "OK".')
+    : T('Bitince "Tamam"a bas.', 'Press "OK" when you\'re done.')}`;
   return new Promise(resolve => {
     let finished = false;
     let dialog = null;
@@ -192,7 +198,7 @@ export function waitForUser(message, { timeoutSec = config().guard.waitForUserTi
     // Tests: no dialog at all, only the page can end the wait.
     if (process.env.JEVIS_TEST_CONFIRM !== 'watch') {
       markDialog(timeoutSec);
-      dialog = execFile('osascript', ['-e', script, text, String(timeoutSec), `${APP_NAME} seni bekliyor`], (err, stdout) => {
+      dialog = execFile('osascript', ['-e', script, text, String(timeoutSec), T(`${APP_NAME} seni bekliyor`, `${APP_NAME} is waiting for you`)], (err, stdout) => {
         if (finished) return;
         if (err) return finish('cancel');
         finish(stdout.trim() === 'timeout' ? 'timeout' : 'done');

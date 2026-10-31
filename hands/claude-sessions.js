@@ -9,9 +9,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { HOME } from '../core/config.js';
+import { T } from '../core/i18n.js';
 
 const dir = () => process.env.JEVIS_CLAUDE_SESSIONS_DIR || path.join(os.homedir(), '.claude', 'sessions');
-const WHERE = { 'claude-vscode': 'VS Code', cli: 'terminal', 'claude-desktop': 'Claude uygulaması' };
+// 'VS Code' is matched by vscode-claude.js; it reads the same in both languages.
+const WHERE = { 'claude-vscode': () => 'VS Code', cli: () => 'terminal', 'claude-desktop': () => T('Claude uygulaması', 'Claude app') };
 
 function alive(pid) {
   try { process.kill(pid, 0); return true; } catch (err) { return err.code === 'EPERM'; }
@@ -66,7 +68,7 @@ export function claudeSessions() {
       name: s.name || project,
       project,
       cwd: (s.cwd || '').normalize('NFC'),
-      where: WHERE[s.entrypoint] || s.entrypoint || '',
+      where: WHERE[s.entrypoint]?.() || s.entrypoint || '',
       state,
       waitingFor: s.waitingFor || '',
       commands: running,
@@ -76,18 +78,18 @@ export function claudeSessions() {
   }).filter(Boolean).sort((a, b) => b.since - a.since);
 }
 
-const hhmm = t => new Date(t).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+const hhmm = t => new Date(t).toLocaleTimeString(T('tr-TR', 'en-US'), { hour: T('2-digit', 'numeric'), minute: '2-digit' });
 
 export function stateText(s) {
-  if (s.state === 'waiting') return `senden cevap bekliyor${s.waitingFor ? ` (${s.waitingFor})` : ''}`;
-  if (s.state === 'working') return `çalışıyor${s.commands ? ` · ${s.commands} komut sürüyor` : ''}`;
-  return `bitti, boşta${s.since ? ` (${hhmm(s.since)}'dan beri)` : ''}`;
+  if (s.state === 'waiting') return T(`senden cevap bekliyor${s.waitingFor ? ` (${s.waitingFor})` : ''}`, `waiting for your answer${s.waitingFor ? ` (${s.waitingFor})` : ''}`);
+  if (s.state === 'working') return T(`çalışıyor${s.commands ? ` · ${s.commands} komut sürüyor` : ''}`, `working${s.commands ? ` · ${s.commands} ${s.commands === 1 ? 'command' : 'commands'} running` : ''}`);
+  return T(`bitti, boşta${s.since ? ` (${hhmm(s.since)}'dan beri)` : ''}`, `done, idle${s.since ? ` (since ${hhmm(s.since)})` : ''}`);
 }
 
 export const sessionLabel = s => `"${s.name}" (${s.project}${s.where ? `, ${s.where}` : ''})`;
 
 export function formatSessions(list) {
   const shown = list.filter(s => !s.jevis);
-  if (!shown.length) return 'Açık bir Claude Code oturumu yok.';
+  if (!shown.length) return T('Açık bir Claude Code oturumu yok.', 'No Claude Code session is open.');
   return shown.map(s => `- ${sessionLabel(s)}: ${stateText(s)}`).join('\n');
 }

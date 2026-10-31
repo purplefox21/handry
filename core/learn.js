@@ -12,6 +12,7 @@ import * as jev from './jev.js';
 import { config } from './config.js';
 import { stepsFromRun, slug, LEARNED_DIR } from './recipes.js';
 import { spans } from './spans.js';
+import { T } from './i18n.js';
 
 const MAX_STEPS = 25;
 const MAX_CANDIDATES = 8;
@@ -69,9 +70,9 @@ const setAt = (obj, path, value) => { const last = path.at(-1); path.slice(0, -1
 export async function learnFromRun({ command, runId, answer = '', explicit = false, since = 0, lastSteps = 0 }) {
   let steps = stepsFromRun(runId, { since });
   if (lastSteps > 0) steps = steps.slice(-lastSteps);
-  if (!steps.length) return { skipped: 'tekrar oynatılacak adım yok' };
-  if (steps.length > MAX_STEPS) return { skipped: 'adım sayısı çok fazla' };
-  if (steps.some(s => s.ask_brain)) return { skipped: 'görüntüye bakarak tıklama var' };
+  if (!steps.length) return { skipped: T('tekrar oynatılacak adım yok', 'no steps to replay') };
+  if (steps.length > MAX_STEPS) return { skipped: T('adım sayısı çok fazla', 'too many steps') };
+  if (steps.some(s => s.ask_brain)) return { skipped: T('görüntüye bakarak tıklama var', 'it clicks by looking at a screenshot') };
 
   // Which words of the command show up in the steps, and where.
   const uses = new Map(); // span text → [{ step, field, encoding }]
@@ -116,16 +117,16 @@ export async function learnFromRun({ command, runId, answer = '', explicit = fal
     questions[`c${i}`] = { type: 'noul', instructions: `In \`command\`, is "${c.text}" a detail that could be different the next time the same task is asked (a name, search words, a text to write, a number, a file or folder), rather than words saying what the task is (the app, the site, the action)?` };
   });
   const { answers } = await jev.ask({ command, answer: String(answer).slice(0, 1500) }, questions);
-  if ((answers.doing?.noul ?? 0) < 0.5) return { skipped: 'bu bir soru ya da bilgi isteği' };
-  if (!explicit && (answers.succeeded?.noul ?? 0) < 0.5) return { skipped: 'iş tam bitmemiş görünüyor' };
+  if ((answers.doing?.noul ?? 0) < 0.5) return { skipped: T('bu bir soru ya da bilgi isteği', 'this is a question or a request for information') };
+  if (!explicit && (answers.succeeded?.noul ?? 0) < 0.5) return { skipped: T('iş tam bitmemiş görünüyor', 'the task does not look fully done') };
   // "Try again" means whatever came before; "the second song" is a different song next time.
-  if ((answers.standalone?.noul ?? 0) < 0.5) return { skipped: 'komut önceki mesaja bağlı' };
-  if ((answers.by_position?.noul ?? 0) >= 0.5) return { skipped: 'komut bir şeyi sırasıyla seçiyor' };
+  if ((answers.standalone?.noul ?? 0) < 0.5) return { skipped: T('komut önceki mesaja bağlı', 'the command leans on an earlier message') };
+  if ((answers.by_position?.noul ?? 0) >= 0.5) return { skipped: T('komut bir şeyi sırasıyla seçiyor', 'the command picks something by its position') };
 
   const chosen = candidates.filter((_, i) => (answers[`c${i}`]?.noul ?? 0) >= 0.5)
     .sort((a, b) => a.at - b.at)
     .map((v, i) => ({ ...v, name: `x${i + 1}` }));
-  if (chosen.reduce((n, v) => n + v.text.length, 0) > 0.7 * command.replace(/\s+/g, '').length) return { skipped: 'komutun neredeyse tamamı değişken' };
+  if (chosen.reduce((n, v) => n + v.text.length, 0) > 0.7 * command.replace(/\s+/g, '').length) return { skipped: T('komutun neredeyse tamamı değişken', 'almost all of the command is a detail') };
 
   // Put {{x1}} where the details were.
   const templated = steps.map(step => ({ ...step, args: structuredClone(step.args) }));
@@ -156,12 +157,12 @@ export async function learnFromRun({ command, runId, answer = '', explicit = fal
   const typedTexts = templated.flatMap(s => (TYPING.has(s.tool) && typeof s.args.text === 'string' ? [s.args.text]
     : s.tool === 'browser_fill' ? Object.values(s.args.fields || {}).filter(v => typeof v === 'string' && v.length > 40) : []));
   const invented = typedTexts.find(t => !/\{\{x\d+/.test(t) && t.trim().length > 2 && !lower(command).includes(lower(t.trim())));
-  if (invented) return { skipped: 'yazılan metni Claude kendisi yazmış' };
+  if (invented) return { skipped: T('yazılan metni Claude kendisi yazmış', 'Claude wrote the typed text itself') };
   // A date or time the command doesn't say ("bugün" → 2026-10-11) would be the old one next time.
   const DATE_TIME = /\b\d{1,4}[./-]\d{1,2}(?:[./-]\d{1,4})?\b|\b\d{1,2}:\d{2}\b/;
   const filled = templated.flatMap(s => [s.args.text, s.args.value, s.args.option, ...Object.values(s.args.fields || {})].filter(v => typeof v === 'string'));
   const dated = filled.find(v => !/\{\{x\d+/.test(v) && DATE_TIME.test(v) && !lower(command).includes(lower(v.match(DATE_TIME)[0])));
-  if (dated) return { skipped: 'komutta olmayan bir tarih ya da saat yazılmış' };
+  if (dated) return { skipped: T('komutta olmayan bir tarih ya da saat yazılmış', 'a date or time the command does not say was typed') };
 
   let pattern = command;
   for (const v of [...chosen].reverse()) pattern = `${pattern.slice(0, v.at)}[${v.name}]${pattern.slice(v.at + v.text.length)}`;
@@ -177,7 +178,7 @@ export async function learnFromRun({ command, runId, answer = '', explicit = fal
     ...(same || { uses: 0, fails: 0, created: new Date().toISOString() }),
     name,
     learned: true,
-    description: `Öğrenildi: "${command}"`,
+    description: T(`Öğrenildi: "${command}"`, `Learned: "${command}"`),
     example: command,
     pattern,
     hints,

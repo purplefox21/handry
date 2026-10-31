@@ -19,8 +19,8 @@ const nativeBridge = window.webkit?.messageHandlers?.bar;
 const native = msg => { try { nativeBridge?.postMessage(msg); } catch {} };
 if (!nativeBridge) document.body.classList.add('standalone');
 
-const MODELS = [['claude-sonnet-5-5', 'Hızlı'], ['claude-opus-5-5', 'Güçlü']];
-const STOP_WORDS = /^(dur|durdur|iptal|vazgeç|stop)[.!]*$/i;
+const MODELS = [['claude-sonnet-5-5', T('Hızlı', 'Fast')], ['claude-opus-5-5', T('Güçlü', 'Strong')]];
+const STOP_WORDS = /^(dur|durdur|iptal|vazgeç|stop|cancel)[.!]*$/i;
 
 const run = { active: false, finishedAt: 0, tools: 0, fromVoice: false };
 const voice = { listening: false, pending: null, edited: false };
@@ -58,7 +58,7 @@ function showModel() {
   const entry = MODELS.find(([id]) => id === currentModel());
   modelBtn.textContent = entry[1];
   modelBtn.classList.toggle('strong', entry[0] === MODELS[1][0]);
-  modelBtn.title = `Model: ${entry[1]} (${MODEL_NAMES[entry[0]]}). Değiştirmek için tıkla.`;
+  modelBtn.title = T(`Model: ${entry[1]} (${MODEL_NAMES[entry[0]]}). Değiştirmek için tıkla.`, `Model: ${entry[1]} (${MODEL_NAMES[entry[0]]}). Click to change it.`);
 }
 modelBtn.addEventListener('click', () => {
   store.set('model', currentModel() === MODELS[0][0] ? MODELS[1][0] : MODELS[0][0]);
@@ -73,7 +73,7 @@ $('micBtn').addEventListener('click', () => native({ type: 'mic' }));
 
 // ---------------------------------------------------------------------------
 // Timers: "⏰ 2" when some wait; a click lists them (✕ asks once more). A
-// shutdown countdown opens the list by itself with a big İptal and keeps the
+// shutdown countdown opens the list by itself with a big Cancel (İptal) and keeps the
 // bar up until it is over.
 // ---------------------------------------------------------------------------
 
@@ -96,7 +96,7 @@ function timerRow(job) {
   // A click opens the chat it was asked in, in the big window.
   if (job.chatId) {
     li.classList.add('linked');
-    li.title = 'Kurulduğu sohbeti aç';
+    li.title = T('Kurulduğu sohbeti aç', 'Open the chat it was set in');
     text.addEventListener('click', async () => {
       await api('/api/chats/switch', { method: 'POST', body: JSON.stringify({ id: job.chatId }) });
       native({ type: 'openMain' });
@@ -104,8 +104,8 @@ function timerRow(job) {
   }
   const x = el('button', 'icon-btn timer-x', '✕');
   x.type = 'button';
-  x.title = 'İptal';
-  twoStep(x, 'İptal?', async () => { await cancelTimer(job.id); refreshTimers(); });
+  x.title = T('İptal', 'Cancel');
+  twoStep(x, T('İptal?', 'Cancel?'), async () => { await cancelTimer(job.id); refreshTimers(); });
   li.append(text, x);
   return li;
 }
@@ -183,13 +183,13 @@ const pending = [];
 function handle(ev) {
   switch (ev.type) {
     case 'route':
-      if (ev.route === 'learned') nowText.textContent = 'Öğrendiğim yoldan yapıyorum…';
-      else if (ev.route === 'needs_brain') nowText.textContent = `Claude (${MODEL_NAMES[currentModel()]}) düşünüyor…`;
-      else nowText.textContent = `Hızlı yol · ${ROUTE_NAMES[ev.route] || ev.route}`;
+      if (ev.route === 'learned') nowText.textContent = T('Öğrendiğim yoldan yapıyorum…', 'Doing it the way I learned…');
+      else if (ev.route === 'needs_brain') nowText.textContent = T(`Claude (${MODEL_NAMES[currentModel()]}) düşünüyor…`, `Claude (${MODEL_NAMES[currentModel()]}) is thinking…`);
+      else nowText.textContent = `${T('Hızlı yol', 'Fast path')} · ${ROUTE_NAMES[ev.route] || ev.route}`;
       break;
     case 'status':
-      // "… başladı" only says the brain program started; the line keeps "Claude düşünüyor".
-      if (!/^📌/.test(ev.text) && !/başladı$/.test(ev.text)) nowText.textContent = ev.text.replace(/^[^\p{L}\p{N}"“]+/u, '');
+      // "… başladı" ("… started") only says the brain program started; the line keeps "Claude düşünüyor".
+      if (!/^📌/.test(ev.text) && !/(başladı|started)$/.test(ev.text)) nowText.textContent = ev.text.replace(/^[^\p{L}\p{N}"“]+/u, '');
       break;
     case 'tool': {
       run.tools++;
@@ -218,14 +218,14 @@ function finish(ev) {
   now.hidden = true;
   for (const p of pending.splice(0)) p.li.classList.add('fail');
   const text = ev.text || '';
-  answer.textContent = text || (ev.stopped ? 'Durduruldu.' : 'Tamam.');
+  answer.textContent = text || (ev.stopped ? T('Durduruldu.', 'Stopped.') : T('Tamam.', 'Done.'));
   answer.hidden = false;
-  const who = ev.fast ? 'Hızlı yol' : ev.learnedReplay ? `Öğrenilmiş yol${ev.brain ? ' + Claude' : ''}` : ev.recipe ? `Tarif: ${pretty(ev.recipe)}` : (MODEL_NAMES[ev.model] || APP_NAME);
-  const bits = [`${ev.stopped ? 'Durduruldu' : 'Bitti'} · ${who}${run.tools ? ` · ${run.tools} adım` : ''} · ${((ev.ms || 0) / 1000).toFixed(1)} sn`];
-  if (ev.learned?.name) bits.push('Bunu öğrendim; bir dahakine Claude\'suz');
-  if (ev.chat) bits.push(ev.newChat ? 'Yeni sohbet' : `Sohbet: ${short(ev.chat.title, 30)}`);
+  const who = ev.fast ? T('Hızlı yol', 'Fast path') : ev.learnedReplay ? `${T('Öğrenilmiş yol', 'Learned way')}${ev.brain ? ' + Claude' : ''}` : ev.recipe ? `${T('Tarif', 'Recipe')}: ${pretty(ev.recipe)}` : (MODEL_NAMES[ev.model] || APP_NAME);
+  const bits = [`${ev.stopped ? T('Durduruldu', 'Stopped') : T('Bitti', 'Done')} · ${who}${run.tools ? ` · ${stepCount(run.tools)}` : ''} · ${((ev.ms || 0) / 1000).toFixed(1)} ${T('sn', 's')}`];
+  if (ev.learned?.name) bits.push(T('Bunu öğrendim; bir dahakine Claude\'suz', 'Learned this; next time without Claude'));
+  if (ev.chat) bits.push(ev.newChat ? T('Yeni sohbet', 'New chat') : `${T('Sohbet', 'Chat')}: ${short(ev.chat.title, 30)}`);
   foot.replaceChildren(...bits.map(b => el('span', null, b)));
-  const more = el('a', null, 'Ayrıntılar');
+  const more = el('a', null, T('Ayrıntılar', 'Details'));
   more.href = '#';
   more.addEventListener('click', e => { e.preventDefault(); native({ type: 'openMain' }); });
   foot.append(more);
@@ -269,7 +269,7 @@ async function submit(text, { fromVoice = false } = {}) {
   Object.assign(run, { active: true, tools: 0, fromVoice });
   panel.hidden = false;
   now.hidden = false;
-  nowText.textContent = 'Anlıyorum…';
+  nowText.textContent = T('Anlıyorum…', 'Understanding…');
   setState('busy');
   const brain = store.get('brain', 'claude-code');
   try {
@@ -280,9 +280,9 @@ async function submit(text, { fromVoice = false } = {}) {
       source: run.fromVoice ? 'voice' : 'bar',
       ...(brain === 'claude-code' ? { model: currentModel(), effort: store.get('effort', undefined) } : {})
     }, handle);
-    if (run.active) fail('Bağlantı yarıda kesildi.');
+    if (run.active) fail(T('Bağlantı yarıda kesildi.', 'The connection was cut off.'));
   } catch (err) {
-    if (run.active) fail(`Bağlantı hatası: ${err.message}`);
+    if (run.active) fail(T(`Bağlantı hatası: ${err.message}`, `Connection error: ${err.message}`));
   }
 }
 
@@ -375,7 +375,7 @@ window.jevisBar = {
         voice.listening = true;
         voice.edited = false;
         input.value = '';
-        input.placeholder = 'Dinliyorum…';
+        input.placeholder = T('Dinliyorum…', 'Listening…');
         setState('listening');
         break;
       case 'partial':
@@ -396,14 +396,14 @@ window.jevisBar = {
         panel.hidden = false;
         answer.hidden = false;
         answer.classList.add('error');
-        answer.textContent = ev.message || 'Mikrofon çalışmadı.';
+        answer.textContent = ev.message || T('Mikrofon çalışmadı.', "The microphone didn't work.");
         break;
     }
   },
   // A tool needs the user (a login, a code). Shown without taking the keyboard.
   attention(ev) {
     if (ev.type === 'resolved') {
-      if (bar.dataset.attention) { answer.textContent = 'Teşekkürler, devam ediyorum.'; answer.classList.remove('error'); delete bar.dataset.attention; }
+      if (bar.dataset.attention) { answer.textContent = T('Teşekkürler, devam ediyorum.', 'Thanks, carrying on.'); answer.classList.remove('error'); delete bar.dataset.attention; }
       return;
     }
     clearTimeout(hideTimer);
@@ -413,10 +413,10 @@ window.jevisBar = {
     answer.hidden = false;
     answer.classList.add('error');
     answer.textContent = `${ev.title}: ${ev.message}`;
-    // Timer notices, reminders and Claude reports are news, not a login Handry waits for.
-    const news = ev.title === 'Zamanlayıcı' || ev.title === 'Hatırlatma' || ev.title === 'Claude';
+    // Timer notices, reminders and Claude reports are news, not a login Handry waits for (titles in either language).
+    const news = ['Zamanlayıcı', 'Hatırlatma', 'Claude', 'Timer', 'Reminder'].includes(ev.title);
     answer.classList.toggle('error', !news);
-    foot.replaceChildren(el('span', null, news ? '' : `Bitirince ${APP_NAME} kendiliğinden devam eder.`));
+    foot.replaceChildren(el('span', null, news ? '' : T(`Bitirince ${APP_NAME} kendiliğinden devam eder.`, `When you're done, ${APP_NAME} carries on by itself.`)));
     foot.hidden = news;
     refreshTimers();
     bar.dataset.attention = '1';

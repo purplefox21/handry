@@ -17,37 +17,37 @@
         </div>
         <div class="brand-text">
           <span class="brand-name">{{APP}} <span class="chat-title" id="chatTitle"></span></span>
-          <span class="brand-status" id="status" data-state="ready"><span class="dot"></span><span id="statusText">Hazır</span></span>
+          <span class="brand-status" id="status" data-state="ready"><span class="dot"></span><span id="statusText" data-en="Ready">Hazır</span></span>
         </div>
       </div>
 
       <div class="model-switch" id="modelSwitch" role="radiogroup" aria-label="Model">
-        <button class="model-option" role="radio" data-model="claude-sonnet-5-5" aria-checked="true" title="Varsayılan, günlük işler için: hızlı ve aboneliğinden az yer">
-          <span class="model-title">Hızlı</span><span class="model-sub">Sonnet 5.5</span>
+        <button class="model-option" role="radio" data-model="claude-sonnet-5-5" aria-checked="true" title="Varsayılan, günlük işler için: hızlı ve aboneliğinden az yer" data-en-title="The default, for everyday tasks: quick and light on your subscription">
+          <span class="model-title" data-en="Fast">Hızlı</span><span class="model-sub">Sonnet 5.5</span>
         </button>
-        <button class="model-option" role="radio" data-model="claude-opus-5-5" aria-checked="false" title="Uzun ve zor işler için: en güçlü model, aboneliğinden daha çok yer">
-          <span class="model-title">Güçlü</span><span class="model-sub">Opus 5.5</span>
+        <button class="model-option" role="radio" data-model="claude-opus-5-5" aria-checked="false" title="Uzun ve zor işler için: en güçlü model, aboneliğinden daha çok yer" data-en-title="For long, hard tasks: the strongest model; uses more of your subscription">
+          <span class="model-title" data-en="Strong">Güçlü</span><span class="model-sub">Opus 5.5</span>
         </button>
       </div>
 
       <div class="top-actions">
-        <button class="icon-btn" id="logBtn" title="Yapılanlar (kayıt)" aria-label="Yapılanlar">
+        <button class="icon-btn" id="logBtn" title="Yapılanlar (kayıt)" aria-label="Yapılanlar" data-en-title="Activity (log)" data-en-aria-label="Activity">
           <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
         </button>
-        <button class="icon-btn timers-btn" id="timersBtn" title="Zamanlayıcılar" aria-label="Zamanlayıcılar">
+        <button class="icon-btn timers-btn" id="timersBtn" title="Zamanlayıcılar" aria-label="Zamanlayıcılar" data-en-title="Scheduled" data-en-aria-label="Scheduled">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span class="badge" id="timersBadge" hidden></span>
         </button>
-        <button class="icon-btn" id="chatsBtn" title="Sohbetler" aria-label="Sohbetler">
+        <button class="icon-btn" id="chatsBtn" title="Sohbetler" aria-label="Sohbetler" data-en-title="Chats" data-en-aria-label="Chats">
           <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </button>
-        <button class="icon-btn" id="recipesBtn" title="Tarifler" aria-label="Tarifler">
+        <button class="icon-btn" id="recipesBtn" title="Tarifler" aria-label="Tarifler" data-en-title="Recipes" data-en-aria-label="Recipes">
           <svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
-        <button class="icon-btn" id="settingsBtn" title="Ayarlar" aria-label="Ayarlar">
+        <button class="icon-btn" id="settingsBtn" title="Ayarlar" aria-label="Ayarlar" data-en-title="Settings" data-en-aria-label="Settings">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
-        <button class="icon-btn" id="newChatBtn" title="Yeni sohbet" aria-label="Yeni sohbet">
+        <button class="icon-btn" id="newChatBtn" title="Yeni sohbet" aria-label="Yeni sohbet" data-en-title="New chat" data-en-aria-label="New chat">
           <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
       </div>
@@ -59,34 +59,34 @@
           <div class="welcome-mark" aria-hidden="true">
             <img src="icon.png" alt="">
           </div>
-          <h1>Merhaba, ne yapayım?</h1>
-          <p>Yaz ya da mikrofona basılı tutup söyle. Basit işleri Jev anında yapar; gerisini Claude planlar, {{APP}} senin yerine tıklar ve yazar.</p>
+          <h1 data-en="Hi, what should I do?">Merhaba, ne yapayım?</h1>
+          <p data-en="Type, or hold the mic and say it. Jev does simple things at once; for the rest Claude makes a plan and {{APP}} clicks and types for you.">Yaz ya da mikrofona basılı tutup söyle. Basit işleri Jev anında yapar; gerisini Claude planlar, {{APP}} senin yerine tıklar ve yazar.</p>
           <div class="suggestions">
-            <button class="suggestion" data-cmd="Hacker News'i aç ve ilk 5 başlığı Türkçe özetle">
+            <button class="suggestion" data-cmd="Hacker News'i aç ve ilk 5 başlığı Türkçe özetle" data-en-cmd="Open Hacker News and sum up the top 5 headlines">
               <span class="sg-icon sg-web" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
-              <span class="sg-title">Web'de iş yap</span>
-              <span class="sg-text">Hacker News'i aç, ilk 5 başlığı özetle</span>
+              <span class="sg-title" data-en="Get things done on the web">Web'de iş yap</span>
+              <span class="sg-text" data-en="Open Hacker News, sum up the top 5 headlines">Hacker News'i aç, ilk 5 başlığı özetle</span>
             </button>
-            <button class="suggestion" data-cmd="Hesap makinesinde 12 çarpı 7'yi hesapla, sonucu söyle ve uygulamayı kapat">
+            <button class="suggestion" data-cmd="Hesap makinesinde 12 çarpı 7'yi hesapla, sonucu söyle ve uygulamayı kapat" data-en-cmd="Work out 12 times 7 in Calculator, tell me the result and quit the app">
               <span class="sg-icon sg-app" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
-              <span class="sg-title">Uygulama kullan</span>
-              <span class="sg-text">Hesap makinesinde 12 × 7'yi hesapla</span>
+              <span class="sg-title" data-en="Use an app">Uygulama kullan</span>
+              <span class="sg-text" data-en="Work out 12 × 7 in Calculator">Hesap makinesinde 12 × 7'yi hesapla</span>
             </button>
-            <button class="suggestion" data-cmd="Sesi yüzde 30 yap">
+            <button class="suggestion" data-cmd="Sesi yüzde 30 yap" data-en-cmd="Set the volume to 30 percent">
               <span class="sg-icon sg-mac" aria-hidden="true"><svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></span>
-              <span class="sg-title">Mac'i ayarla</span>
-              <span class="sg-text">Sesi %30 yap · anında, Claude'suz</span>
+              <span class="sg-title" data-en="Adjust your Mac">Mac'i ayarla</span>
+              <span class="sg-text" data-en="Volume to 30% · instant, no Claude">Sesi %30 yap · anında, Claude'suz</span>
             </button>
             <button class="suggestion" data-open="recipes">
               <span class="sg-icon sg-recipe" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg></span>
-              <span class="sg-title">Tarif çalıştır</span>
-              <span class="sg-text">Kayıtlı bir işi saniyeler içinde tekrarla</span>
+              <span class="sg-title" data-en="Run a recipe">Tarif çalıştır</span>
+              <span class="sg-text" data-en="Repeat a saved task in seconds">Kayıtlı bir işi saniyeler içinde tekrarla</span>
             </button>
           </div>
           <p class="welcome-keys">
-            <span><kbd>⌥</kbd><kbd>Space</kbd> aç / kapat</span>
-            <span><kbd>⌥</kbd><kbd>⇧</kbd><kbd>Space</kbd> basılı tut, konuş</span>
-            <span><kbd>⌥</kbd><kbd>Esc</kbd> her şeyi durdur</span>
+            <span data-en="<kbd>⌥</kbd><kbd>Space</kbd> show / hide"><kbd>⌥</kbd><kbd>Space</kbd> aç / kapat</span>
+            <span data-en="<kbd>⌥</kbd><kbd>⇧</kbd><kbd>Space</kbd> hold to talk"><kbd>⌥</kbd><kbd>⇧</kbd><kbd>Space</kbd> basılı tut, konuş</span>
+            <span data-en="<kbd>⌥</kbd><kbd>Esc</kbd> stop everything"><kbd>⌥</kbd><kbd>Esc</kbd> her şeyi durdur</span>
           </p>
         </section>
         <div class="messages" id="messages" aria-live="polite"></div>
@@ -95,112 +95,122 @@
 
     <footer class="composer-wrap">
       <div class="composer" id="composer">
-        <button class="round-btn mic-btn" id="micBtn" title="Basılı tut ve konuş (kısa dokunuş: başlat / bitir)" aria-label="Sesle komut" hidden>
+        <button class="round-btn mic-btn" id="micBtn" title="Basılı tut ve konuş (kısa dokunuş: başlat / bitir)" aria-label="Sesle komut" data-en-title="Hold and talk (a short tap: start / stop)" data-en-aria-label="Voice command" hidden>
           <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
         </button>
-        <textarea id="input" rows="1" placeholder="Ne yapayım? Yaz ya da mikrofona basılı tut…" aria-label="Komut"></textarea>
-        <button class="round-btn send-btn" id="sendBtn" title="Gönder" aria-label="Gönder" disabled>
+        <textarea id="input" rows="1" placeholder="Ne yapayım? Yaz ya da mikrofona basılı tut…" aria-label="Komut" data-en-placeholder="What should I do? Type, or hold the mic…" data-en-aria-label="Command"></textarea>
+        <button class="round-btn send-btn" id="sendBtn" title="Gönder" aria-label="Gönder" data-en-title="Send" data-en-aria-label="Send" disabled>
           <svg viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
         </button>
-        <button class="round-btn stop-btn" id="stopBtn" title="Durdur" aria-label="Durdur" hidden>
+        <button class="round-btn stop-btn" id="stopBtn" title="Durdur" aria-label="Durdur" data-en-title="Stop" data-en-aria-label="Stop" hidden>
           <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
         </button>
       </div>
-      <div class="composer-hint" id="hint">Enter ile gönder · Shift+Enter yeni satır</div>
+      <div class="composer-hint" id="hint" data-en="Enter to send · Shift+Enter for a new line">Enter ile gönder · Shift+Enter yeni satır</div>
     </footer>
   </div>
 
   <div class="scrim" id="scrim" hidden></div>
 
-  <aside class="drawer" id="settingsDrawer" hidden aria-label="Ayarlar">
+  <aside class="drawer" id="settingsDrawer" hidden aria-label="Ayarlar" data-en-aria-label="Settings">
     <div class="drawer-head">
-      <h2>Ayarlar</h2>
-      <button class="icon-btn" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <h2 data-en="Settings">Ayarlar</h2>
+      <button class="icon-btn" data-close aria-label="Kapat" data-en-aria-label="Close"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="drawer-body">
       <section class="setting">
         <h3>Model</h3>
-        <p class="setting-help"><strong>Hızlı (Sonnet 5.5, varsayılan)</strong> günlük işler için, aboneliğinden daha az yer. <strong>Güçlü (Opus 5.5)</strong> uzun ve karışık işler için. Üstteki düğmeden de değişir.</p>
+        <p class="setting-help" data-en="<strong>Fast (Sonnet 5.5, the default)</strong> for everyday tasks; uses less of your subscription. <strong>Strong (Opus 5.5)</strong> for long, tricky tasks. The switch at the top changes it too."><strong>Hızlı (Sonnet 5.5, varsayılan)</strong> günlük işler için, aboneliğinden daha az yer. <strong>Güçlü (Opus 5.5)</strong> uzun ve karışık işler için. Üstteki düğmeden de değişir.</p>
       </section>
       <section class="setting">
-        <h3>Düşünme seviyesi</h3>
-        <div class="segmented" id="effortSwitch" role="radiogroup" aria-label="Düşünme seviyesi">
+        <h3 data-en="Thinking">Düşünme seviyesi</h3>
+        <div class="segmented" id="effortSwitch" role="radiogroup" aria-label="Düşünme seviyesi" data-en-aria-label="Thinking">
           <button role="radio" data-effort="medium">Normal</button>
-          <button role="radio" data-effort="high">Yüksek</button>
-          <button role="radio" data-effort="xhigh">Çok yüksek</button>
+          <button role="radio" data-effort="high" data-en="High">Yüksek</button>
+          <button role="radio" data-effort="xhigh" data-en="Very high">Çok yüksek</button>
         </div>
-        <p class="setting-help">Claude her adımda ne kadar düşünsün. Yüksek önerilir; basit işlerde fazladan maliyeti yok.</p>
+        <p class="setting-help" data-en="How much Claude thinks at each step. High is recommended; it costs nothing extra on simple tasks.">Claude her adımda ne kadar düşünsün. Yüksek önerilir; basit işlerde fazladan maliyeti yok.</p>
       </section>
       <section class="setting">
         <label class="switch-row">
-          <span><strong>Hızlı yol</strong><small>Ses, müzik, uygulama açma gibi basit komutları Claude'a sormadan hemen yapar.</small></span>
+          <span><strong data-en="Fast path">Hızlı yol</strong><small data-en="Does simple commands like volume, music or opening an app right away, without asking Claude.">Ses, müzik, uygulama açma gibi basit komutları Claude'a sormadan hemen yapar.</small></span>
           <input type="checkbox" id="fastToggle" checked><span class="switch" aria-hidden="true"></span>
         </label>
         <label class="switch-row" id="speakRow" hidden>
-          <span><strong>Sesli cevap</strong><small>Cevabın kısa özetini Türkçe okur.</small></span>
+          <span><strong data-en="Spoken answers">Sesli cevap</strong><small data-en="Reads a short summary of the answer aloud.">Cevabın kısa özetini Türkçe okur.</small></span>
           <input type="checkbox" id="speakToggle"><span class="switch" aria-hidden="true"></span>
         </label>
       </section>
       <details class="setting advanced">
-        <summary>Gelişmiş</summary>
-        <label class="field">Beyin
+        <summary data-en="Advanced">Gelişmiş</summary>
+        <label class="field"><span data-en="Brain">Beyin</span>
           <select id="brainSelect"></select>
         </label>
-        <p class="setting-help">Claude Code senin aboneliğinle çalışır. Diğerleri kurulunca burada seçilebilir.</p>
+        <p class="setting-help" data-en="Claude Code runs on your subscription. Others can be picked here once they are set up.">Claude Code senin aboneliğinle çalışır. Diğerleri kurulunca burada seçilebilir.</p>
       </details>
       <section class="setting">
-        <h3>Durum</h3>
+        <h3 data-en="Language / Dil">Dil / Language</h3>
+        <div class="segmented" id="langSwitch" role="radiogroup" aria-label="Dil / Language">
+          <button role="radio" data-lang="tr">Türkçe</button>
+          <button role="radio" data-lang="en">English</button>
+          <button role="radio" data-lang="auto" data-en="Same as the Mac">Mac'in dili</button>
+        </div>
+        <p class="setting-help" data-en="{{APP}} writes and talks in this language. &quot;Same as the Mac&quot;: Turkish if your Mac is in Turkish, English otherwise. {{APP}} restarts when you change it.">{{APP}} bu dilde yazar ve konuşur. "Mac'in dili": Mac Türkçeyse Türkçe, değilse İngilizce. Değiştirince {{APP}} yeniden başlar.</p>
+        <p class="setting-help lang-note" id="langNote" role="status" hidden></p>
+      </section>
+      <section class="setting">
+        <h3 data-en="Status">Durum</h3>
         <ul class="status-list" id="statusList"></ul>
       </section>
     </div>
   </aside>
 
-  <aside class="drawer" id="chatsDrawer" hidden aria-label="Sohbetler">
+  <aside class="drawer" id="chatsDrawer" hidden aria-label="Sohbetler" data-en-aria-label="Chats">
     <div class="drawer-head">
-      <h2>Sohbetler</h2>
-      <button class="icon-btn" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <h2 data-en="Chats">Sohbetler</h2>
+      <button class="icon-btn" data-close aria-label="Kapat" data-en-aria-label="Close"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="drawer-body">
-      <p class="setting-help">Her sohbetin kendi Claude oturumu var: "bunu", "bi daha dene" gibi devamları anlar. Çubuk, ses ve bu pencere aynı sohbete yazar. Konu değişince "yeni konu" de; 2 saat sessizlikte yenisi kendiliğinden açılır.</p>
-      <button class="btn btn-primary" id="newChatInDrawer" type="button">Yeni sohbet</button>
+      <p class="setting-help" data-en="Each chat has its own Claude session, so it follows things like &quot;this one&quot; or &quot;try again&quot;. The bar, your voice and this window all write to the same chat. When the topic changes, say &quot;new chat&quot;; after 2 quiet hours a new one starts by itself.">Her sohbetin kendi Claude oturumu var: "bunu", "bi daha dene" gibi devamları anlar. Çubuk, ses ve bu pencere aynı sohbete yazar. Konu değişince "yeni konu" de; 2 saat sessizlikte yenisi kendiliğinden açılır.</p>
+      <button class="btn btn-primary" id="newChatInDrawer" type="button" data-en="New chat">Yeni sohbet</button>
       <div class="chat-list" id="chatList"></div>
     </div>
   </aside>
 
-  <aside class="drawer drawer-wide" id="logDrawer" hidden aria-label="Yapılanlar">
+  <aside class="drawer drawer-wide" id="logDrawer" hidden aria-label="Yapılanlar" data-en-aria-label="Activity">
     <div class="drawer-head">
-      <h2>Yapılanlar</h2>
-      <button class="icon-btn" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <h2 data-en="Activity">Yapılanlar</h2>
+      <button class="icon-btn" data-close aria-label="Kapat" data-en-aria-label="Close"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="drawer-body">
-      <p class="setting-help">Bu liste kodun tuttuğu kayıt, yapay zekânın anlattığı değil: {{APP_GEN}} ya da bir Claude oturumunun yaptığı her işlem, kimin yaptığı, sonucu ve sana sorulduysa cevabın. Şifreler kayda yazılmaz.</p>
+      <p class="setting-help" data-en="This list is the record the code keeps, not the AI's own account: every action {{APP}} or a Claude session took, who did it, the result, and your answer if you were asked. Passwords are never written to it.">Bu liste kodun tuttuğu kayıt, yapay zekânın anlattığı değil: {{APP_GEN}} ya da bir Claude oturumunun yaptığı her işlem, kimin yaptığı, sonucu ve sana sorulduysa cevabın. Şifreler kayda yazılmaz.</p>
       <div class="log-tools">
         <div class="log-days" id="logDays"></div>
-        <button class="btn" id="undoFilesBtn" type="button" title="Son dosya işini (klasör, taşıma, kopyalama, Çöp Sepeti) geri alır">Son dosya işini geri al</button>
+        <button class="btn" id="undoFilesBtn" type="button" title="Son dosya işini (klasör, taşıma, kopyalama, Çöp Sepeti) geri alır" data-en-title="Undoes the last file change (new folder, move, copy, Trash)" data-en="Undo the last file change">Son dosya işini geri al</button>
       </div>
       <div class="log-list" id="logList"></div>
     </div>
   </aside>
 
-  <aside class="drawer" id="timersDrawer" hidden aria-label="Zamanlayıcılar">
+  <aside class="drawer" id="timersDrawer" hidden aria-label="Zamanlayıcılar" data-en-aria-label="Scheduled">
     <div class="drawer-head">
-      <h2>Zamanlayıcılar</h2>
-      <button class="icon-btn" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <h2 data-en="Scheduled">Zamanlayıcılar</h2>
+      <button class="icon-btn" data-close aria-label="Kapat" data-en-aria-label="Close"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="drawer-body">
-      <p class="setting-help">{{APP_DAT}} söylediğin zamanlı ve koşullu işler: "3 saat sonra bilgisayarı kapat", "VS Code'daki işler bitince kapat", "10 dakika sonra Spotify'ı durdur". İptal ettiğin iş, saati gelince ya da koşul olunca yapılmaz.</p>
+      <p class="setting-help" data-en="Things you asked {{APP}} to do later or when something happens: &quot;shut down the computer in 3 hours&quot;, &quot;shut down when the work in VS Code is done&quot;, &quot;pause Spotify in 10 minutes&quot;. A task you cancel does not run when its time comes or its condition is met.">{{APP_DAT}} söylediğin zamanlı ve koşullu işler: "3 saat sonra bilgisayarı kapat", "VS Code'daki işler bitince kapat", "10 dakika sonra Spotify'ı durdur". İptal ettiğin iş, saati gelince ya da koşul olunca yapılmaz.</p>
       <div class="timer-list" id="timerList"></div>
-      <button class="btn btn-danger-ghost" id="cancelAllTimers" type="button" hidden>Hepsini iptal et</button>
+      <button class="btn btn-danger-ghost" id="cancelAllTimers" type="button" hidden data-en="Cancel all">Hepsini iptal et</button>
     </div>
   </aside>
 
-  <aside class="drawer" id="recipesDrawer" hidden aria-label="Tarifler">
+  <aside class="drawer" id="recipesDrawer" hidden aria-label="Tarifler" data-en-aria-label="Recipes">
     <div class="drawer-head">
-      <h2>Tarifler</h2>
-      <button class="icon-btn" data-close aria-label="Kapat"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <h2 data-en="Recipes">Tarifler</h2>
+      <button class="icon-btn" data-close aria-label="Kapat" data-en-aria-label="Close"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="drawer-body">
-      <p class="setting-help">Bir kez yaptığın işi kaydet, sonra saniyeler içinde tekrarla. Tarifler Claude kullanmaz; bir adım takılırsa Claude kaldığı yerden devam eder.</p>
+      <p class="setting-help" data-en="Save a task you have done once, then repeat it in seconds. Recipes don't use Claude; if a step gets stuck, Claude picks up where it stopped.">Bir kez yaptığın işi kaydet, sonra saniyeler içinde tekrarla. Tarifler Claude kullanmaz; bir adım takılırsa Claude kaldığı yerden devam eder.</p>
       <div class="recipe-list" id="recipeList"></div>
     </div>
   </aside>

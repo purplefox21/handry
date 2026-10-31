@@ -12,25 +12,26 @@ import { callTool } from './tools.js';
 import { installedApps, apps as runningApps } from '../hands/desktop.js';
 import { listLearned, learnedQuestion, matchLearned } from './learn.js';
 import { pickSpan } from './spans.js';
+import { T } from './i18n.js';
 
 const ROUTE = {
   type: 'choice',
   instructions: 'The user gave their Mac assistant the spoken or typed `command`. Which kind of command is it? Judge `command` by its own words only (not `previous`). Choose the single best option; pick needs_brain whenever it asks for more than one thing or does not say what to do.',
   criteria: {
-    volume: 'Change the sound volume: set a level or percentage, or make it louder or quieter. In Turkish "sesi aç" means louder, not opening an app (e.g. "sesi yüzde 30 yap", "sesi kıs", "sesi biraz aç", "sesi sonuna kadar aç")',
-    mute: 'Mute the sound or unmute it (e.g. "sessize al", "sesi geri aç")',
-    music: 'Control the music player without naming what to play: play, pause, resume, next song or previous song (e.g. "sonraki şarkı", "müziği durdur")',
-    spotify_play: 'Play something named on Spotify: a song, an artist, an album, a playlist, or the liked songs (e.g. "Spotify\'da Tarkan çal", "beğendiğim şarkıları çal", "Space Echo listesini çal")',
-    now_playing: 'Ask which song is playing right now',
-    app_open: 'Open, launch or switch to one Mac application (e.g. "Spotify\'ı aç", "VS Code\'a geç", "hesap makinesini aç")',
-    app_quit: 'Quit or close one Mac application',
-    web_open: 'Open one website in the browser (e.g. "YouTube\'u aç", "github.com\'a git")',
-    web_search: 'Search the web or YouTube for something (e.g. "Google\'da hava durumu ara")',
+    volume: 'Change the sound volume: set a level or percentage, or make it louder or quieter. In Turkish "sesi aç" means louder, not opening an app (e.g. "sesi yüzde 30 yap", "sesi kıs", "sesi biraz aç", "sesi sonuna kadar aç", "set the volume to 30%", "turn it down a bit")',
+    mute: 'Mute the sound or unmute it (e.g. "sessize al", "sesi geri aç", "mute", "unmute the sound")',
+    music: 'Control the music player without naming what to play: play, pause, resume, next song or previous song (e.g. "sonraki şarkı", "müziği durdur", "next song", "pause the music")',
+    spotify_play: 'Play something named on Spotify: a song, an artist, an album, a playlist, or the liked songs (e.g. "Spotify\'da Tarkan çal", "beğendiğim şarkıları çal", "Space Echo listesini çal", "play Taylor Swift on Spotify", "play my liked songs")',
+    now_playing: 'Ask which song is playing right now (e.g. "what song is this")',
+    app_open: 'Open, launch or switch to one Mac application (e.g. "Spotify\'ı aç", "VS Code\'a geç", "hesap makinesini aç", "open Safari", "switch to VS Code")',
+    app_quit: 'Quit or close one Mac application (e.g. "quit Xcode")',
+    web_open: 'Open one website in the browser (e.g. "YouTube\'u aç", "github.com\'a git", "open YouTube", "go to github.com")',
+    web_search: 'Search the web or YouTube for something (e.g. "Google\'da hava durumu ara", "search Google for the weather", "look up lofi music on YouTube")',
     page_click: 'Click one visible thing (a link, tab or button) on the web page that is already open in the browser the assistant uses; only a click',
     dark_mode: 'Switch between dark and light mode',
     lock_screen: 'Lock the screen now (not shutting down or sleeping the Mac)',
     screenshot: 'Take a screenshot of the whole screen',
-    note_add: 'Write down one short note in Notes (e.g. "not al: yarın kargo gelecek", "notlarıma süt almayı ekle")',
+    note_add: 'Write down one short note in Notes (e.g. "not al: yarın kargo gelecek", "notlarıma süt almayı ekle", "take a note: the package comes tomorrow", "add buy milk to my notes")',
     calendar_show: 'Ask what is on the calendar today, tomorrow or this week (only asking, not adding)',
     reminders_show: 'Ask which reminders or to-dos are open (only asking, not adding)',
     needs_brain: 'Anything else: more than one step, writing or typing a text, sending a message, filling forms, reading or summarizing, files and folders, adding reminders or events, questions, or anything unclear'
@@ -42,10 +43,10 @@ const INTENT = {
   type: 'choice',
   instructions: 'What is the user doing with `command`? `previous` is what the assistant said to the user just before (empty if nothing recent).',
   criteria: {
-    do_now: 'Telling the assistant to do something on the Mac right now, or asking it to show something now (e.g. "sesi kıs", "sesi sonuna kadar aç", "Spotify\'ı aç", "ekranı kilitle", "şu an hangi şarkı çalıyor", "yarın takvimde ne var"); writing a note or a reminder text now counts even if the text mentions another day (e.g. "not al: yarın kargo gelecek")',
-    do_later: 'Telling the assistant to do something at a later time or when something happens (e.g. "saat 3\'te ekranı kilitle", "10 dakika sonra hatırlat", "işler bitince bilgisayarı kapat")',
-    reply: 'Answering, correcting or clarifying what the assistant said or asked in `previous` (e.g. "hayır öyle değil", "ikisi de", "kapatma, sadece kilitle"), or pointing back to something earlier without naming it (e.g. "bunu bir daha yap", "aynısını yap", "onu da", "tekrar dene")',
-    chat: 'Greeting, chatting, a complaint (e.g. "anlamadın", "cümleyi okumadın"), a question about the assistant itself or about the conversation (e.g. "ne dedim sana", "neler yapabilirsin", "böyle bir becerin var mı"), or saying what not to do'
+    do_now: 'Telling the assistant to do something on the Mac right now, or asking it to show something now (e.g. "sesi kıs", "sesi sonuna kadar aç", "Spotify\'ı aç", "ekranı kilitle", "şu an hangi şarkı çalıyor", "yarın takvimde ne var", "turn the volume down", "lock the screen", "what\'s on my calendar tomorrow"); writing a note or a reminder text now counts even if the text mentions another day (e.g. "not al: yarın kargo gelecek", "note: the package comes tomorrow")',
+    do_later: 'Telling the assistant to do something at a later time or when something happens (e.g. "saat 3\'te ekranı kilitle", "10 dakika sonra hatırlat", "işler bitince bilgisayarı kapat", "lock the screen at 3", "remind me in 10 minutes", "shut down the Mac when the work is done")',
+    reply: 'Answering, correcting or clarifying what the assistant said or asked in `previous` (e.g. "hayır öyle değil", "ikisi de", "kapatma, sadece kilitle", "no, not like that", "both", "don\'t shut it down, just lock it"), or pointing back to something earlier without naming it (e.g. "bunu bir daha yap", "aynısını yap", "onu da", "tekrar dene", "do that again", "the same again", "that one too", "try again")',
+    chat: 'Greeting, chatting, a complaint (e.g. "anlamadın", "cümleyi okumadın", "you didn\'t get it"), a question about the assistant itself or about the conversation (e.g. "ne dedim sana", "neler yapabilirsin", "böyle bir becerin var mı", "what did I tell you", "what can you do"), or saying what not to do'
   }
 };
 
@@ -56,9 +57,9 @@ const DETAILS = {
     instructions: 'If `command` changes the volume, how?',
     criteria: {
       number: 'It gives a number or a percentage',
-      up: 'Louder, turn it up, a bit higher ("sesi aç", "biraz aç", "yükselt")',
-      down: 'Quieter, turn it down, a bit lower ("sesi kıs", "azalt")',
-      max: 'As loud as possible, full volume ("sonuna kadar", "en yüksek")',
+      up: 'Louder, turn it up, a bit higher ("sesi aç", "biraz aç", "yükselt", "turn it up")',
+      down: 'Quieter, turn it down, a bit lower ("sesi kıs", "azalt", "turn it down")',
+      max: 'As loud as possible, full volume ("sonuna kadar", "en yüksek", "all the way up")',
       low: 'Very quiet, low volume',
       half: 'Medium, half volume'
     }
@@ -74,7 +75,7 @@ const DETAILS = {
     }
   },
   on_youtube: { type: 'noul', instructions: 'Does `command` ask to search on YouTube (videos) rather than a general web search?' },
-  liked: { type: 'noul', instructions: 'Does `command` ask to play the user\'s liked or saved songs (Beğenilen Şarkılar), rather than something named?' },
+  liked: { type: 'noul', instructions: 'Does `command` ask to play the user\'s liked or saved songs (Beğenilen Şarkılar, Liked Songs), rather than something named?' },
   calendar_when: {
     type: 'choice',
     instructions: 'If `command` asks about the calendar, for when?',
@@ -84,33 +85,44 @@ const DETAILS = {
 
 const MIN_CONFIDENCE = 0.6;
 
-// Well-known sites said by name ("YouTube'u aç") → address.
-const SITES = {
+// Well-known sites said by name ("YouTube'u aç", "open YouTube") → address.
+const sites = () => ({
   youtube: 'youtube.com', google: 'google.com', gmail: 'mail.google.com', github: 'github.com', twitter: 'x.com',
   instagram: 'instagram.com', facebook: 'facebook.com', linkedin: 'linkedin.com', reddit: 'reddit.com', netflix: 'netflix.com',
   whatsapp: 'web.whatsapp.com', chatgpt: 'chatgpt.com', claude: 'claude.ai', wikipedia: 'wikipedia.org', vikipedi: 'tr.wikipedia.org',
-  'hacker news': 'news.ycombinator.com', 'app store connect': 'appstoreconnect.apple.com', amazon: 'amazon.com.tr',
+  'hacker news': 'news.ycombinator.com', 'app store connect': 'appstoreconnect.apple.com', amazon: T('amazon.com.tr', 'amazon.com'),
   trendyol: 'trendyol.com', hepsiburada: 'hepsiburada.com', sahibinden: 'sahibinden.com', 'ekşi': 'eksisozluk.com', eksi: 'eksisozluk.com',
-  'google drive': 'drive.google.com', 'google maps': 'maps.google.com', harita: 'maps.google.com', twitch: 'twitch.tv', figma: 'figma.com'
-};
+  'google drive': 'drive.google.com', 'google maps': 'maps.google.com', harita: 'maps.google.com', twitch: 'twitch.tv', figma: 'figma.com',
+  'google docs': 'docs.google.com', 'google calendar': 'calendar.google.com', 'youtube music': 'music.youtube.com', ebay: 'ebay.com', imdb: 'imdb.com',
+  'stack overflow': 'stackoverflow.com', pinterest: 'pinterest.com', tiktok: 'tiktok.com', outlook: 'outlook.live.com', 'new york times': 'nytimes.com', bbc: 'bbc.com'
+});
 
 function siteIn(command) {
   const domain = command.match(/\b[a-z0-9-]+(\.[a-z0-9-]+)+\b/i)?.[0];
   if (domain) return domain;
-  const lower = command.toLocaleLowerCase('tr');
-  const key = Object.keys(SITES).sort((a, b) => b.length - a.length).find(k => lower.includes(k));
-  return key ? SITES[key] : null;
+  const lower = [command.toLocaleLowerCase('tr'), command.toLowerCase()];
+  const known = sites();
+  const key = Object.keys(known).sort((a, b) => b.length - a.length).find(k => lower.some(l => l.includes(k)));
+  return key ? known[key] : null;
 }
 
-// "Google'da 'mac mini fiyatları' ara" → "mac mini fiyatları"
+// "Google'da 'mac mini fiyatları' ara" → "mac mini fiyatları"; "look up lofi music on YouTube" → "lofi music"
 function searchQuery(command) {
   const quoted = command.match(/["“'‘]([^"”'’]{2,})["”'’]/)?.[1];
   if (quoted) return quoted.trim();
-  return command
+  let query = command
     .replace(/\b(google|youtube|internet|web)\s*'?(da|de|ta|te|dan|den)?\b/gi, ' ')
-    .replace(/(araştır|aratır mısın|arat|ara|bul|search)(?=\s|$)/gi, ' ')
+    .replace(/(?<![\p{L}\d])(araştır|aratır mısın|arat|ara|bul|search)(?=\s|$)/giu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  // English: the words around the query ("search Google for …", "… on YouTube")
+  if (/\b(search|look\s+(up|for)|find)\b|^\s*google\s+(?!['’])/i.test(command)) {
+    query = query
+      .replace(/^(?:(?:please|can you|could you|would you|go|and|look\s+up|look\s+for|find|search|for|me)\s+)+/i, '')
+      .replace(/(?:\s+(?:on|in|at|the web|online|for me|please))+[.!?]?$/i, '')
+      .trim();
+  }
+  return query;
 }
 
 async function pickApp(command, { running = false } = {}) {
@@ -135,7 +147,9 @@ async function step(onEvent, name, args) {
 const firstLine = text => String(text).split('\n')[0];
 
 // The page guard notices logins, 2FA and CAPTCHAs ("⚠️ …"): tell the user.
-const needsUserNote = text => (String(text).includes('⚠️') ? ' Sayfa giriş ya da doğrulama (CAPTCHA) istiyor; tarayıcıda senin halletmen gerekiyor.' : '');
+const needsUserNote = text => (String(text).includes('⚠️') ? T(' Sayfa giriş ya da doğrulama (CAPTCHA) istiyor; tarayıcıda senin halletmen gerekiyor.', ' The page wants a login or a check (CAPTCHA); you need to do that in the browser.') : '');
+// The page title in a browser tool's result: "Şu an: <title> (<url>)" / "Now: <title> (<url>)"
+const pageTitle = text => text.match(/(?:Şu an|\bNow): (.+?) \(/)?.[1];
 
 export async function classify(command, learned = listLearned(), { previous = '' } = {}) {
   const question = learnedQuestion(learned);
@@ -155,7 +169,7 @@ async function scheduleFast(parsed, command, onEvent) {
   if (parsed.type === 'negated') {
     // "bilgisayarı kapatma": cancels a waiting shutdown; otherwise it is just talk.
     const gone = cancelJobs(j => parsed.actions.includes(j.action));
-    return { handled: true, text: `Tamam, yapmıyorum. İptal edildi: ${gone.map(describe).join('; ')}` };
+    return { handled: true, text: T(`Tamam, yapmıyorum. İptal edildi: ${gone.map(describe).join('; ')}`, `OK, I won't. Cancelled: ${gone.map(describe).join('; ')}`) };
   }
   const args = { action: parsed.action, said: command };
   if (parsed.at) args.at = localTime(parsed.at);
@@ -184,7 +198,7 @@ export async function tryFast(command, onEvent, { previous = '' } = {}) {
     try {
       return await scheduleFast(parsed, command, onEvent);
     } catch (err) {
-      return { handled: false, note: `Hızlı yol olmadı: ${firstLine(err.message)}` };
+      return { handled: false, note: T(`Hızlı yol olmadı: ${firstLine(err.message)}`, `The fast path did not work: ${firstLine(err.message)}`) };
     }
   }
   const learned = listLearned();
@@ -194,8 +208,8 @@ export async function tryFast(command, onEvent, { previous = '' } = {}) {
   } catch (err) {
     // No Jev (busy, offline, no key): the fast path can't judge the command, so the brain does it.
     onEvent({ type: 'route', route: 'needs_brain', why: 'jev_unavailable', confidence: 0, ms: 0 });
-    const why = err.code === 'JEV_DOWN' ? 'Jev şu an cevap vermiyor' : `Jev'e sorulamadı (${firstLine(err.message).slice(0, 120)})`;
-    return { handled: false, note: `${why}; hızlı yol yerine Claude yapıyor.` };
+    const why = err.code === 'JEV_DOWN' ? T('Jev şu an cevap vermiyor', 'Jev is not answering right now') : T(`Jev'e sorulamadı (${firstLine(err.message).slice(0, 120)})`, `Could not ask Jev (${firstLine(err.message).slice(0, 120)})`);
+    return { handled: false, note: T(`${why}; hızlı yol yerine Claude yapıyor.`, `${why}; Claude does it instead of the fast path.`) };
   }
   const { confidence, answers, ms, intent } = decision;
   // "bilgisayarı kapat" & co. were read by the rules; Jev still has to agree that it is meant now.
@@ -210,7 +224,7 @@ export async function tryFast(command, onEvent, { previous = '' } = {}) {
       const action = parsed.action === 'lock' ? 'lock_screen' : parsed.action;
       return { handled: true, text: firstLine(await step(onEvent, 'mac_action', { action })) };
     } catch (err) {
-      return { handled: false, note: `Hızlı yol olmadı: ${firstLine(err.message)}` };
+      return { handled: false, note: T(`Hızlı yol olmadı: ${firstLine(err.message)}`, `The fast path did not work: ${firstLine(err.message)}`) };
     }
   }
   // A learned task is more specific than any simple route ("Spotify'da X listesini çal" is not just "play").
@@ -247,15 +261,15 @@ export async function tryFast(command, onEvent, { previous = '' } = {}) {
       case 'app_open':
       case 'app_quit': {
         const name = await pickApp(command, { running: route === 'app_quit' });
-        if (!name) return { handled: false, note: 'Hangi uygulama olduğundan emin olamadım.' };
+        if (!name) return { handled: false, note: T('Hangi uygulama olduğundan emin olamadım.', 'I could not tell which app you mean.') };
         await step(onEvent, route === 'app_open' ? 'desktop_open_app' : 'desktop_quit_app', { name });
-        return { handled: true, text: route === 'app_open' ? `${name} açıldı.` : `${name} kapatıldı.` };
+        return { handled: true, text: route === 'app_open' ? T(`${name} açıldı.`, `${name} opened.`) : T(`${name} kapatıldı.`, `${name} closed.`) };
       }
       case 'web_open': {
         const site = siteIn(command);
         if (!site) return { handled: false };
         const text = await step(onEvent, 'browser_open', { url: site });
-        return { handled: true, text: `Açıldı: ${text.match(/Şu an: (.+?) \(/)?.[1] || site}.${needsUserNote(text)}` };
+        return { handled: true, text: `${T('Açıldı', 'Opened')}: ${pageTitle(text) || site}.${needsUserNote(text)}` };
       }
       case 'web_search': {
         const query = searchQuery(command);
@@ -265,7 +279,7 @@ export async function tryFast(command, onEvent, { previous = '' } = {}) {
           ? `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`
           : `https://www.google.com/search?q=${encodeURIComponent(query)}`;
         const text = await step(onEvent, 'browser_open', { url });
-        return { handled: true, text: `${youtube ? 'YouTube' : 'Google'}'da arandı: ${query}.${needsUserNote(text)}` };
+        return { handled: true, text: T(`${youtube ? 'YouTube' : 'Google'}'da arandı: ${query}.`, `Searched ${youtube ? 'YouTube' : 'Google'} for: ${query}.`) + needsUserNote(text) };
       }
       case 'spotify_play': {
         const liked = (answers.liked?.noul ?? 0) >= 0.5;
@@ -274,9 +288,10 @@ export async function tryFast(command, onEvent, { previous = '' } = {}) {
         return { handled: true, text: firstLine(await step(onEvent, 'spotify_play', liked ? { liked: true } : { what })) };
       }
       case 'note_add': {
-        // "not al: …" gives the text after the colon; otherwise Jev picks it out.
+        // "not al: …" / "take a note: …" gives the text after the colon, "add … to my notes" the words between; otherwise Jev picks it out.
         const body = command.match(/\bnot[^:]{0,30}:\s+(.+)$/i)?.[1]?.trim()
-          || await pickSpan(command, 'What is the text of the note to write down, without words like "not al" or "notlarıma ekle"?', { maxWords: 16 });
+          || command.match(/^\s*(?:please\s+)?(?:add|put|write)\s+(.+?)\s+(?:to|in|into)\s+(?:my\s+|the\s+)?notes\s*[.!]?\s*$/i)?.[1]?.trim()
+          || await pickSpan(command, T('What is the text of the note to write down, without words like "not al" or "notlarıma ekle"?', 'What is the text of the note to write down, without words like "take a note" or "add to my notes"?'), { maxWords: 16 });
         if (!body) return { handled: false };
         return { handled: true, text: firstLine(await step(onEvent, 'notes_add', { text: body })) };
       }
@@ -288,14 +303,14 @@ export async function tryFast(command, onEvent, { previous = '' } = {}) {
         return { handled: true, text: await step(onEvent, 'reminders_list', {}) };
       case 'page_click': {
         const text = await step(onEvent, 'browser_click', { target: command });
-        const clicked = text.match(/Öğe: "([^"]+)"/)?.[1] || command;
-        const opened = text.includes('Sayfa değişti') || text.includes('Yeni sekme') ? text.match(/Şu an: (.+?) \(/)?.[1] : null;
-        return { handled: true, text: `"${clicked}" tıklandı.${opened ? ` Açılan sayfa: ${opened}` : ''}` };
+        const clicked = text.match(/(?:Öğe|Element): "([^"]+)"/)?.[1] || command;
+        const opened = /Sayfa değişti|Yeni sekme|Page changed|New tab/.test(text) ? pageTitle(text) : null;
+        return { handled: true, text: T(`"${clicked}" tıklandı.${opened ? ` Açılan sayfa: ${opened}` : ''}`, `Clicked "${clicked}".${opened ? ` New page: ${opened}` : ''}`) };
       }
       default:
         return { handled: false };
     }
   } catch (err) {
-    return { handled: false, note: `Hızlı yol olmadı: ${firstLine(err.message)}` };
+    return { handled: false, note: T(`Hızlı yol olmadı: ${firstLine(err.message)}`, `The fast path did not work: ${firstLine(err.message)}`) };
   }
 }

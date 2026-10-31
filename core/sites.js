@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { homeDir } from './config.js';
+import { T } from './i18n.js';
 
 const MAX_NOTES = 20;
 const MAX_CHARS = 400;
@@ -29,9 +30,9 @@ export function notesFor(urlOrHost) {
 
 export function addNote(urlOrHost, note) {
   const site = siteOf(urlOrHost);
-  if (!site) throw new Error('Hangi site için olduğu anlaşılmadı.');
+  if (!site) throw new Error(T('Hangi site için olduğu anlaşılmadı.', 'Could not tell which site this is for.'));
   const text = String(note).replace(/\s+/g, ' ').trim().slice(0, MAX_CHARS);
-  if (!text) throw new Error('Not boş.');
+  if (!text) throw new Error(T('Not boş.', 'The note is empty.'));
   const notes = notesFor(site).filter(n => n.note !== text);
   notes.push({ at: new Date().toISOString().slice(0, 10), note: text });
   fs.writeFileSync(fileOf(site), JSON.stringify(notes.slice(-MAX_NOTES), null, 2));
@@ -50,5 +51,5 @@ export function removeNote(urlOrHost, number) {
 export function notesBlock(urlOrHost) {
   const notes = notesFor(urlOrHost);
   if (!notes.length) return '';
-  return [`📝 ${siteOf(urlOrHost)} için önceki oturumlardan notlar:`, ...notes.slice(-8).map((n, i) => `${i + 1}. ${n.note} (${n.at})`)].join('\n');
+  return [T(`📝 ${siteOf(urlOrHost)} için önceki oturumlardan notlar:`, `📝 Notes on ${siteOf(urlOrHost)} from earlier sessions:`), ...notes.slice(-8).map((n, i) => `${i + 1}. ${n.note} (${n.at})`)].join('\n');
 }

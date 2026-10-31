@@ -12,6 +12,7 @@ import { HOME, config } from '../core/config.js';
 import { speak } from '../voice/tts.js';
 import { setActivity } from '../core/activity.js';
 import { APP_NAME } from '../core/brand.js';
+import { T } from '../core/i18n.js';
 
 export const ATTENTION_FILE = path.join(HOME, 'attention.json');
 const pendingMessages = new Map(); // alert id → iMessage timer
@@ -66,7 +67,7 @@ export function resolveAlert(id) {
 
 /** An iMessage from this Mac's Messages account to `to` (the user's own number or Apple ID). */
 export function sendIMessage(text, to = settings().imessageTo) {
-  if (!to) return Promise.reject(new Error('iMessage adresi ayarlı değil: node cli.js notify set <telefon ya da Apple ID>'));
+  if (!to) return Promise.reject(new Error(T('iMessage adresi ayarlı değil: node cli.js notify set <telefon ya da Apple ID>', 'No iMessage address set: node cli.js notify set <phone or Apple ID>')));
   if (process.env.JEVIS_TEST_NOTIFY === 'record') {
     fs.appendFileSync(path.join(HOME, 'notify-test.log'), `${JSON.stringify({ imessage: text, to })}\n`);
     return Promise.resolve();
@@ -81,7 +82,7 @@ export function sendIMessage(text, to = settings().imessageTo) {
   ].join('\n');
   return new Promise((resolve, reject) => {
     execFile('osascript', ['-e', script, text, to], { timeout: 30000 }, (err, stdout, stderr) => {
-      if (err) reject(new Error(`iMessage gönderilemedi: ${(stderr || err.message).replace(/^.*execution error: /s, '').trim()}`));
+      if (err) reject(new Error(`${T('iMessage gönderilemedi', "Couldn't send the iMessage")}: ${(stderr || err.message).replace(/^.*execution error: /s, '').trim()}`));
       else resolve();
     });
   });
@@ -92,7 +93,7 @@ export function sendIMessage(text, to = settings().imessageTo) {
  * so it goes from ~/Pictures/<app name> (the last ten are kept there).
  */
 export function sendIMessageFile(file, to = settings().imessageTo) {
-  if (!to) return Promise.reject(new Error('iMessage adresi ayarlı değil: node cli.js notify set <telefon ya da Apple ID>'));
+  if (!to) return Promise.reject(new Error(T('iMessage adresi ayarlı değil: node cli.js notify set <telefon ya da Apple ID>', 'No iMessage address set: node cli.js notify set <phone or Apple ID>')));
   if (process.env.JEVIS_TEST_NOTIFY === 'record') {
     fs.appendFileSync(path.join(HOME, 'notify-test.log'), `${JSON.stringify({ imessageFile: file, to })}\n`);
     return Promise.resolve();
@@ -115,7 +116,7 @@ export function sendIMessageFile(file, to = settings().imessageTo) {
   ].join('\n');
   return new Promise((resolve, reject) => {
     execFile('osascript', ['-e', script, copy, to], { timeout: 30000 }, (err, stdout, stderr) => {
-      if (err) reject(new Error(`iMessage gönderilemedi: ${(stderr || err.message).replace(/^.*execution error: /s, '').trim()}`));
+      if (err) reject(new Error(`${T('iMessage gönderilemedi', "Couldn't send the iMessage")}: ${(stderr || err.message).replace(/^.*execution error: /s, '').trim()}`));
       else resolve(copy);
     });
   });
@@ -125,7 +126,7 @@ export function sendIMessageFile(file, to = settings().imessageTo) {
 export function siteName(url) {
   try {
     const host = new URL(url).hostname.replace(/^www\./, '');
-    if (!host) return 'Bu sayfa';
+    if (!host) return T('Bu sayfa', 'This page');
     const parts = host.split('.');
     const known = { appstoreconnect: 'App Store Connect', firebase: 'Firebase', github: 'GitHub', godaddy: 'GoDaddy', google: 'Google', apple: 'Apple' };
     const main = parts.length > 2 && ['co', 'com', 'org', 'net', 'gov'].includes(parts.at(-2)) ? parts.at(-3) : parts.at(-2) || parts[0];

@@ -2,6 +2,7 @@
 // Anahtar "JBSWY3DPEHPK3PXP" gibi base32 ya da otpauth://totp/...?secret=... bağlantısı olabilir.
 // Kod sadece alana yazılır, beyne (LLM'e) gösterilmez.
 import crypto from 'node:crypto';
+import { T } from '../core/i18n.js';
 
 const ALFABE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
@@ -10,7 +11,7 @@ function base32(metin) {
   let bitler = '';
   for (const h of temiz) {
     const i = ALFABE.indexOf(h);
-    if (i < 0) throw new Error('TOTP anahtarı geçerli bir base32 değil.');
+    if (i < 0) throw new Error(T('TOTP anahtarı geçerli bir base32 değil.', 'The TOTP key is not valid base32.'));
     bitler += i.toString(2).padStart(5, '0');
   }
   const bayt = [];
