@@ -17,7 +17,7 @@ export const CREDIT = `${AUTHOR} (${HANDLE})`;
 export const COPYRIGHT = `© 2026 ${CREDIT}`;
 /** Where people can support it: a star on the repo, a share that tags the author, a follow; links left empty are not shown. */
 export const REPO_URL = 'https://github.com/purplefox21/handry';
-export const LINKEDIN_URL = '';
+export const LINKEDIN_URL = 'https://www.linkedin.com/in/berat-olekli/';
 export const DONATE_URL = '';
 /** How the name is said, for its Turkish endings: "Hendri" → Handry'ye, Handry'nin. */
 export const APP_SOUND = 'hendri';

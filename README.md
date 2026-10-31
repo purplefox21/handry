@@ -191,7 +191,7 @@ Handry is free to use. If it helps you:
 
 - ⭐ Star [the repo](https://github.com/purplefox21/handry): it helps other people find it.
 - Share it and tag me (**@purplefox**): a post, a video of the hand walking around your screen, anything.
-- Follow me on GitHub: [purplefox21](https://github.com/purplefox21).
+- Follow me on [LinkedIn](https://www.linkedin.com/in/berat-olekli/) and on GitHub ([purplefox21](https://github.com/purplefox21)).
 
 ## License
 

@@ -174,7 +174,7 @@ final class LedgeFinder {
             at += 1
             let role = value(el, kAXRoleAttribute) as? String ?? ""
             // Below the title bar, inside the window, wide enough to walk on (a line of text only when it is long).
-            if roles.contains(role), let f = frame(el), f.width >= (role == "AXStaticText" ? 140 : 80), f.height >= 12,
+            if roles.contains(role), let f = frame(el), f.width >= 70, f.height >= 12,
                f.minY - box.minY >= 36, f.minY <= box.maxY - 30, f.minX >= box.minX - 1, f.maxX <= box.maxX + 1 {
                 ledges.append(Ledge(window: w.id, dx1: f.minX - box.minX, dx2: f.maxX - box.minX, dTop: f.minY - box.minY))
             }
@@ -190,7 +190,7 @@ final class LedgeFinder {
                 merged.append(l)
             }
         }
-        return Array(merged.filter { $0.dx2 - $0.dx1 >= 70 }.prefix(80))
+        return Array(merged.filter { $0.dx2 - $0.dx1 >= 60 }.prefix(120))
     }
 }
 
@@ -443,10 +443,15 @@ final class FoxPet {
         // The ledges of the front window and of the one it is on, every few seconds while it is up and about.
         if Date().timeIntervalSince(ledgesAt) > 5, mode != .sleep, mode != .held, anim != "sleep" {
             ledgesAt = Date()
-            // the front app's window when it is on the pet's screen, the top window there, and the one it is on
+            // What can be seen on the pet's screen: the front app's window, then up to three windows with a part
+            // not covered by the ones in front of them, and the one it is on.
             let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
             var wins = homeWindows.filter { $0.pid == front }.prefix(1).map { $0 }
-            if let top = homeWindows.first, !wins.contains(where: { $0.id == top.id }) { wins.append(top) }
+            for (i, w) in homeWindows.enumerated() where wins.count < 3 && !wins.contains(where: { $0.id == w.id }) {
+                let probes = [CGPoint(x: w.frame.midX, y: w.frame.midY), CGPoint(x: w.frame.minX + 40, y: w.frame.maxY - 60), CGPoint(x: w.frame.maxX - 40, y: w.frame.maxY - 60),
+                              CGPoint(x: w.frame.minX + 40, y: w.frame.minY + 40), CGPoint(x: w.frame.maxX - 40, y: w.frame.minY + 40)]
+                if probes.contains(where: { p in !homeWindows[..<i].contains { $0.frame.contains(p) } }) { wins.append(w) }
+            }
             if let on = platform.window, !wins.contains(where: { $0.id == on }), let w = windows.first(where: { $0.id == on }) { wins.append(w) }
             ledges.refresh(wins)
         }
@@ -533,9 +538,9 @@ final class FoxPet {
     private func atEdge() {
         guard platform.window != nil else { play("idle", mode: .idle); return }
         let roll = Double.random(in: 0..<1)
-        // The end of a ledge: steps off to whatever is below (another ledge, the window's bottom, the Dock), or turns.
+        // The end of a ledge: mostly turns back (it likes ledges); now and then steps off to whatever is below.
         if platform.ledge != nil {
-            if roll < 0.6 {
+            if roll < 0.25 {
                 velocity = CGVector(dx: (facingRight ? 1 : -1) * 50 * scale, dy: 80 * scale)
                 platform = Platform(x1: -1e6, x2: 1e6, y: -1e6, window: nil)
                 play("fall", mode: .air)
@@ -706,8 +711,13 @@ final class FoxPet {
             return
         }
         guard mode == .idle, Date() > decideAt else { return }
-        decideAt = Date().addingTimeInterval(.random(in: 4...10))
+        // On a ledge it takes its time: sits a while, strolls along it, only sometimes hops on.
+        decideAt = Date().addingTimeInterval(platform.ledge != nil ? .random(in: 8...20) : .random(in: 4...10))
         let roll = Double.random(in: 0..<1)
+        if platform.ledge != nil, roll < 0.45 {
+            if roll < 0.3 { go(to: platform.x1 + CGFloat.random(in: 0.1...0.9) * (platform.x2 - platform.x1), run: false) }
+            return
+        }
         // Hop onto a ledge within reach: up a little, or down (from a window's top edge or another ledge).
         let reach = visibleLedges().filter { p in
             let up = p.y - foot.y, side = min(abs(p.x1 - foot.x), abs(p.x2 - foot.x), (p.x1...p.x2).contains(foot.x) ? 0 : .infinity)
@@ -855,7 +865,7 @@ final class FoxPet {
         let center = CGPoint(x: r.midX, y: r.midY)
         guard r.width > 4, let w = windows.first(where: { $0.frame.insetBy(dx: -2, dy: -2).contains(center) }) else { return }
         let spot = Ledge(window: w.id, dx1: max(0, r.minX - w.frame.minX - 8), dx2: min(w.frame.width, r.maxX - w.frame.minX + 8),
-                         dTop: w.frame.maxY - r.maxY, until: Date().addingTimeInterval(30))
+                         dTop: w.frame.maxY - r.maxY, until: Date().addingTimeInterval(90))
         clickSpots.removeAll { $0.same(as: spot) }
         clickSpots.append(spot)
         let target = spot.platform(in: w)
