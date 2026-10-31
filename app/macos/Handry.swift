@@ -190,7 +190,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         overlay = Overlay()
         overlay?.onNotchClick = { [weak self] in self?.notchClicked() }
         watchActivity()
-        showBar(mode: "type")
+        // Not over a full-screen app (a game): the bar would take its keyboard.
+        if !NSScreen.screens.contains(where: { s in visibleWindows().contains { $0.frame.equalTo(s.frame) && $0.pid == NSWorkspace.shared.frontmostApplication?.processIdentifier } }) {
+            showBar(mode: "type")
+        }
         loadWhenReady()
         // First launch, or something the app needs is missing: the permissions window.
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in

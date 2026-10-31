@@ -347,9 +347,22 @@ final class FoxPet {
         panel.close()
     }
 
+    /// The screen the pet lives on: the main one, or another when a full-screen app (a game, a video) covers
+    /// the main one; nil when every screen is covered.
+    var home: NSScreen? {
+        let taken = { (s: NSScreen) in self.windows.contains { $0.frame.equalTo(s.frame) } }
+        return NSScreen.screens.first(where: { !taken($0) })
+    }
+
     func screenFloor() -> Platform {
-        let screen = NSScreen.screens.first!
+        let screen = home ?? NSScreen.screens.first!
         return Platform(x1: screen.visibleFrame.minX, x2: screen.visibleFrame.maxX, y: screen.visibleFrame.minY, window: nil)
+    }
+
+    /// Windows on the pet's screen (it doesn't leap from one screen to another).
+    private var homeWindows: [SeenWindow] {
+        guard let frame = home?.frame else { return [] }
+        return windows.filter { $0.frame.intersects(frame) }
     }
 
     // MARK: Animation
@@ -430,8 +443,10 @@ final class FoxPet {
         // The ledges of the front window and of the one it is on, every few seconds while it is up and about.
         if Date().timeIntervalSince(ledgesAt) > 5, mode != .sleep, mode != .held, anim != "sleep" {
             ledgesAt = Date()
+            // the front app's window when it is on the pet's screen, the top window there, and the one it is on
             let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
-            var wins = windows.filter { $0.pid == front }.prefix(1).map { $0 }
+            var wins = homeWindows.filter { $0.pid == front }.prefix(1).map { $0 }
+            if let top = homeWindows.first, !wins.contains(where: { $0.id == top.id }) { wins.append(top) }
             if let on = platform.window, !wins.contains(where: { $0.id == on }), let w = windows.first(where: { $0.id == on }) { wins.append(w) }
             ledges.refresh(wins)
         }
@@ -451,13 +466,22 @@ final class FoxPet {
         updateMousePassThrough(mouse)
     }
 
-    /// A full-screen app in front (a video, a game): the fox steps aside until it ends.
+    /// A full-screen app (a video, a game) on its screen: the fox moves to another screen, or, when there is
+    /// none, steps aside until it ends.
     private func hideForFullScreen() -> Bool {
-        guard let screen = NSScreen.screens.first, let front = NSWorkspace.shared.frontmostApplication else { return false }
-        let full = windows.first { $0.pid == front.processIdentifier && $0.frame.equalTo(screen.frame) } != nil
+        let screen = home
+        let full = screen == nil
         if full != hidUntilFullScreenEnds {
             hidUntilFullScreenEnds = full
             if full { panel.orderOut(nil) } else { panel.orderFrontRegardless() }
+        }
+        if let screen, mode != .held, !screen.frame.insetBy(dx: -2, dy: -2).contains(foot) {
+            // its screen was taken (or given back): it comes down on the floor of the other one
+            platform = screenFloor()
+            foot = CGPoint(x: platform.x1 + (platform.x2 - platform.x1) * 0.72, y: platform.y)
+            velocity = .zero
+            targetX = nil
+            play("land", mode: .land)
         }
         return full
     }
@@ -577,9 +601,13 @@ final class FoxPet {
     private func launch(to target: Platform, x: CGFloat) {
         jumpTarget = nil
         let g = 2000 * scale
-        // longer leaps take a little longer, so they still look like a jump
-        let t = min(0.85, max(0.5, hypot(x - foot.x, target.y - foot.y) / 1400))
-        velocity = CGVector(dx: (x - foot.x) / t, dy: (target.y - foot.y + g * t * t / 2) / t)
+        // Up to a top a little above the target, then down onto it: it must arrive falling (only a fall lands),
+        // and right where it was aimed (a button is narrow).
+        let rise = target.y - foot.y
+        let top = max(rise, 0) + max(40, abs(x - foot.x) * 0.15)
+        let up = sqrt(2 * g * top)
+        let t = up / g + sqrt(2 * (top - rise) / g)
+        velocity = CGVector(dx: (x - foot.x) / t, dy: up)
         platform = Platform(x1: -1e6, x2: 1e6, y: -1e6, window: nil)
         mode = .air   // keeps showing the jump's last frames until it comes down
     }
@@ -593,7 +621,7 @@ final class FoxPet {
         if velocity.dy < 0 && anim != "fall" { play("fall", mode: .air) }
         guard velocity.dy < 0 else { return }
         // Land on the first thing under the feet: a window's top edge or the floor.
-        var floors = windows.compactMap { w -> Platform? in
+        var floors = homeWindows.compactMap { w -> Platform? in
             topIsOpen(w) ? Platform(x1: w.frame.minX, x2: w.frame.maxX, y: w.frame.maxY, window: w.id) : nil
         }
         floors.append(contentsOf: visibleLedges())
@@ -605,7 +633,7 @@ final class FoxPet {
             velocity = .zero
             play("land", mode: .land)
         }
-        if let s = NSScreen.screens.first, foot.y < s.frame.minY {
+        if let s = home ?? NSScreen.screens.first, foot.y < s.frame.minY {
             platform = screenFloor()
             foot = CGPoint(x: max(platform.x1 + 40, min(platform.x2 - 40, foot.x)), y: platform.y)
             play("land", mode: .land)
@@ -616,7 +644,7 @@ final class FoxPet {
     /// the menu bar. A clicked spot stays one for a while.
     private func visibleLedges() -> [Platform] {
         clickSpots.removeAll { ($0.until ?? .distantPast) < Date() }
-        guard let screen = NSScreen.screens.first else { return [] }
+        guard let screen = home else { return [] }
         let all = ledges.found.values.flatMap { $0 } + clickSpots
         return all.compactMap { l in
             guard let index = windows.firstIndex(where: { $0.id == l.window }) else { return nil }
@@ -633,7 +661,7 @@ final class FoxPet {
         guard let index = windows.firstIndex(where: { $0.id == w.id }) else { return false }
         let probe = CGPoint(x: w.frame.midX, y: w.frame.maxY - 2)
         if windows[..<index].contains(where: { $0.frame.contains(probe) }) { return false }
-        guard let screen = NSScreen.screens.first else { return false }
+        guard let screen = home, w.frame.intersects(screen.frame) else { return false }
         return w.frame.maxY < screen.visibleFrame.maxY - 120 && w.frame.maxY > screen.visibleFrame.minY + 120
     }
 
@@ -690,7 +718,7 @@ final class FoxPet {
             jump(to: target, x: x)
             return
         }
-        if roll < 0.2, platform.window == nil, let w = windows.filter(topIsOpen).filter({ $0.frame.width > 240 }).randomElement() {
+        if roll < 0.2, platform.window == nil, let w = homeWindows.filter(topIsOpen).filter({ $0.frame.width > 240 }).randomElement() {
             // Go under the window, then jump onto its top edge.
             let landX = CGFloat.random(in: (w.frame.minX + 60)...(w.frame.maxX - 60))
             let under = max(platform.x1 + 40, min(platform.x2 - 40, landX - (landX > foot.x ? 140 : -140) * scale))
