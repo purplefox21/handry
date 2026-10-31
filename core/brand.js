@@ -15,6 +15,10 @@ export const HANDLE = 'purplefox';
 export const AUTHOR_URL = 'https://github.com/purplefox21';
 export const CREDIT = `${AUTHOR} (${HANDLE})`;
 export const COPYRIGHT = `© 2026 ${CREDIT}`;
+/** Where people can support it: a star on the repo, a share that tags the author, a follow; links left empty are not shown. */
+export const REPO_URL = 'https://github.com/purplefox21/handry';
+export const LINKEDIN_URL = '';
+export const DONATE_URL = '';
 /** How the name is said, for its Turkish endings: "Hendri" → Handry'ye, Handry'nin. */
 export const APP_SOUND = 'hendri';
 /** The other pet's name (the fox; the menu can show it instead of the hand). */

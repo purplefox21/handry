@@ -185,6 +185,14 @@ PLAN.md    the project log (Turkish): goals, decisions, phases, measurements
 CLAUDE.md  notes for Claude when it works on this repo
 ```
 
+## Support
+
+Handry is free to use. If it helps you:
+
+- ⭐ Star [the repo](https://github.com/purplefox21/handry): it helps other people find it.
+- Share it and tag me (**@purplefox**): a post, a video of the hand walking around your screen, anything.
+- Follow me on GitHub: [purplefox21](https://github.com/purplefox21).
+
 ## License
 
 [PolyForm Shield 1.0.0](LICENSE.md). You can use Handry, change it and share it, also at work. You can't sell it or offer a product that competes with it (a copy, a fork, or a substitute, even a free one). Keep the `Required Notice` line, the [NOTICE](NOTICE) file and the copyright lines when you share it. For anything else, [ask me](https://github.com/purplefox21).
@@ -194,7 +202,3 @@ CLAUDE.md  notes for Claude when it works on this repo
 Handry is made by **Berat Olekli** ([purplefox](https://github.com/purplefox21)): the idea, the design, the walking hand and Foxie, and the code. © 2026 Berat Olekli (purplefox). Copies and work based on Handry keep the [NOTICE](NOTICE) file and the copyright lines at the top of the source files.
 
 Built with [Claude Code](https://claude.com/claude-code). Uses [TypeSafe Jev](https://typesafe.ai) for fast decisions and [Playwright](https://playwright.dev) to drive Chrome.
-
-## License
-
-Not chosen yet. Until a license file is added, all rights are reserved.

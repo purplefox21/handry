@@ -16,6 +16,7 @@ import { isStopped } from '../guard/stop.js';
 import { APP_NAME } from '../core/brand.js';
 import { T } from '../core/i18n.js';
 import * as overlay from './overlay.js';
+import { setActivity } from '../core/activity.js';
 
 const execFileAsync = promisify(execFile);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -193,6 +194,8 @@ export async function click(target, { app } = {}) {
   await ensureTrusted();
   const el = await resolve(target, 'click', { app, withRisk: true });
   const approval = await guard(el, el.pick.risk, T(`"${el.name}" öğesine basmak`, `press "${el.name}"`), (await frontmost()).app);
+  // The pet on the screen runs to what is pressed (where the Mac says it is); nothing waits for it.
+  if (el.frame?.w) setActivity('tool', { tool: 'desktop_click', app: app || '', rect: el.frame });
   const res = await ax('press', el.path, '--pid', el.pid, '--expect', el.expect || '');
   return { element: { name: el.name, role: el.role }, jev: { confidence: pct(el.pick.confidence), ms: el.pick.ms }, method: res.method, approval, ...(await after(el.pid)) };
 }

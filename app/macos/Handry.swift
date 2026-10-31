@@ -70,6 +70,8 @@ let WAKE_LABEL = info["WakeLabel"] as? String ?? "Hey Handry"
 // Who made it (core/brand.js, via Info.plist).
 let CREDIT = info["HandryAuthor"] as? String ?? "Berat Olekli (purplefox)"
 let AUTHOR_URL = info["HandryAuthorURL"] as? String ?? "https://github.com/purplefox21"
+let REPO_URL = info["HandryRepoURL"] as? String ?? "https://github.com/purplefox21/handry"
+let LINKEDIN_URL = info["HandryLinkedInURL"] as? String ?? ""
 let BAR_WIDTH: CGFloat = 640
 let BAR_HEIGHT: CGFloat = 54
 let BAR_EAR: CGFloat = 10
@@ -449,7 +451,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
                   let at = entry["at"] as? Double, at > self.activitySeen, let kind = entry["kind"] as? String else { return }
             let fresh = self.activitySeen > 0 && Date().timeIntervalSince1970 * 1000 - at < 10000
             self.activitySeen = at
-            if fresh { self.fox?.react(kind: kind, app: entry["app"] as? String) }
+            let r = entry["rect"] as? [String: Double]
+            let rect = r.flatMap { r in r["x"].flatMap { x in r["y"].flatMap { y in r["w"].flatMap { w in r["h"].map { h in CGRect(x: x, y: y, width: w, height: h) } } } } }
+            if fresh { self.fox?.react(kind: kind, app: entry["app"] as? String, rect: rect) }
         }
     }
 
@@ -968,6 +972,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         center.alignment = .center
         let credits = NSMutableAttributedString(string: "\(L("Yapan", "Made by")) \(CREDIT)\n", attributes: [.font: NSFont.systemFont(ofSize: 11, weight: .medium), .foregroundColor: NSColor.labelColor, .paragraphStyle: center])
         credits.append(NSAttributedString(string: AUTHOR_URL.replacingOccurrences(of: "https://", with: ""), attributes: [.font: NSFont.systemFont(ofSize: 11), .link: URL(string: AUTHOR_URL) as Any, .paragraphStyle: center]))
+        // Liked it? A star, a share that tags the author, a follow.
+        let quiet: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: center]
+        credits.append(NSAttributedString(string: "\n\n" + L("Beğendiysen: ", "Like it? "), attributes: quiet))
+        credits.append(NSAttributedString(string: L("GitHub'da ⭐ ver", "⭐ it on GitHub"), attributes: [.font: NSFont.systemFont(ofSize: 11), .link: URL(string: REPO_URL) as Any, .paragraphStyle: center]))
+        if !LINKEDIN_URL.isEmpty {
+            credits.append(NSAttributedString(string: " · ", attributes: quiet))
+            credits.append(NSAttributedString(string: L("LinkedIn'de takip et", "follow me on LinkedIn"), attributes: [.font: NSFont.systemFont(ofSize: 11), .link: URL(string: LINKEDIN_URL) as Any, .paragraphStyle: center]))
+        }
+        credits.append(NSAttributedString(string: L("\npaylaşırken @purplefox'u etiketle 💜", "\nand tag @purplefox when you share it 💜"), attributes: quiet))
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(options: [.applicationName: APP_NAME, .credits: credits])
     }

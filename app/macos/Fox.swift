@@ -10,6 +10,9 @@
 // Its own life: sits, walks along the top of the Dock, gets bored, sleeps;
 // jumps onto windows and walks along their top edge (and goes with them when
 // they move, falls when they close); hangs its paws over a window's corner;
+// inside a window it hops onto ledges (the top edges of buttons, text boxes,
+// a chat box, headings: from the accessibility tree) and falls to the next one
+// below at their ends; when Handry clicks something it leaps onto it;
 // can be picked up by the tail or the scruff and dropped.
 // What Foxie (the assistant) is doing shows on it: "Hey Foxie" → ears up and
 // listening; Claude thinking → typing at its little desk; a tool working in an
@@ -18,6 +21,7 @@
 // Units: one sprite pixel is `scale` points on screen; the manifest's speed,
 // ground and anchor are in sprite pixels.
 import AppKit
+import ApplicationServices
 
 // MARK: Sprites
 
@@ -104,6 +108,90 @@ final class FoxSprites {
 struct Platform {
     var x1: CGFloat, x2: CGFloat, y: CGFloat   // AppKit points (bottom-left origin)
     var window: CGWindowID?
+    var ledge: Ledge? = nil                    // a place inside the window, not its top edge
+}
+
+/// A place inside a window the pet can stand on: the top edge of a button, a text box, a chat box, a heading
+/// (from the accessibility tree), kept relative to the window so it goes with it.
+struct Ledge {
+    let window: CGWindowID
+    let dx1: CGFloat, dx2: CGFloat   // from the window's left edge
+    let dTop: CGFloat                // down from the window's top edge
+    var until: Date? = nil           // a spot Handry clicked: a ledge for a while
+
+    func platform(in w: SeenWindow) -> Platform {
+        Platform(x1: w.frame.minX + dx1, x2: w.frame.minX + dx2, y: w.frame.maxY - dTop, window: w.id, ledge: self)
+    }
+    func same(as o: Ledge) -> Bool { window == o.window && abs(dTop - o.dTop) <= 6 && dx1 < o.dx2 && o.dx1 < dx2 }
+}
+
+/// Reads the ledges of a few windows from their apps' accessibility trees, off the main thread (an app answers
+/// on its own main thread, so it is done seldom and with a cap on how much is read).
+final class LedgeFinder {
+    private(set) var found: [CGWindowID: [Ledge]] = [:]
+    private var busy = false
+    private let queue = DispatchQueue(label: "handry.ledges", qos: .utility)
+    private static let roles: Set<String> = ["AXButton", "AXTextField", "AXTextArea", "AXSearchField", "AXComboBox", "AXPopUpButton", "AXHeading",
+                                             "AXImage", "AXStaticText", "AXScrollArea", "AXWebArea", "AXLink", "AXTable", "AXList"]
+
+    func refresh(_ wins: [SeenWindow]) {
+        guard !busy, !wins.isEmpty, AXIsProcessTrusted(), let main = NSScreen.screens.first else { return }
+        busy = true
+        let height = main.frame.height
+        queue.async {
+            var out: [CGWindowID: [Ledge]] = [:]
+            for w in wins { out[w.id] = LedgeFinder.read(w, mainHeight: height) }
+            DispatchQueue.main.async { self.found = out; self.busy = false }
+        }
+    }
+
+    private static func value(_ el: AXUIElement, _ attr: String) -> AnyObject? {
+        var v: AnyObject?
+        return AXUIElementCopyAttributeValue(el, attr as CFString, &v) == .success ? v : nil
+    }
+
+    /// An element's frame in global top-left points.
+    private static func frame(_ el: AXUIElement) -> CGRect? {
+        guard let p = value(el, kAXPositionAttribute), let s = value(el, kAXSizeAttribute),
+              CFGetTypeID(p) == AXValueGetTypeID(), CFGetTypeID(s) == AXValueGetTypeID() else { return nil }
+        var point = CGPoint.zero, size = CGSize.zero
+        AXValueGetValue(p as! AXValue, .cgPoint, &point)
+        AXValueGetValue(s as! AXValue, .cgSize, &size)
+        return CGRect(origin: point, size: size)
+    }
+
+    static func read(_ w: SeenWindow, mainHeight: CGFloat) -> [Ledge] {
+        let app = AXUIElementCreateApplication(w.pid)
+        AXUIElementSetMessagingTimeout(app, 0.3)
+        let box = CGRect(x: w.frame.minX, y: mainHeight - w.frame.maxY, width: w.frame.width, height: w.frame.height)
+        guard let wins = value(app, kAXWindowsAttribute) as? [AXUIElement],
+              let win = wins.first(where: { f in frame(f).map { abs($0.minX - box.minX) < 4 && abs($0.minY - box.minY) < 4 } ?? false }) else { return [] }
+        var ledges: [Ledge] = []
+        var todo: [(AXUIElement, Int)] = [(win, 0)]
+        var at = 0
+        while at < todo.count, at < 400 {
+            let (el, depth) = todo[at]
+            at += 1
+            let role = value(el, kAXRoleAttribute) as? String ?? ""
+            // Below the title bar, inside the window, wide enough to walk on (a line of text only when it is long).
+            if roles.contains(role), let f = frame(el), f.width >= (role == "AXStaticText" ? 140 : 80), f.height >= 12,
+               f.minY - box.minY >= 36, f.minY <= box.maxY - 30, f.minX >= box.minX - 1, f.maxX <= box.maxX + 1 {
+                ledges.append(Ledge(window: w.id, dx1: f.minX - box.minX, dx2: f.maxX - box.minX, dTop: f.minY - box.minY))
+            }
+            if depth < 14, let kids = value(el, kAXChildrenAttribute) as? [AXUIElement] { todo.append(contentsOf: kids.map { ($0, depth + 1) }) }
+        }
+        // One ledge per line: at the same height and touching, they make one longer ledge.
+        ledges.sort { ($0.dTop, $0.dx1) < ($1.dTop, $1.dx1) }
+        var merged: [Ledge] = []
+        for l in ledges {
+            if let last = merged.last, abs(last.dTop - l.dTop) <= 4, l.dx1 <= last.dx2 + 8 {
+                merged[merged.count - 1] = Ledge(window: w.id, dx1: last.dx1, dx2: max(last.dx2, l.dx2), dTop: last.dTop)
+            } else {
+                merged.append(l)
+            }
+        }
+        return Array(merged.filter { $0.dx2 - $0.dx1 >= 70 }.prefix(80))
+    }
 }
 
 struct SeenWindow {
@@ -181,6 +269,9 @@ final class FoxPet {
     private var mouseMovedAt = Date()
     private var windows: [SeenWindow] = []
     private var windowsAt = Date.distantPast
+    private let ledges = LedgeFinder()
+    private var ledgesAt = Date.distantPast
+    private var clickSpots: [Ledge] = []          // where Handry clicked lately
     private var lastTick = CACurrentMediaTime()
     private var timer: Timer?
     private var hidUntilFullScreenEnds = false
@@ -336,6 +427,14 @@ final class FoxPet {
         let mouse = NSEvent.mouseLocation
         if mouse != lastMouse { lastMouse = mouse; mouseMovedAt = Date() }
         if Date().timeIntervalSince(windowsAt) > 0.2 { windows = visibleWindows(); windowsAt = Date(); followWindow() }
+        // The ledges of the front window and of the one it is on, every few seconds while it is up and about.
+        if Date().timeIntervalSince(ledgesAt) > 5, mode != .sleep, mode != .held, anim != "sleep" {
+            ledgesAt = Date()
+            let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+            var wins = windows.filter { $0.pid == front }.prefix(1).map { $0 }
+            if let on = platform.window, !wins.contains(where: { $0.id == on }), let w = windows.first(where: { $0.id == on }) { wins.append(w) }
+            ledges.refresh(wins)
+        }
         if hideForFullScreen() { return }
         advance(dt)
         move(dt)
@@ -410,6 +509,17 @@ final class FoxPet {
     private func atEdge() {
         guard platform.window != nil else { play("idle", mode: .idle); return }
         let roll = Double.random(in: 0..<1)
+        // The end of a ledge: steps off to whatever is below (another ledge, the window's bottom, the Dock), or turns.
+        if platform.ledge != nil {
+            if roll < 0.6 {
+                velocity = CGVector(dx: (facingRight ? 1 : -1) * 50 * scale, dy: 80 * scale)
+                platform = Platform(x1: -1e6, x2: 1e6, y: -1e6, window: nil)
+                play("fall", mode: .air)
+            } else {
+                turn { self.play("idle", mode: .idle) }
+            }
+            return
+        }
         if roll < 0.35 {
             hang()
         } else if roll < 0.65 {
@@ -467,7 +577,8 @@ final class FoxPet {
     private func launch(to target: Platform, x: CGFloat) {
         jumpTarget = nil
         let g = 2000 * scale
-        let t: CGFloat = 0.55
+        // longer leaps take a little longer, so they still look like a jump
+        let t = min(0.85, max(0.5, hypot(x - foot.x, target.y - foot.y) / 1400))
         velocity = CGVector(dx: (x - foot.x) / t, dy: (target.y - foot.y + g * t * t / 2) / t)
         platform = Platform(x1: -1e6, x2: 1e6, y: -1e6, window: nil)
         mode = .air   // keeps showing the jump's last frames until it comes down
@@ -485,6 +596,7 @@ final class FoxPet {
         var floors = windows.compactMap { w -> Platform? in
             topIsOpen(w) ? Platform(x1: w.frame.minX, x2: w.frame.maxX, y: w.frame.maxY, window: w.id) : nil
         }
+        floors.append(contentsOf: visibleLedges())
         floors.append(screenFloor())
         if let landing = floors.filter({ foot.x >= $0.x1 && foot.x <= $0.x2 && before >= $0.y && foot.y <= $0.y }).max(by: { $0.y < $1.y }) {
             foot.y = landing.y
@@ -500,6 +612,22 @@ final class FoxPet {
         }
     }
 
+    /// The ledges that can be seen now: in a window on the screen, with no window in front of them, not under
+    /// the menu bar. A clicked spot stays one for a while.
+    private func visibleLedges() -> [Platform] {
+        clickSpots.removeAll { ($0.until ?? .distantPast) < Date() }
+        guard let screen = NSScreen.screens.first else { return [] }
+        let all = ledges.found.values.flatMap { $0 } + clickSpots
+        return all.compactMap { l in
+            guard let index = windows.firstIndex(where: { $0.id == l.window }) else { return nil }
+            let p = l.platform(in: windows[index])
+            let probe = CGPoint(x: (p.x1 + p.x2) / 2, y: p.y + 4)
+            guard p.y > screen.visibleFrame.minY + 30, p.y < screen.visibleFrame.maxY - 30,
+                  !windows[..<index].contains(where: { $0.frame.contains(probe) }) else { return nil }
+            return p
+        }
+    }
+
     /// A window's top edge counts only where no window in front of it covers it.
     private func topIsOpen(_ w: SeenWindow) -> Bool {
         guard let index = windows.firstIndex(where: { $0.id == w.id }) else { return false }
@@ -512,6 +640,19 @@ final class FoxPet {
     /// Standing on a window: go with it; fall when it closes, hides or moves away.
     private func followWindow() {
         guard let id = platform.window, mode != .air, mode != .held else { return }
+        // On a ledge: it goes with the window, and falls when the ledge goes (scrolled away, covered, closed).
+        if let ledge = platform.ledge {
+            let still = visibleLedges().first { $0.ledge.map { $0.same(as: ledge) } ?? false }
+            guard let p = still else {
+                velocity = .zero
+                platform = Platform(x1: -1e6, x2: 1e6, y: -1e6, window: nil)
+                play("fall", mode: .air)
+                return
+            }
+            platform = p
+            if let w = windows.first(where: { $0.id == id }) { foot = CGPoint(x: min(max(w.frame.minX + platformOffset, p.x1), p.x2), y: p.y) }
+            return
+        }
         guard let w = windows.first(where: { $0.id == id }), topIsOpen(w) || mode == .hang else {
             velocity = .zero
             platform = Platform(x1: -1e6, x2: 1e6, y: -1e6, window: nil)
@@ -539,6 +680,16 @@ final class FoxPet {
         guard mode == .idle, Date() > decideAt else { return }
         decideAt = Date().addingTimeInterval(.random(in: 4...10))
         let roll = Double.random(in: 0..<1)
+        // Hop onto a ledge within reach: up a little, or down (from a window's top edge or another ledge).
+        let reach = visibleLedges().filter { p in
+            let up = p.y - foot.y, side = min(abs(p.x1 - foot.x), abs(p.x2 - foot.x), (p.x1...p.x2).contains(foot.x) ? 0 : .infinity)
+            return abs(up) > 24 && up < 320 && up > -520 && side < 420 && p.x2 - p.x1 > 60 * scale
+        }
+        if roll < 0.35, let target = reach.randomElement() {
+            let x = min(max(foot.x + CGFloat.random(in: -120...120), target.x1 + 20 * scale), target.x2 - 20 * scale)
+            jump(to: target, x: x)
+            return
+        }
         if roll < 0.2, platform.window == nil, let w = windows.filter(topIsOpen).filter({ $0.frame.width > 240 }).randomElement() {
             // Go under the window, then jump onto its top edge.
             let landX = CGFloat.random(in: (w.frame.minX + 60)...(w.frame.maxX - 60))
@@ -637,8 +788,9 @@ final class FoxPet {
         }
     }
 
-    /// Activity from ~/.jevis/activity.json (written by the server and the Handry tools).
-    func react(kind: String, app: String?) {
+    /// Activity from ~/.jevis/activity.json (written by the server and the Handry tools). rect: what Handry is
+    /// clicking, in global top-left points; the pet leaps onto it (the click doesn't wait for it).
+    func react(kind: String, app: String?, rect: CGRect? = nil) {
         guard visible, mode != .held else { return }
         switch kind {
         case "thinking":
@@ -646,6 +798,7 @@ final class FoxPet {
             sitDown("desk", mode: .desk, for: 60)
         case "tool":
             thinking = true
+            if let rect { leap(onto: rect); return }
             guard let app, !app.isEmpty, platform.window == nil else { return }
             // Run under the window of the app that is being used.
             if let w = windows.first(where: { window(of: app, is: $0) }) {
@@ -665,6 +818,23 @@ final class FoxPet {
         default:
             break
         }
+    }
+
+    /// Leaps onto what Handry clicks: its top edge becomes a ledge for a while.
+    private func leap(onto rect: CGRect) {
+        guard mode != .air, mode != .jump, let main = NSScreen.screens.first else { return }
+        let r = CGRect(x: rect.minX, y: main.frame.height - rect.maxY, width: rect.width, height: rect.height)
+        let center = CGPoint(x: r.midX, y: r.midY)
+        guard r.width > 4, let w = windows.first(where: { $0.frame.insetBy(dx: -2, dy: -2).contains(center) }) else { return }
+        let spot = Ledge(window: w.id, dx1: max(0, r.minX - w.frame.minX - 8), dx2: min(w.frame.width, r.maxX - w.frame.minX + 8),
+                         dTop: w.frame.maxY - r.maxY, until: Date().addingTimeInterval(30))
+        clickSpots.removeAll { $0.same(as: spot) }
+        clickSpots.append(spot)
+        let target = spot.platform(in: w)
+        targetX = nil
+        thenAt = nil
+        let go = { self.jump(to: target, x: min(max(r.midX, target.x1 + 6), target.x2 - 6)) }
+        if mode == .sleep || anim == "sleep" || anim == "lie_down" { play("wake_up", mode: .special) { go() } } else { go() }
     }
 
     /// The app is a bundle id ("com.google.Chrome") or a name as the user said it.

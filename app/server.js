@@ -14,7 +14,7 @@ import { listChats, peekChat, newChat, switchChat, deleteChat, IDLE_MS } from '.
 import { listBrains } from '../brain/index.js';
 import { requestStop } from '../guard/stop.js';
 import { startScheduler, sortedJobs, jobView, cancelJobs } from '../core/timers.js';
-import { APP, FOX, WAKE_LABEL, CREDIT, COPYRIGHT, HANDLE, AUTHOR_URL } from '../core/brand.js';
+import { APP, FOX, WAKE_LABEL, CREDIT, COPYRIGHT, HANDLE, AUTHOR_URL, REPO_URL, LINKEDIN_URL } from '../core/brand.js';
 import { recentActions } from '../guard/log.js';
 import { undo as undoFiles } from '../hands/files.js';
 import { sttStatus, transcribe, stripWake } from '../voice/stt.js';
@@ -312,7 +312,9 @@ const server = http.createServer(async (req, res) => {
       const brand = encodeURIComponent(JSON.stringify({ ...APP, fox: FOX.name, wake: WAKE_LABEL, lang: lang(), language: languageSetting() }));
       const html = fs.readFileSync(filePath, 'utf-8')
         .replaceAll('{{APP}}', APP.name).replaceAll('{{APP_DAT}}', APP.dative).replaceAll('{{APP_GEN}}', APP.genitive).replaceAll('{{FOX}}', FOX.name)
-        .replaceAll('{{COPYRIGHT}}', COPYRIGHT).replaceAll('{{HANDLE}}', HANDLE).replaceAll('{{AUTHOR_URL}}', AUTHOR_URL)
+        .replaceAll('{{COPYRIGHT}}', COPYRIGHT).replaceAll('{{HANDLE}}', HANDLE).replaceAll('{{AUTHOR_URL}}', AUTHOR_URL).replaceAll('{{REPO_URL}}', REPO_URL)
+        // the LinkedIn link only when there is one
+        .replace(/<span class="linkedin"[^>]*>[\s\S]*?<\/span>/, LINKEDIN_URL ? m => m.replaceAll('{{LINKEDIN_URL}}', LINKEDIN_URL) : '')
         .replace('</head>', `  <meta name="jevis-token" content="${SESSION_TOKEN}">\n  <meta name="app-brand" content="${brand}">\n</head>`);
       res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-store' });
       res.end(html);

@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ROOT, config } from '../../core/config.js';
-import { APP, FOX, WAKE_LABEL, WAKE_SOURCE, COPYRIGHT, CREDIT, AUTHOR_URL } from '../../core/brand.js';
+import { APP, FOX, WAKE_LABEL, WAKE_SOURCE, COPYRIGHT, CREDIT, AUTHOR_URL, REPO_URL, LINKEDIN_URL } from '../../core/brand.js';
 import { T } from '../../core/i18n.js';
 
 export const APP_PATH = path.join(ROOT, 'dist', `${APP.name}.app`);
@@ -90,6 +90,8 @@ export function buildApp() {
     NSHumanReadableCopyright: COPYRIGHT,
     HandryAuthor: CREDIT,
     HandryAuthorURL: AUTHOR_URL,
+    HandryRepoURL: REPO_URL,
+    HandryLinkedInURL: LINKEDIN_URL,
     CFBundleName: APP.name,
     CFBundleDisplayName: APP.name,
     CFBundleExecutable: APP.name,

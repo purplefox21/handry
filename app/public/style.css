@@ -203,6 +203,7 @@ html:not(.native) .topbar { background: color-mix(in srgb, var(--bg) 82%, transp
 .welcome-credit { margin-top: 14px; }
 .credit { margin-top: auto; padding-top: 12px; border-top: var(--hair) solid var(--border); }
 .welcome-credit a, .credit a { color: var(--text-2); text-decoration: none; }
+.credit .support { display: block; margin-top: 4px; }
 .welcome-credit a:hover, .credit a:hover { color: var(--text); }
 kbd {
   display: inline-block;
