@@ -43,6 +43,7 @@ Handry started as a way to stop filling in App Store Connect by hand (pricing, t
 - New strong passwords for sign-ups, saved to the Keychain for that site only.
 
 **Voice and presence**
+- Speaks English or Turkish: the window, the bar, the menu, spoken answers, confirmations and phone messages. It follows your Mac's language; Settings › Language or the menu bar menu › Language switches it.
 - "Hey Handry", push-to-talk, spoken answers.
 - A Spotlight-like bar (⌥Space) and a chat window.
 - A small pixel-art hand that walks on its fingers across your screen and shows what Handry is doing.
@@ -113,7 +114,7 @@ node cli.js app open
 claude mcp add --scope user handry -- node "$(pwd)/mcp/server.js"
 ```
 
-On first launch the app opens a permissions window (menu › İzinler…): Accessibility, Screen Recording, Microphone, Speech Recognition and Automation. macOS asks for each once; you decide.
+On first launch the app opens a permissions window (menu › Permissions…): Accessibility, Screen Recording, Microphone, Speech Recognition and Automation. macOS asks for each once; you decide.
 
 ## Use it
 
@@ -121,7 +122,7 @@ On first launch the app opens a permissions window (menu › İzinler…): Acces
 - **Window:** the Dock icon, or `npm start` and http://localhost:4263. Chats, a Fast (Sonnet 5.5) / Strong (Opus 5.5) switch, timers, recipes, settings.
 - **Terminal:**
   ```bash
-  node cli.js do "Spotify'da lo-fi çal"
+  node cli.js do "play lo-fi on Spotify"
   node cli.js open appstoreconnect.apple.com
   node cli.js read
   node cli.js desk read --app=Notes
@@ -160,7 +161,7 @@ node tests/vscode-claude-e2e.mjs      # Claude Code in VS Code: finding sessions
 ## Status and limits
 
 - Built as a personal tool and used every day. macOS only.
-- The interface, the voice and the assistant's replies are in Turkish for now; an English interface is planned.
+- English and Turkish. With English voices "Hey Handry" isn't always heard yet (tried with macOS's synthetic voices, not a real one); push-to-talk (⌥⇧Space) always works.
 - Needs a TypeSafe Jev key. When Jev is busy, simple commands go to Claude instead of failing, but a fully Jev-free mode isn't there yet.
 - Approving and commanding from the phone need Full Disk Access for Handry.app (to read your messages to yourself from Messages); `node cli.js doctor` says whether they are on.
 - Not yet tried for real: the login window with an actual Google sign-in, reading codes from the real Gmail inbox and Messages database, and approving, commanding and getting screenshots on the phone with real iMessages (all covered by tests with stand-ins).

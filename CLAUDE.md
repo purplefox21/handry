@@ -10,6 +10,7 @@ Bu proje: Jev (TypeSafe System One) ile hızlanan, bilgisayarı ve tarayıcıyı
 - Değişiklikten önce ve sonra git commit al. Bir şeyi silmeden önce mutlaka commit olsun; kullanıcı fikrini değiştirebilir.
 - `.env` (JEV_KEY) asla commit edilmez ve içeriği ekrana yazdırılmaz.
 - Kullanıcı Claude'dan bir şey gizlenmesini istemiyor (2026-09-30): Claude sayfadaki değerleri, API anahtarlarını, indirilen dosyaları görebilir. Şifreler kolaylık için Anahtar Zinciri'nden doldurulur; kayıt dosyalarına (log) şifre yazılmaz.
+- İki dil (2026-10-31): Handry Türkçe ve İngilizce konuşur. Metin iki dilde, kullanıldığı yerde: Node'da `T('Türkçe', 'English')` (`core/i18n.js`), sayfalarda `common.js`'teki `T` ve `data-en` öznitelikleri, Swift'te `L("…", "…")`. Türkçe metni değiştirme (testler onunla eşleşiyor), İngilizcesini yanına ekle; `T()` modül sabitinde değil, metnin üretildiği anda çağrılır. Ayar config `language`: `tr` / `en` / `auto` (Mac'in dili; bu Mac'te Türkçe), `JEVIS_LANG` tek çalıştırmada ezer. Ayarlar'da ve menüde "Dil / Language"; uygulama dil değişince kendini sunucusuyla yeniden başlatır. Mac'in kendi dili (düğme ve menü adları) ayrı: `macLanguage()`.
 - Claude in Chrome önerme. Kullanıcı denedi ve reddetti: yavaş, şifre girmiyor.
 - Bir faz bitince PLAN.md'deki kutuları işaretle, en üstteki "Durum" satırını ve "Geçmiş" bölümünü güncelle, commit al.
 - Kullanıcının adına macOS izin pencerelerine (TCC) asla "İzin Ver" deme; bu onun kararı.
