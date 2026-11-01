@@ -384,8 +384,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         toggle.tag = 910
         menu.addItem(toggle)
         menu.addItem(item(L("Uyut", "Sleep"), #selector(foxSleep)))
-        // a hop onto a ledge inside a window now
-        menu.addItem(item(L("Şimdi Zıpla", "Hop Now"), #selector(hopNow)))
         menu.addItem(.separator())
         for (title, value) in [(L("Küçük", "Small"), 0.5), (L("Orta", "Medium"), 1.0), (L("Büyük", "Large"), 1.5)] {
             let size = item(title, #selector(foxSize(_:)))
@@ -412,7 +410,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     }
 
     @objc func foxSleep() { fox?.sleepNow() }
-    @objc func hopNow() { fox?.hopNow() }
 
     /// The island at the notch that shows what Handry is doing: always there, only while it works, or never.
     /// Drawings stay either way.
@@ -459,9 +456,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
                   let at = entry["at"] as? Double, at > self.activitySeen, let kind = entry["kind"] as? String else { return }
             let fresh = self.activitySeen > 0 && Date().timeIntervalSince1970 * 1000 - at < 10000
             self.activitySeen = at
-            let r = entry["rect"] as? [String: Double]
-            let rect = r.flatMap { r in r["x"].flatMap { x in r["y"].flatMap { y in r["w"].flatMap { w in r["h"].map { h in CGRect(x: x, y: y, width: w, height: h) } } } } }
-            if fresh { self.fox?.react(kind: kind, app: entry["app"] as? String, rect: rect) }
+            if fresh { self.fox?.react(kind: kind, app: entry["app"] as? String) }
         }
     }
 

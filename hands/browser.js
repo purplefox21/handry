@@ -15,7 +15,6 @@ import { APP, APP_NAME } from '../core/brand.js';
 import { T } from '../core/i18n.js';
 import * as human from './human.js';
 import * as overlay from './overlay.js';
-import { setActivity } from '../core/activity.js';
 import * as captcha from './captcha.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -670,8 +669,8 @@ function noteChange(page, field, value) {
  * Where an element is on the screen, in global top-left points (what the desktop hands and the drawing
  * layer use): the window's place, the toolbar above the page, and the page zoom are taken into account.
  */
-async function rectOf(page, loc, { scroll = true } = {}) {
-  if (scroll) await loc.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
+async function rectOf(page, loc) {
+  await loc.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
   const box = await loc.boundingBox();
   if (!box) throw new JevisError('NOT_VISIBLE', T('Öğe sayfada görünmüyor.', 'The element is not visible on the page.'));
   const w = await page.evaluate(() => ({ x: window.screenX, y: window.screenY, ow: window.outerWidth, oh: window.outerHeight, iw: window.innerWidth, ih: window.innerHeight }));
@@ -865,8 +864,6 @@ export async function click(target, { risk = true, purpose = 'click', scope } = 
     throw new JevisError('WRONG_TOOL', T('Bu bir dosya seçme alanı; dosya yüklemek için upload kullanın.', 'This is a file field; use upload (browser_upload) to upload a file.'));
   }
   const approval = risk ? await guardRisk(page, item, pick.risk, T(`"${item.name}" öğesine tıklamak`, `click "${item.name}"`), loc) : null;
-  // The pet on the screen runs to what is clicked; nothing waits for it.
-  rectOf(page, loc, { scroll: false }).then(rect => setActivity('tool', { tool: 'browser_click', app: 'com.google.Chrome', rect })).catch(() => {});
   // the pointer glides for a while before it presses, so the wait must outlast the glide
   const popup = context().waitForEvent('page', { timeout: 8000 }).catch(() => null);
   await clickLocator(loc);
