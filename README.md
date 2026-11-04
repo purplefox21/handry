@@ -89,7 +89,21 @@ You (voice or text)
 - **Everything is logged:** who (the app, the terminal, which Claude session), which tool, on what, the result, and whether you were asked (`~/.jevis/logs`).
 - **Emergency stop:** ⌥Esc, the bar's stop button, or `node cli.js stop`. Every tool refuses to act for 10 minutes or until you resume.
 
-## Requirements
+## Install
+
+**The guide covers every feature and how to use it, for people who don't code:** [English](docs/GUIDE.md) · [Türkçe](docs/REHBER.md). It is also in the app: menu › Guide.
+
+### The downloadable app
+
+`Handry-<version>.dmg` holds the whole app, including its own Node, for Apple silicon and Intel. Open it, drag Handry to Applications, open it from there. No terminal, Xcode or Homebrew. On first launch it asks for permissions and, if you want the bigger tasks, offers to install Claude and sign you in.
+
+The first public download isn't up yet. To make one yourself: `node cli.js app package` (needs the source setup below). Other Macs only open it without a warning once it is signed with a Developer ID and notarized by Apple; see the comment at the top of `app/macos/package.js`.
+
+Needs: macOS 13.5 or later, Google Chrome, and a Claude subscription for bigger tasks (simple commands work without it).
+
+### From source
+
+Needs:
 
 - macOS 13 or later (developed on Apple silicon)
 - Node.js 20 or later (developed on 26)
@@ -98,8 +112,6 @@ You (voice or text)
 - [Claude Code](https://claude.com/claude-code) signed in with a Claude subscription (the default brain)
 - Optional: a TypeSafe Jev API key (smarter element picking, risk checks and fast path; Handry works without one)
 - Optional: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and a model for voice input
-
-## Install
 
 ```bash
 git clone https://github.com/purplefox21/handry.git
@@ -117,7 +129,9 @@ node cli.js app open
 claude mcp add --scope user handry -- node "$(pwd)/mcp/server.js"
 ```
 
-On first launch the app opens a permissions window (menu › Permissions…): Accessibility, Screen Recording, Microphone, Speech Recognition and Automation. macOS asks for each once; you decide.
+On first launch the app opens a permissions window (menu › Permissions…). Only Accessibility is needed to start; Screen Recording, Microphone and Speech Recognition are recommended; the rest macOS asks for when a task comes up. You decide each one.
+
+If System Settings shows a permission on but the window doesn't, the row tells you what to do: **Restart** when macOS only applies it after a restart (Screen Recording), **Reset Entry** when the entry belongs to an earlier build. Without an Apple certificate macOS treats every new build as a new app, so don't rebuild a source copy needlessly.
 
 ## Use it
 
@@ -147,7 +161,7 @@ Measured on my Mac:
 
 ## Tests
 
-`tests/` has 32 end-to-end scripts that run against real Chrome, real Mac apps and the real Jev. Most use a throwaway Handry folder and their own Chrome profile, so your setup isn't touched; the comment at the top of each file says what it opens or changes. Most spend a few Jev calls, and `app-e2e` uses a little of your Claude subscription.
+`tests/` has 37 end-to-end scripts that run against real Chrome, real Mac apps and the real Jev. Most use a throwaway Handry folder and their own Chrome profile, so your setup isn't touched; the comment at the top of each file says what it opens or changes. Most spend a few Jev calls, and `app-e2e` uses a little of your Claude subscription.
 
 ```bash
 node tests/mcp-smoke.mjs              # the MCP server and a form, end to end (uses the Handry Chrome window)

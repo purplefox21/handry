@@ -5,7 +5,7 @@
 // same judgments come from core/nojev.js, made with words and rules.
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, config } from './config.js';
+import { ROOT, config, HOME } from './config.js';
 import { JevisError } from './errors.js';
 import { T } from './i18n.js';
 import * as local from './nojev.js';
@@ -20,10 +20,12 @@ export function getApiKey() {
   if (apiKey) return apiKey;
   apiKey = process.env.TYPESAFE_API_KEY || process.env.JEV_KEY;
   if (!apiKey) {
-    try {
-      const match = fs.readFileSync(path.join(ROOT, '.env'), 'utf-8').match(/(?:JEV_KEY|TYPESAFE_API_KEY)=([^\r\n]+)/);
-      if (match) apiKey = match[1].trim();
-    } catch {}
+    for (const file of [path.join(ROOT, '.env'), path.join(HOME, '.env')]) { // ~/.jevis/.env: the downloaded app has no project folder
+      try {
+        const match = fs.readFileSync(file, 'utf-8').match(/(?:JEV_KEY|TYPESAFE_API_KEY)=([^\r\n]+)/);
+        if (match) { apiKey = match[1].trim(); break; }
+      } catch {}
+    }
   }
   if (!apiKey) throw new Error(T('TypeSafe API anahtarı bulunamadı: .env dosyasına JEV_KEY=... ekleyin.', 'No TypeSafe API key found: add JEV_KEY=... to the .env file.'));
   return apiKey;

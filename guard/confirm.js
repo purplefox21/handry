@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile, execFileSync } from 'node:child_process';
-import { config, HOME, ROOT } from '../core/config.js';
+import { config, HOME, ROOT, PACKAGED } from '../core/config.js';
 import { APP_NAME } from '../core/brand.js';
 import { T } from '../core/i18n.js';
 import { actionKind } from '../core/jev.js';
@@ -42,6 +42,7 @@ let cardBroken = false;
 function cardHelper() {
   if (cardBroken || process.env.JEVIS_DIALOG === 'apple') return null;
   try {
+    if (PACKAGED) return fs.existsSync(DIALOG) ? DIALOG : null; // the downloaded app brings it, built
     if (!fs.existsSync(DIALOG) || fs.statSync(DIALOG).mtimeMs < fs.statSync(DIALOG_SOURCE).mtimeMs) {
       fs.mkdirSync(path.dirname(DIALOG), { recursive: true });
       execFileSync('swiftc', ['-O', '-o', DIALOG, DIALOG_SOURCE], { stdio: 'pipe', timeout: 120000 });

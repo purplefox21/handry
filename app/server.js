@@ -12,6 +12,8 @@ import { findBinary } from '../brain/common.js';
 import { runCommand } from '../core/runner.js';
 import { listChats, peekChat, newChat, switchChat, deleteChat, IDLE_MS } from '../core/chats.js';
 import { listBrains } from '../brain/index.js';
+import { setupState, installClaude, loginClaude, dismissSetup } from '../core/setup.js';
+import { guidePage } from '../core/guide.js';
 import { requestStop } from '../guard/stop.js';
 import { startScheduler, sortedJobs, jobView, cancelJobs } from '../core/timers.js';
 import { APP, FOX, WAKE_LABEL, CREDIT, COPYRIGHT, HANDLE, AUTHOR_URL, REPO_URL, LINKEDIN_URL } from '../core/brand.js';
@@ -195,6 +197,10 @@ const ROUTES = {
     const cc = config().brain.providers['claude-code'] || {};
     sendJson(res, 200, { default: config().brain.default, brains: await listBrains(), claudeCode: { model: cc.model, effort: cc.effort, models: cc.models || [], efforts: cc.efforts || [] } });
   },
+  'GET /api/setup': async (req, res) => sendJson(res, 200, await setupState()),
+  'POST /api/setup/install-claude': (req, res) => sendJson(res, 200, installClaude()),
+  'POST /api/setup/login-claude': (req, res) => sendJson(res, 200, loginClaude()),
+  'POST /api/setup/dismiss': (req, res) => sendJson(res, 200, dismissSetup()),
   'GET /api/log': (req, res) => sendJson(res, 200, { actions: recentActions(30) }),
   'GET /api/voice': (req, res) => sendJson(res, 200, { stt: sttStatus(), tts: ttsStatus() }),
   'POST /api/voice': handleVoice,
@@ -292,6 +298,10 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (urlPath === '/guide') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    return res.end(guidePage());
+  }
   const filePath = path.join(PUBLIC_DIR, urlPath === '/' ? '/index.html' : urlPath);
   if (!filePath.startsWith(PUBLIC_DIR)) {
     res.writeHead(403);
@@ -356,6 +366,13 @@ async function runPhone(text) {
     activeRun = null;
     remember(entry);
   }
+}
+
+// The app started this server. When the app is gone without saying goodbye (force quit, crash), go too: the next
+// launch would otherwise find this one and keep talking to it, with the old code.
+if (process.env.JEVIS_OWNED === '1') {
+  const parent = process.ppid;
+  setInterval(() => { if (process.ppid !== parent) process.exit(0); }, 2000).unref();
 }
 
 server.on('error', err => {

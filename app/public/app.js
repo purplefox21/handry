@@ -932,3 +932,67 @@ async function init() {
 }
 
 init().catch(err => toast(T(`Yüklenemedi: ${err.message}`, `Couldn't load: ${err.message}`)));
+
+// First launch: what is still missing (Chrome, Claude), with the button that sorts it out.
+let setupTimer = null;
+async function showSetup() {
+  const box = $('setup');
+  if (!box) return;
+  let state;
+  try { state = await (await api('/api/setup')).json(); } catch { return; }
+  clearTimeout(setupTimer);
+  const rows = [];
+  if (!state.chrome) rows.push({ title: T('Google Chrome gerekiyor', 'Google Chrome is needed'), text: T('Web işleri onunla yapılıyor. Kurunca bu satır kaybolur.', 'Web tasks run in it. This row goes away once it is installed.'), link: 'https://www.google.com/chrome/', label: T('Chrome\'u İndir', 'Get Chrome') });
+  if (!state.claude.installed) {
+    rows.push({
+      title: T('Zor işler için Claude\'u bağla', 'Connect Claude for bigger tasks'),
+      text: state.installError ? T(`Kurulum olmadı: ${state.installError}`, `The install didn't work: ${state.installError}`) : T('Ses, müzik, uygulama açma gibi basit komutlar onsuz da çalışır. Form doldurma gibi işler için Claude aboneliği gerekir.', 'Simple commands like volume, music or opening apps work without it. Tasks like filling in forms need a Claude subscription.'),
+      action: '/api/setup/install-claude',
+      label: state.installing ? T('Kuruluyor…', 'Installing…') : T('Claude\'u Kur', 'Install Claude'),
+      busy: state.installing
+    });
+  } else if (!state.claude.loggedIn) {
+    rows.push({
+      title: T('Claude\'a giriş yap', 'Sign in to Claude'),
+      text: state.loginOpened ? T('Açılan pencere seni tarayıcıya götürür. Girişi orada yap; bu satır kendiliğinden kaybolur.', 'The window that opened takes you to your browser. Sign in there; this row goes away by itself.') : T('Claude kurulu. Giriş yapınca zor işler de açılır.', 'Claude is installed. Signing in opens up the bigger tasks.'),
+      action: '/api/setup/login-claude',
+      label: T('Giriş Yap', 'Sign In')
+    });
+  }
+  box.hidden = rows.length === 0 || state.dismissed;
+  if (box.hidden) { box.replaceChildren(); return; }
+  box.replaceChildren(...rows.map(row => {
+    const line = el('div', 'setup-row');
+    const text = el('div', 'setup-text');
+    text.append(el('b', null, row.title), el('span', null, row.text));
+    line.append(text);
+    if (row.link) {
+      const a = el('a', 'setup-action', row.label);
+      a.href = row.link;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      line.append(a);
+    } else {
+      const b = el('button', 'setup-action', row.label);
+      b.disabled = Boolean(row.busy);
+      b.addEventListener('click', async () => {
+        b.disabled = true;
+        await api(row.action, { method: 'POST' }).catch(() => {});
+        showSetup();
+      });
+      line.append(b);
+    }
+    return line;
+  }));
+  const foot = el('div', 'setup-foot');
+  const guide = el('a', null, T('Rehberi aç', 'Open the guide'));
+  guide.href = '/guide';
+  guide.target = '_blank';
+  guide.rel = 'noopener';
+  const skip = el('button', 'setup-skip', T('Şimdilik geç', 'Skip for now'));
+  skip.addEventListener('click', async () => { await api('/api/setup/dismiss', { method: 'POST' }).catch(() => {}); showSetup(); });
+  foot.append(guide, skip);
+  box.append(foot);
+  setupTimer = setTimeout(showSetup, 3000); // Chrome installed, install finished, signed in: the row goes by itself
+}
+showSetup();

@@ -595,3 +595,16 @@ kbd {
 .log-badge.denied { background: var(--red-soft); color: var(--red); }
 .log-row.failed .log-what { color: var(--red); }
 .log-detail { margin: 0; padding: 8px 12px 10px 40px; font: 11.5px/1.5 var(--mono); color: var(--text-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* First launch: what is still missing, one row each */
+.setup { max-width: 520px; margin: 18px auto 0; padding: 4px 14px; text-align: left; border: 0.5px solid var(--line, rgba(127,127,127,.25)); border-radius: 14px; }
+.setup-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; }
+.setup-row + .setup-row { border-top: 0.5px solid var(--line, rgba(127,127,127,.25)); }
+.setup-text { flex: 1; font-size: 13px; color: var(--text-2); }
+.setup-text b { display: block; font-weight: 600; color: var(--text); }
+.setup-action { flex: none; padding: 5px 12px; font: inherit; font-size: 12.5px; font-weight: 500; color: var(--text); text-decoration: none; background: rgba(127,127,127,.16); border: 0; border-radius: 8px; cursor: pointer; }
+.setup-action:hover { background: rgba(127,127,127,.26); }
+.setup-action:disabled { opacity: .55; cursor: default; }
+.setup-skip { margin-left: auto; padding: 4px 8px; font: inherit; font-size: 12px; color: var(--text-2); background: none; border: 0; cursor: pointer; }
+.setup-foot { display: flex; align-items: center; padding: 4px 0 8px; }
+.setup-foot a { font-size: 12px; color: var(--text-2); }

@@ -18,11 +18,23 @@ import Cocoa
 import WebKit
 import Carbon
 import AVFoundation
+import ServiceManagement
 
 let info = Bundle.main.infoDictionary ?? [:]
 let env = ProcessInfo.processInfo.environment
-let ROOT = env["JEVIS_ROOT"] ?? info["JEVISRoot"] as? String ?? ""
-let NODE = env["JEVIS_NODE"] ?? info["JEVISNode"] as? String ?? "/opt/homebrew/bin/node"
+/// The downloaded app carries everything inside it: the server's files and its own Node. A copy built from
+/// the source has neither and is given the paths when it is built.
+let BUNDLED_ROOT: String? = {
+    guard let resources = Bundle.main.resourcePath else { return nil }
+    let root = "\(resources)/handry"
+    return FileManager.default.fileExists(atPath: "\(root)/app/server.js") ? root : nil
+}()
+let BUNDLED_NODE: String? = {
+    let node = "\(Bundle.main.bundlePath)/Contents/Helpers/node"
+    return FileManager.default.isExecutableFile(atPath: node) ? node : nil
+}()
+let ROOT = env["JEVIS_ROOT"] ?? BUNDLED_ROOT ?? info["JEVISRoot"] as? String ?? ""
+let NODE = env["JEVIS_NODE"] ?? BUNDLED_NODE ?? info["JEVISNode"] as? String ?? "/opt/homebrew/bin/node"
 let PORT = env["JEVIS_PORT"] ?? info["JEVISPort"] as? String ?? "4263"
 let HOME = FileManager.default.homeDirectoryForCurrentUser.path
 /// Links that lead to the current node and survive a Homebrew upgrade (the versioned folder NODE was built with does not).
@@ -135,8 +147,10 @@ final class IslandView: NSView {
         // The blur behind the window is cut by its own mask, not by the layer's.
         if bounds.width > 0, bounds.height > 0 {
             glass.maskImage = NSImage(size: bounds.size, flipped: false) { _ in
-                NSColor.black.setFill()
-                NSBezierPath(cgPath: outline).fill()
+                guard let context = NSGraphicsContext.current?.cgContext else { return false }
+                context.setFillColor(NSColor.black.cgColor)
+                context.addPath(outline)
+                context.fillPath()
                 return true
             }
         }
@@ -176,6 +190,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     var restarts: [Date] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if moveToApplicationsIfNeeded() { return }
         UserDefaults.standard.register(defaults: ["heyJev": true])
         buildMainMenu()
         buildMenu()
@@ -268,7 +283,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         appMenu.addItem(item(L("Büyük Pencere", "\(APP_NAME) Window"), #selector(openWindow)))
         appMenu.addItem(wakeItem())
         appMenu.addItem(.separator())
+        appMenu.addItem(item(L("Rehber", "Guide"), #selector(openGuide)))
         appMenu.addItem(item(L("İzinler…", "Permissions…"), #selector(checkPermissions)))
+        appMenu.addItem(loginMenuItem())
         appMenu.addItem(languageMenuItem())
         appMenu.addItem(item(L("Sunucuyu Yeniden Başlat", "Restart Server"), #selector(restartServer)))
         appMenu.addItem(item(L("Tarayıcıda Aç", "Open in Browser"), #selector(openInBrowser)))
@@ -331,7 +348,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         menu.addItem(islandMenuItem())
         menu.addItem(.separator())
         menu.addItem(item(L("Tarayıcıda Aç", "Open in Browser"), #selector(openInBrowser)))
+        menu.addItem(item(L("Rehber", "Guide"), #selector(openGuide)))
         menu.addItem(item(L("İzinler…", "Permissions…"), #selector(checkPermissions)))
+        menu.addItem(loginMenuItem())
         menu.addItem(languageMenuItem())
         menu.addItem(item(L("Sunucuyu Yeniden Başlat", "Restart Server"), #selector(restartServer)))
         menu.addItem(.separator())
@@ -539,13 +558,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         for job in jobs {
             let icon = job.firingEnd != nil ? "⏻" : job.watch && job.at == nil ? "👀" : "⏰"
             let row = NSMenuItem(title: "\(icon) \(job.what)", action: nil, keyEquivalent: "")
+            let detail: String
             if let end = job.firingEnd {
-                row.subtitle = L("\(timeLeft(end - now)) sonra", "in \(timeLeft(end - now))")
+                detail = L("\(timeLeft(end - now)) sonra", "in \(timeLeft(end - now))")
             } else if let at = job.at, !job.watch {
-                row.subtitle = L("\(job.when) · \(timeLeft(at - now)) kaldı", "\(job.when) · \(timeLeft(at - now)) left")
+                detail = L("\(job.when) · \(timeLeft(at - now)) kaldı", "\(job.when) · \(timeLeft(at - now)) left")
             } else {
-                row.subtitle = job.note.isEmpty ? job.when : "\(job.when) · \(job.note)"
+                detail = job.note.isEmpty ? job.when : "\(job.when) · \(job.note)"
             }
+            if #available(macOS 14.4, *) { row.subtitle = detail } else { row.title += " · \(detail)" }
             let sub = NSMenu()
             if let chat = job.chatId {
                 let open = item(L("Kurulduğu Sohbeti Aç", "Open Its Chat"), #selector(openTimerChat(_:)))
@@ -971,6 +992,84 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 
     @objc func checkPermissions() { permissions.show() }
 
+    @objc func openGuide() { NSWorkspace.shared.open(URL(string: URL_BASE + "guide")!) }
+
+    // MARK: Start at login
+
+    var loginItems: [NSMenuItem] = []
+
+    func loginMenuItem() -> NSMenuItem {
+        let i = item(L("Mac Açılınca Başlat", "Start at Login"), #selector(toggleLogin))
+        i.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        loginItems.append(i)
+        return i
+    }
+
+    @objc func toggleLogin() {
+        do {
+            if SMAppService.mainApp.status == .enabled { try SMAppService.mainApp.unregister() } else { try SMAppService.mainApp.register() }
+        } catch {
+            NSLog("Handry login item: \(error.localizedDescription)")
+        }
+        let on = SMAppService.mainApp.status == .enabled
+        loginItems.forEach { $0.state = on ? .on : .off }
+    }
+
+    // MARK: Opened from the disk image
+
+    /// The downloaded app opened from the disk image (or from where macOS keeps a downloaded app until it has been
+    /// moved) has to be put in Applications first: there it stays, and macOS remembers its permissions.
+    /// True when this copy isn't going to go on.
+    func moveToApplicationsIfNeeded() -> Bool {
+        let here = Bundle.main.bundlePath
+        guard BUNDLED_ROOT != nil, here.hasPrefix("/Volumes/") || here.contains("/AppTranslocation/") else { return false }
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = L("\(APP_ACC) Uygulamalar klasörüne taşıyalım mı?", "Move \(APP_NAME) to Applications?")
+        alert.informativeText = L("\(APP_NAME) orada çalışmak üzere yapıldı; izinleri de orada kalıcı olur.", "\(APP_NAME) is meant to run from there, and that is where its permissions last.")
+        alert.addButton(withTitle: L("Taşı ve Aç", "Move and Open"))
+        alert.addButton(withTitle: L("Çık", "Quit"))
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            NSApp.terminate(nil)
+            return true
+        }
+        DispatchQueue.global().async {
+            let name = (here as NSString).lastPathComponent
+            func install(in folder: String) -> String? {
+                let target = "\(folder)/\(name)"
+                try? FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+                try? FileManager.default.removeItem(atPath: target)
+                let ditto = Process()
+                ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                ditto.arguments = [here, target]
+                guard (try? ditto.run()) != nil else { return nil }
+                ditto.waitUntilExit()
+                return ditto.terminationStatus == 0 ? target : nil
+            }
+            guard let target = install(in: "/Applications") ?? install(in: "\(HOME)/Applications") else {
+                DispatchQueue.main.async {
+                    let failed = NSAlert()
+                    failed.messageText = L("Taşınamadı", "Couldn't move it")
+                    failed.informativeText = L("\(APP_ACC) elle Uygulamalar klasörüne sürükle.", "Drag \(APP_NAME) to the Applications folder yourself.")
+                    failed.runModal()
+                    NSApp.terminate(nil)
+                }
+                return
+            }
+            // The user chose to open it and macOS has already let it through once: the copy doesn't have to be checked from outside again.
+            let clean = Process()
+            clean.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
+            clean.arguments = ["-dr", "com.apple.quarantine", target]
+            if (try? clean.run()) != nil { clean.waitUntilExit() }
+            DispatchQueue.main.async {
+                NSWorkspace.shared.open(URL(fileURLWithPath: target))
+                NSApp.terminate(nil)
+            }
+        }
+        return true
+    }
+
     /// The About window: the name, who made it (Berat Olekli, purplefox) and where it lives; the copyright line
     /// comes from Info.plist.
     @objc func showAbout() {
@@ -1125,6 +1224,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
                 p.currentDirectoryURL = URL(fileURLWithPath: ROOT)
                 var e = ProcessInfo.processInfo.environment
                 e["PORT"] = PORT
+                e["JEVIS_OWNED"] = "1"
                 e["PATH"] = "/opt/homebrew/bin:/usr/local/bin:\(HOME)/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
                 p.environment = e
                 p.standardOutput = log

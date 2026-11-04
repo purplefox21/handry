@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const HOME = process.env.JEVIS_HOME || path.join(os.homedir(), '.jevis');
+/** Running from inside the downloaded app: its folder is read-only and signed, so nothing is built or written there. */
+export const PACKAGED = /\.app\/Contents\/Resources\//.test(ROOT);
 
 export function expandHome(p) {
   return typeof p === 'string' && p.startsWith('~/') ? path.join(os.homedir(), p.slice(2)) : p;

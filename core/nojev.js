@@ -332,7 +332,7 @@ export function classify(command, { previous = '', apps = [], siteIn = () => nul
             : has(c, 'aç|yükselt|artır|up|louder|higher') ? 'up' : null;
     return how ? done('volume', { volume_how: { choice: how } }) : done('needs_brain');
   }
-  if (has(c, 'karanlık mod|karanlık moda|koyu mod|koyu moda|aydınlık mod|aydınlık moda|açık mod|açık moda|dark mode|light mode|night mode')) return done('dark_mode');
+  if (has(c, 'karanlık mod|karanlık modu|karanlık moda|koyu mod|koyu modu|koyu moda|aydınlık mod|aydınlık modu|aydınlık moda|açık mod|açık modu|açık moda|dark mode|light mode|night mode')) return done('dark_mode');
   if (has(c, 'ekranı kilitle|kilitle ekranı|lock the screen|lock screen|lock my (?:mac|computer)')) return done('lock_screen');
   if (has(c, 'ekran görüntüsü al|ekran görüntüsü|ekranın görüntüsünü al|ekran resmi al|take a screenshot|screenshot')) return done('screenshot');
   if (has(c, '(?:sonraki|önceki|bir sonraki|bir önceki) şarkı\\p{L}*|şarkıyı (?:geç|atla|değiştir)|next (?:song|track)|previous (?:song|track)|skip (?:this )?(?:song|track)|şarkıyı başa sar')) {

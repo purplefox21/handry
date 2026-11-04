@@ -73,6 +73,7 @@ Mac uygulamaları
 Uygulama ve kurulum
   doctor                              Her şeyi kontrol et, eksikleri söyle
   app build | app install | app open  Menü çubuğu uygulaması (⌥Space, ⌥⇧Space bas-konuş, ⌥Esc durdur)
+  app package                         İndirilecek uygulama: Applications'a sürüklenen DMG
   autostart on | off | status         Bilgisayar açılınca ${APP_NAME} başlasın
 
 Şifreler (macOS Anahtar Zinciri)
@@ -140,6 +141,7 @@ Mac apps
 App and setup
   doctor                              Check everything, say what's missing
   app build | app install | app open  Menu bar app (⌥Space, ⌥⇧Space push-to-talk, ⌥Esc stop)
+  app package                         The downloadable app: a DMG to drag to Applications
   autostart on | off | status         Start ${APP_NAME} when the Mac starts
 
 Passwords (macOS Keychain)
@@ -305,7 +307,15 @@ async function run() {
       return T(`${APP_NAME} açıldı: menü çubuğundaki el simgesi (✋). ⌥Space sohbet, ⌥⇧Space bas-konuş, ⌥Esc acil durdur.`,
         `${APP_NAME} is open: the hand icon in the menu bar (✋). ⌥Space chat, ⌥⇧Space push-to-talk, ⌥Esc emergency stop.`);
     }
-    return T('Kullanım: app build | app install | app open', 'Usage: app build | app install | app open');
+    if (args[0] === 'package') {
+      const { packageApp } = await import('./app/macos/package.js');
+      const out = packageApp();
+      const state = out.notarized ? T('Apple onaylı: başka Mac\'lerde uyarısız açılır.', 'Notarized by Apple: opens without a warning on other Macs.')
+        : out.identity.startsWith('Developer ID') ? T('Developer ID ile imzalı ama Apple onayı yok (xcrun notarytool store-credentials handry-notary).', 'Signed with a Developer ID but not notarized (xcrun notarytool store-credentials handry-notary).')
+        : T('Bu Mac\'in imzasıyla: başka Mac\'te macOS uyarır (Sistem Ayarları › Gizlilik ve Güvenlik › Yine de Aç). Uyarısız olması için Developer ID ve Apple onayı gerekir.', "Signed with this Mac's certificate: other Macs warn (System Settings › Privacy & Security › Open Anyway). No warning needs a Developer ID and notarization.");
+      return `${out.dmg} (${out.megabytes} MB)\nsha256 ${out.sha256}\n${state}`;
+    }
+    return T('Kullanım: app build | app install | app open | app package', 'Usage: app build | app install | app open | app package');
   }
   if (cmd === 'autostart') {
     if (args[0] === 'on') {

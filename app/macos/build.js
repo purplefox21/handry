@@ -19,6 +19,19 @@ export const INSTALLED = path.join(os.homedir(), 'Applications', `${APP.name}.ap
 export const OLD_INSTALLED = ['Handry.app', 'Foxie.app', 'Inaro.app'].filter(n => n !== `${APP.name}.app`).map(n => path.join(os.homedir(), 'Applications', n));
 export const BUNDLE_ID = 'studio.purpfox.foxie';
 
+export const APP_SOURCES = ['Handry.swift', 'Listener.swift', 'Fox.swift', 'Permissions.swift', 'Overlay.swift'].map(f => path.join(ROOT, 'app', 'macos', f));
+export const APP_FRAMEWORKS = ['AppKit', 'WebKit', 'Carbon', 'AVFoundation', 'Speech', 'CoreAudio', 'ServiceManagement'].flatMap(f => ['-framework', f]);
+
+/** What macOS shows in its permission questions, in the language Handry speaks now. */
+export const usageStrings = () => ({
+  NSMicrophoneUsageDescription: T(`${APP.name} sesli komutlarını dinlemek için mikrofonu kullanır.`,
+    `${APP.name} uses the microphone to hear your voice commands.`),
+  NSSpeechRecognitionUsageDescription: T(`${APP.name} konuştukça söylediklerini yazmak ve "${WAKE_LABEL}" demeni duymak için bu Mac'te konuşma tanıma kullanır.`,
+    `${APP.name} uses speech recognition on this Mac to write down what you say as you speak and to hear you say "${WAKE_LABEL}".`),
+  NSAppleEventsUsageDescription: T(`${APP.name}, senin isteğinle uygulamaları (Spotify, Müzik, Notlar, Anımsatıcılar, Takvim, Mesajlar, sistem ayarları) kontrol etmek için Apple Events kullanır.`,
+    `${APP.name} uses Apple Events to control apps when you ask (Spotify, Music, Notes, Reminders, Calendar, Messages, system settings).`)
+});
+
 const plist = values => `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -115,12 +128,7 @@ export function buildApp() {
     CFBundleIconFile: 'App',
     // What macOS shows in its permission questions: in the language Handry speaks when the app is built
     // (the Swift side switches at runtime; these are read by macOS, mostly on the first launch).
-    NSMicrophoneUsageDescription: T(`${APP.name} sesli komutlarını dinlemek için mikrofonu kullanır.`,
-      `${APP.name} uses the microphone to hear your voice commands.`),
-    NSSpeechRecognitionUsageDescription: T(`${APP.name} konuştukça söylediklerini yazmak ve "${WAKE_LABEL}" demeni duymak için bu Mac'te konuşma tanıma kullanır.`,
-      `${APP.name} uses speech recognition on this Mac to write down what you say as you speak and to hear you say "${WAKE_LABEL}".`),
-    NSAppleEventsUsageDescription: T(`${APP.name}, senin isteğinle uygulamaları (Spotify, Müzik, Notlar, Anımsatıcılar, Takvim, Mesajlar, sistem ayarları) kontrol etmek için Apple Events kullanır.`,
-      `${APP.name} uses Apple Events to control apps when you ask (Spotify, Music, Notes, Reminders, Calendar, Messages, system settings).`),
+    ...usageStrings(),
     // The name's Turkish endings (Swift uses the plain name in English), the fox's name and the wake word, for the Swift side.
     AppDative: APP.dative,
     AppAccusative: APP.accusative,
@@ -133,9 +141,7 @@ export function buildApp() {
     JEVISNode: stableNodePath(),
     JEVISPort: String(config().server.port || 4263)
   }));
-  execFileSync('swiftc', ['-O', '-o', path.join(APP_PATH, 'Contents', 'MacOS', APP.name),
-    ...['Handry.swift', 'Listener.swift', 'Fox.swift', 'Permissions.swift', 'Overlay.swift'].map(f => path.join(ROOT, 'app', 'macos', f)),
-    '-framework', 'AppKit', '-framework', 'WebKit', '-framework', 'Carbon', '-framework', 'AVFoundation', '-framework', 'Speech', '-framework', 'CoreAudio'], { stdio: 'pipe' });
+  execFileSync('swiftc', ['-O', '-o', path.join(APP_PATH, 'Contents', 'MacOS', APP.name), ...APP_SOURCES, ...APP_FRAMEWORKS], { stdio: 'pipe' });
   execFileSync('codesign', ['--force', '--deep', '--sign', signingIdentity(), APP_PATH], { stdio: 'pipe' });
   return APP_PATH;
 }

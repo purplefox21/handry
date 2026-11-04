@@ -144,6 +144,12 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
       if (quick.note) emit({ type: 'status', text: quick.note });
     }
     const brain = brainFor();
+    // No brain yet (Claude isn't installed): say what to do, instead of an error from a program that isn't there.
+    const usable = brain.available ? await brain.available().catch(err => ({ ok: false, reason: err.message })) : { ok: true };
+    if (!usable.ok) {
+      return record(finish({ text: T(`Bu iş için ${APP_NAME} Claude'a ihtiyaç duyuyor, ama Claude henüz bağlı değil (${usable.reason}). Ses, müzik, uygulama açma gibi basit komutları onsuz yapabilirim. Bağlamak için büyük pencerede "Claude'u Kur"a bas.`,
+        `${APP_NAME} needs Claude for this, and Claude isn't connected yet (${usable.reason}). I can do simple commands like volume, music or opening apps without it. To connect it, click "Install Claude" in the main window.`) }, { noBrain: true }), 'fast');
+    }
     const usedModel = brain.id === 'claude-code' ? (model || config().brain.providers['claude-code']?.model) : undefined;
     emit({ type: 'status', text: T(`${thinker(brain, model)} düşünüyor…`, `${thinker(brain, model)} is thinking…`) });
     setActivity('thinking');

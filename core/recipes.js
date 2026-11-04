@@ -5,12 +5,17 @@
 // need thinking; when a step fails the caller can hand the rest to a brain.
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, HOME } from './config.js';
+import { ROOT, HOME, PACKAGED } from './config.js';
 import { callTool } from './tools.js';
 import { actionsOfRun } from '../guard/log.js';
 import { T } from './i18n.js';
 
-const DIR = path.join(ROOT, 'recipes');
+// The downloaded app can't write into itself: recipes live in ~/.jevis there, starting from the ones it brings.
+const DIR = PACKAGED ? path.join(HOME, 'recipes') : path.join(ROOT, 'recipes');
+if (PACKAGED && !fs.existsSync(DIR)) {
+  fs.mkdirSync(DIR, { recursive: true });
+  try { fs.cpSync(path.join(ROOT, 'recipes'), DIR, { recursive: true }); } catch {}
+}
 // Recipes Handry learned by itself (core/learn.js) hold the user's own
 // commands, so they live outside the repository.
 export const LEARNED_DIR = path.join(HOME, 'learned');

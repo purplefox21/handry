@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
-import { ROOT, config, homeDir, loadState, saveState } from '../core/config.js';
+import { ROOT, config, homeDir, loadState, saveState, PACKAGED } from '../core/config.js';
 import { JevisError } from '../core/errors.js';
 import { desktopHumanOn } from './human.js';
 import * as jev from '../core/jev.js';
@@ -31,6 +31,7 @@ const DANGEROUS_KEYS = new Set(['cmd+q', 'cmd+option+escape', 'cmd+alt+escape', 
 
 /** Compiles the Swift helper on first use (and after the source changes). */
 export function ensureHelper() {
+  if (PACKAGED) return; // the downloaded app brings it, built
   const stale = !fs.existsSync(HELPER) || fs.statSync(HELPER).mtimeMs < fs.statSync(SOURCE).mtimeMs;
   if (!stale) return;
   fs.mkdirSync(path.dirname(HELPER), { recursive: true });
