@@ -105,6 +105,9 @@ try {
   for (let i = 0; i < 40 && !out.includes('"id":1'); i++) await sleep(100);
   mcp.kill();
   check('the MCP server answers from the app', out.includes('"id":1') && /handry/i.test(out));
+  const guideConfig = JSON.parse(fs.readFileSync(path.join(root, 'docs', 'GUIDE.md'), 'utf-8').match(/```json\n([\s\S]*?)```/)[1]).mcpServers.handry;
+  const guidePaths = [guideConfig.command, ...guideConfig.args].map(p => p.replace('/Applications/Handry.app', app));
+  check('the paths in the guide exist in the app', guidePaths.every(p => fs.existsSync(p)), guidePaths.join(' '));
 
   // A server started by the app goes when the app goes, even when the app was force quit.
   const ownedPort = 4392;

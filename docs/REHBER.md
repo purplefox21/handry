@@ -12,6 +12,8 @@ Handry, Mac'ini senin yerine kullanan bir asistan. Yazarsın ya da söylersin; u
 
 Bu kadar. Xcode, Homebrew ya da terminal gerekmez.
 
+Claude uygulamasında ya da Claude Code'da da kullanmak istersen: [Claude ile kullanma](#claude-ile-kullanma-mcp).
+
 > macOS "geliştirici doğrulanamadı" derse: Sistem Ayarları › Gizlilik ve Güvenlik › en altta **Yine de Aç**. Bu uyarı sadece Apple onayı olmayan deneme sürümlerinde çıkar.
 
 ### Neye ihtiyacım var?
@@ -30,7 +32,7 @@ Bu kadar. Xcode, Homebrew ya da terminal gerekmez.
 | `⌥ Space` | Çentikten çubuğu açar, yazarsın. Çentikteki adaya tıklamak da açar |
 | `⌥ ⇧ Space` | Basılı tut, konuş, bırak |
 | "Hey Handry" | Sesle uyandırır (menüden açılıp kapanır) |
-| `⌥ Esc` | **Acil durdurma.** Her şeyi durdurur, Handry 10 dakika ya da sen devam diyene kadar bir şey yapmaz |
+| `⌥ Esc` | **Acil durdurma.** Her şeyi durdurur. Yeni bir komut verene kadar, en fazla 10 dakika, Handry bir şey yapmaz |
 | Dock simgesi | Büyük pencereyi açar: sohbetler, zamanlayıcılar, tarifler, ayarlar |
 
 Denemek için çubuğa şunları yaz:
@@ -73,6 +75,11 @@ Handry kendi Chrome penceresini kullanır. Sitelere bir kez elle girersin, oturu
 - **Okuma:** `bu sayfayı özetle`, `bu tablodaki fiyatları listele`
 - **İndirme ve yükleme:** `faturayı indir ve Projeler klasörüne koy`, `bu dosyayı forma yükle`
 - **Bekleme:** `şu yazı çıkınca devam et`
+- **Önce giriş kontrolü:** `App Store Connect ve Firebase'e girişim var mı bak`: işe başlamadan hangi sitelere girmen gerektiğini söyler.
+- **Sekme ve pencere:** `bunu ayrı pencerede aç`, `açık sekmeleri listele`
+- **Değer kaydetme:** `bu API anahtarını Anahtar Zinciri'ne kaydet`: sayfada görünen anahtarı ya da kimliği doğrudan kaydeder.
+- **İnsan gibi kullanma:** Site otomasyonu fark ederse fare yavaş ve eğrisel gider, yazı harf harf yazılır. Daha yavaş olduğu için normalde kapalıdır. `bu sitede insan gibi kullan` diyerek de açarsın.
+- **Site notları:** Bir sitede gizli bir ayar bulunursa not bırakılır, o siteye dönünce not da geri gelir.
 
 Kaydet, gönder, yayınla, sil, öde gibi riskli gördüğü düğmelerde önce sana sorar.
 
@@ -87,13 +94,16 @@ Spotify, Slack, VS Code, Notlar, Finder ve çoğu uygulamada düğmeleri ve men�
 - `TextEdit'te yeni belge aç, şunu yaz: …`
 - `Notlar'da "alışveriş" notunu bul`
 - `Spotify'da beğendiklerimi aç`
+- `Müzik'te caz listemi çal`
+- `anımsatıcılarımı listele`
 
 Oyun gibi her şeyini kendi çizen uygulamalarda ekran görüntüsüne bakar.
 
 ## Pencereler ve masaüstleri
 
 - `Safari'yi sola, Notlar'ı sağa al`
-- `bu pencereyi tam ekran yap`, `ortala`
+- `bu pencereyi tam ekran yap`, `ortala`, `küçült`, `geri getir`
+- `Safari, Notlar ve Slack'i yan yana diz`: üç ve daha fazla pencere ızgara gibi dizilir
 - `sağdaki masaüstüne geç`, `3. masaüstüne git`
 - `şu projenin penceresine git`: başka masaüstünde ya da ekranda olsa da bulur
 
@@ -101,13 +111,15 @@ Oyun gibi her şeyini kendi çizen uygulamalarda ekran görüntüsüne bakar.
 
 - `İndirilenler'de son PDF'i bul`, `bu klasörde neler var`
 - `bu dosyaları Faturalar diye bir klasöre taşı`
+- `son değiştirdiğim dosyalar neler`, `bu dosyayı aç`
+- `bu dosyayı Yedekler'e kopyala`, `adını Fatura 2026 yap`
 - `bu dosyayı çöpe at`, `son yaptığını geri al`
 
-Kurallar seni korur: hiçbir şey kalıcı silinmez, Çöp Sepeti'ne gider; üstüne yazılmaz; sadece ev klasöründe çalışır; sistem ve gizli klasörlere dokunmaz; büyük değişikliklerde önce sorar.
+Kurallar seni korur: hiçbir şey kalıcı silinmez, Çöp Sepeti'ne gider; üstüne yazılmaz; sadece ev klasöründe çalışır; sistem ve gizli klasörlere dokunmaz; büyük değişikliklerde önce sorar. Büyük penceredeki **Yapılanlar**'da **Son dosya işini geri al** düğmesi de vardır.
 
 ## "Nerede?" diye sor, göstersin
 
-`karanlık mod ayarı nerede`, `bu sitede çıkış nasıl yapılır` gibi sorularda hiçbir şeye tıklamadan ekrana çizer: ok, daire, alt çizgi, kutu ve kısa bir etiket. Birkaç adım varsa sırayla gösterir. Sen tıklayınca ya da yazınca çizim kaybolur.
+`karanlık mod ayarı nerede`, `bu sitede çıkış nasıl yapılır` gibi sorularda hiçbir şeye tıklamadan ekrana çizer: ok, daire, alt çizgi, kutu ve kısa bir etiket. Birkaç adım varsa sırayla gösterir. Sen tıklayınca ya da yazınca çizim kaybolur. Riskli bir adım onayını beklerken de ilgili düğmenin çevresine daire çizer.
 
 ## Zamanlayıcı ve nöbet
 
@@ -124,14 +136,32 @@ Hepsi büyük penceredeki ⏰ listesinde ve menü çubuğundadır, oradan iptal 
 
 - **Kendiliğinden öğrenme:** Claude bir işi yapınca Handry aynı işi sonraki sefer onsuz, başka ayrıntılarla yapmayı dener.
 - **Tarif:** Bir işi kaydeder, tek tıkla tekrarlarsın. İçine değişken konabilir: `App Store fiyatını {fiyat} yap`.
-- Tarifler büyük penceredeki panelde durur.
+- **Kaydetme:** Claude bir işi bitirince sohbette **Tarif olarak kaydet** düğmesi çıkar.
+- Tarifler büyük penceredeki panelde durur. Claude kullanmazlar; bir adımda takılırsa Claude kaldığı yerden devam eder.
+
+## Sohbetler
+
+Her sohbetin kendi Claude oturumu vardır, bu yüzden `bunu`, `tekrar dene` gibi sözleri anlar. Çubuk, ses ve büyük pencere aynı sohbete yazar.
+
+- Konu değişince `yeni sohbet` de ya da büyük penceredeki **Yeni sohbet**'e bas. 2 saat sessizlikten sonra yenisi kendiliğinden başlar.
+- Eski sohbetler büyük penceredeki **Sohbetler** listesindedir.
+
+## Ekrandaki el ve ada
+
+- **El:** Parmaklarının üstünde yürüyen küçük bir el, Dock'ta ve pencerelerin üst kenarında gezer, Handry'nin ne yaptığını gösterir. Menüden gizleyebilir, uyutabilir, boyutunu değiştirebilir ya da yerine tilkiyi seçebilirsin.
+- **Ada:** Ekranın üstünde, çentiğin yanında durur. Çalışırken iki yana açılır, tıklayınca çubuk açılır. Menüden hep görünsün, sadece çalışırken görünsün ya da hiç görünmesin diye seçersin.
 
 ## Girişler ve şifreler
 
 - **Şifreler Anahtar Zinciri'nde:** Kayıtlı şifreyi Handry'nin kodu kutuya yazar, yapay zekâya gönderilmez. Her şifre sadece izin verdiğin sitelerde çalışır.
 - **Yeni hesap:** Kayıt olurken Handry güçlü bir şifre üretir, yazar ve Anahtar Zinciri'ne kaydeder.
 - **İki adımlı kod:** Uygulama kodları (TOTP) Anahtar Zinciri'nden gelir. SMS ve Gmail'e gelen kodları her seferinde sorarak okur.
-- **Otomasyona izin vermeyen siteler (Google gibi):** Handry, Chrome'u bağlantısız açar, girişi elle yaparsın, oturum kalır. Giriş ya da doğrulama gerektiğinde seni çağırır ve bekler.
+- **Otomasyona izin vermeyen siteler (Google gibi):** Handry, Chrome'u bağlantısız açar, girişi elle yaparsın, oturum kalır. Giriş ya da doğrulama gerektiğinde seni ses, bildirim ve çubukla çağırır, bir dakika sonra iMessage da atar ve bekler.
+- **Şifre kaydetme:** Şimdilik terminal gerekir. Aşağıdaki komut şifreyi iki kez sorar ve ekranda göstermez. Sonra `GitHub'a github şifresiyle gir` dersin. Authenticator anahtarı da aynı komutla kaydedilir (`github-2fa` gibi bir adla). Şifre kaydetmek şart değil: sitelere elle de girebilirsin, oturum kalır.
+
+```bash
+/Applications/Handry.app/Contents/Helpers/node /Applications/Handry.app/Contents/Resources/handry/cli.js secret add github --site=github.com
+```
 
 > SMS ve Gmail kodu okuma henüz yalnızca test ortamında denendi. Kullanırken ilk seferde sonucu kontrol et.
 
@@ -141,7 +171,50 @@ Tam Disk Erişimi izni ve iMessage gerekir. Bu özellik henüz gerçek telefonla
 
 - **Komut:** Kendine `Handry, sesi kıs` diye iMessage yaz, yapıp cevabı yazar. `Handry, ekranı göster` ekran görüntüsü gönderir.
 - **Onay:** Mac'teki soruya 20 saniye cevap gelmezse telefona kodlu mesaj gelir; kodu yazarsan onaylanır, "hayır" dersen iptal olur.
+- **Telefona gönderme:** Mac'teyken `ekranı telefonuma at` dersen ekran görüntüsü kendi adresine gelir. Başka kimseye gönderilmez.
 - Sadece kendi konuşman sayılır, sadece adla başlayan yeni mesajlar çalışır.
+
+## Claude ile kullanma (MCP)
+
+Handry'nin çubuğu Claude'u zaten kullanır, onun için bir şey bağlaman gerekmez. Bu bölüm tersi için: Claude uygulamasında ya da Claude Code'da sohbet ederken Claude'un Handry'nin ellerini kullanması. MCP, Claude'a araç bağlama yolunun adıdır.
+
+Bağlayınca Claude'a `Handry ile sesi yüzde 30 yap` ya da `Handry ile bu formu doldur` diyebilirsin. Onay kartları, `⌥ Esc` ve Yapılanlar kaydı aynen çalışır. Ekrana çizim, ada ve el için Handry açık olmalı.
+
+### Claude uygulaması
+
+1. Ekranın en üstündeki menü çubuğundan **Claude › Settings… › Developer › Edit Config**'e bas (Claude penceresinin içindeki ayarlar değil).
+2. `claude_desktop_config.json` dosyasını TextEdit ile aç.
+3. Dosya boşsa ya da içinde sadece `{}` varsa aşağıdaki metni yapıştır. Başka ayarlar varsa onları silme: `"handry"` bölümünü `mcpServers`'ın içine ekle, `mcpServers` yoksa onu da ekle.
+4. Kaydet, Claude'dan **⌘ Q** ile çık ve yeniden aç.
+5. **Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik**'te **Claude**'u aç. Ekran görüntüsü de kullanacaksa **Ekran Kaydı**'nda da aç.
+
+```json
+{
+  "mcpServers": {
+    "handry": {
+      "command": "/Applications/Handry.app/Contents/Helpers/node",
+      "args": ["/Applications/Handry.app/Contents/Resources/handry/mcp/server.js"]
+    }
+  }
+}
+```
+
+Bağlandığını görmek için mesaj kutusundaki **+** › **Connectors › Manage connectors** listesine bak; `handry` orada olmalı.
+
+> Claude'a neden ayrıca izin? macOS izni, Handry'nin araçlarını başlatan uygulamaya sorar. Bunları Claude başlattığı için Handry'ye verdiğin izin burada sayılmaz.
+
+### Claude Code
+
+Terminalde şunları çalıştır. İkinci komut `✔ Connected` yazmalı. Handry bundan sonra bütün projelerinde açık olur.
+
+```bash
+claude mcp add --scope user handry -- /Applications/Handry.app/Contents/Helpers/node /Applications/Handry.app/Contents/Resources/handry/mcp/server.js
+claude mcp get handry
+```
+
+Erişilebilirlik iznini Claude Code'u çalıştırdığın uygulamaya ver: Terminal ya da Visual Studio Code.
+
+Handry `/Applications`'ta değilse (örneğin ev klasöründeki Uygulamalar'daysa) iki yöntemde de yolları ona göre değiştir.
 
 ## Güvenlik: Handry ne yapmaz?
 
@@ -161,7 +234,13 @@ Tam Disk Erişimi izni ve iMessage gerekir. Bu özellik henüz gerçek telefonla
 | Menü › Ekrandaki El | Göster, gizle, uyut, boyut; el ya da tilki |
 | Menü › Çentikteki Ada | Hep, sadece çalışırken ya da hiç |
 | Menü › Rehber | Bu sayfa |
-| Büyük pencere › Ayarlar | Model, ses ve diğerleri |
+| Menü › Tarayıcıda Aç | Büyük pencereyi tarayıcıda açar |
+| Ayarlar › Model | Hızlı ya da Güçlü |
+| Ayarlar › Düşünme seviyesi | Claude'un her adımda ne kadar düşüneceği; Yüksek önerilir |
+| Ayarlar › Hızlı yol | Basit komutları Claude'a sormadan yapar; kapatılabilir |
+| Ayarlar › Sesli cevap | Cevabın kısa özetini sesli okur |
+| Ayarlar › Gelişmiş › Beyin | Kurduysan Claude Code yerine başka bir beyin seçer |
+| Ayarlar › Durum | Jev, Claude, Chrome ve whisper hazır mı |
 
 ## Sorun giderme
 
@@ -183,11 +262,22 @@ Menüden **Sunucuyu Yeniden Başlat**'a bas. Kayıt dosyası: `~/.jevis/logs/app
 
 ### "Hey Handry"yi duymuyor
 
-Mikrofon ve Konuşma Tanıma izinlerine bak. Olmazsa "Hey Fox" daha sağlam çalışır, `⌥ ⇧ Space` ile bas-konuş ise her zaman çalışır.
+Mikrofon ve Konuşma Tanıma izinlerine bak; bütün sesli komutlar bu ikisini ister. İzinler tamamsa "Hey Fox" daha sağlam çalışır, `⌥ ⇧ Space` ile bas-konuş ise uyandırma kelimesi gerektirmez.
+
+### Durum'da "Ses tanıma (whisper): kurulu değil" yazıyor
+
+Sorun değil. Sesli komut Apple'ın tanıyıcısıyla çalışır. whisper isteğe bağlıdır, Handry gibi adları daha iyi duyar. Büyük penceredeki mikrofon düğmesi sadece whisper kuruluysa görünür; `⌥ ⇧ Space` her durumda kullanılır.
 
 ### Claude bağlanmıyor
 
 Ana penceredeki kartta **Claude'u Kur** ve **Giriş Yap** adımlarını yap. Giriş için Claude aboneliği gerekir. O zamana kadar basit komutlar çalışır.
+
+### Claude uygulamasında ya da Claude Code'da Handry görünmüyor
+
+- Claude'dan **⌘ Q** ile tamamen çık, yeniden aç.
+- Ayar dosyasında eksik virgül ya da tırnak olabilir. Yolların Handry'nin bulunduğu yerle aynı olduğuna bak.
+- Ne olduğunu şu kayıt söyler: `~/Library/Logs/Claude/mcp-server-handry.log`. Claude Code'da `claude mcp get handry` çalıştır.
+- "Erişilebilirlik izni yok" derse izni Handry'ye değil Claude'a, Terminal'e ya da Visual Studio Code'a ver.
 
 ### Handry bir şeyi yanlış yaptı
 
@@ -200,6 +290,8 @@ Ana penceredeki kartta **Claude'u Kur** ve **Giriş Yap** adımlarını yap. Gir
 **Verilerim nereye gidiyor?** Kayıtlar, ayarlar ve öğrenilenler Mac'inde `~/.jevis` klasöründe durur. Zor işlerde yapılacak iş ve okunan sayfa bilgileri Claude'a gider. Jev anahtarı kullanırsan düğme seçimleri için sayfa bilgisi Jev'e de gider.
 
 **Jev nedir?** Hızlı karar veren küçük bir model: 300 düğmeden hangisi "Kaydet", bu tıklama riskli mi? Anahtar yoksa Handry aynı kararları kelimeler ve kurallarla verir; biraz daha sık sorar.
+
+**Jev anahtarını nereye yazarım?** [TypeSafe](https://typesafe.ai)'ten aldığın anahtarı terminalde `echo "JEV_KEY=anahtarın" >> ~/.jevis/.env` ile kaydet, sonra menüden **Sunucuyu Yeniden Başlat**'a bas.
 
 **Satabilir miyim?** Kullanabilir ve kurcalayabilirsin; satamazsın. Lisans: PolyForm Shield 1.0.0.
 
@@ -222,21 +314,25 @@ node cli.js app open
 
 Kaynaktan derlenen kopyayı Apple sertifikan yoksa macOS her yeni derlemede yeni uygulama sayar ve izinleri yeniden ister. Gereksiz yeniden derleme.
 
-### Claude Code ile
-
-Handry'nin bütün araçları MCP ile her Claude Code oturumuna açılır:
+Kaynaktan çalışan kopyayı Claude Code'a bağlamak için (indirilen uygulama için [Claude ile kullanma](#claude-ile-kullanma-mcp)):
 
 ```bash
 claude mcp add --scope user handry -- node "$(pwd)/mcp/server.js"
 ```
 
-İndirilen uygulamada yollar:
+Sesli komutlarda adları daha iyi duymak için isteğe bağlı whisper: `brew install whisper-cpp` ve bir model. `node cli.js doctor` eksiğini söyler.
 
-```bash
-claude mcp add --scope user handry -- /Applications/Handry.app/Contents/Helpers/node /Applications/Handry.app/Contents/Resources/handry/mcp/server.js
-```
+### Claude Code'a iş yaptırma
 
-`Claude'a jev projesinde testleri çalıştırt` dersen Handry, projenin VS Code penceresinde görünür bir Claude sekmesi açar, işi başlatır ve bitince haber verir. Arka planda gizli çalışma yoktur.
+- `Claude'a jev projesinde testleri çalıştırt`: Handry, projenin VS Code penceresinde görünür bir Claude sekmesi açar ve işi başlatır. Arka planda gizli çalışma yoktur.
+- `jev projesindeki Claude'a "devam et" yaz`: Açık bir oturuma yazar.
+- `jev projesinde ne yaptık`: Son işleri ve Claude oturumlarını özetler.
+- Oturum bitince ya da cevap bekleyince çubukta ve iMessage ile haber verir.
+- VS Code ilk seferde Claude eklentisinin bağlantı açmasına izin ister. Bu senin kararın: Handry **Open** düğmesini daireye alır ve bekler, 2 dakika cevap yoksa isteğini geri çeker.
+
+### Telefondan Claude Code
+
+Bu klasörde `claude remote-control` çalıştır, o oturumla Claude uygulamasından konuş. Oturum Handry'nin araçlarını kullanır.
 
 ### Terminal
 
@@ -245,7 +341,10 @@ node cli.js do "Spotify'da lo-fi çal"
 node cli.js read
 node cli.js desk read --app=Notes
 node cli.js stop
+node cli.js secret add github --site=github.com
+node cli.js doctor
 node cli.js app package
+node appstore/privacy-scan.js <kod-klasörü>   # App Store gizlilik anketi için taslak
 ```
 
 Beyin değiştirilebilir: Claude Code, Codex, Claude API, OpenAI uyumlu API'ler, Ollama.

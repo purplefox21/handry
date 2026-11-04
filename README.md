@@ -145,7 +145,7 @@ If System Settings shows a permission on but the window doesn't, the row tells y
   node cli.js desk read --app=Notes
   node cli.js stop
   ```
-- **Claude Code:** ask any session to use Handry; its tools show up as `mcp__handry__*`.
+- **Claude Code and the Claude app:** ask them to use Handry; its tools show up as `mcp__handry__*`. Connecting the downloaded app takes a few steps: [Use it from Claude](docs/GUIDE.md#use-it-from-claude-mcp).
 - **Your phone:** run `claude remote-control` in this folder and talk to that session from the Claude app.
 
 ## Numbers

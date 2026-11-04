@@ -66,6 +66,19 @@ for (const [lang, title, must] of [['tr', 'Rehber', ['Kurulum', 'Sorun giderme',
   check(`the ${lang} guide renders`, html.includes(`· ${title}</title>`) && must.every(w => html.includes(w)) && !/\*\*|^#{1,3} /m.test(html.replace(/<style>[\s\S]*<\/style>/, '')), page.failed || '');
   check(`the ${lang} guide has tables, code and a contents list`, /<table>/.test(html) && /<pre>/.test(html) && /<nav><a href="#/.test(html));
 }
+// Connecting to Claude: what people paste has to be valid (package-e2e checks that these paths exist in the app).
+const MCP_NODE = '/Applications/Handry.app/Contents/Helpers/node';
+const MCP_SERVER = '/Applications/Handry.app/Contents/Resources/handry/mcp/server.js';
+for (const [file, anchor] of [['REHBER.md', '#claude-ile-kullanma-mcp'], ['GUIDE.md', '#use-it-from-claude-mcp']]) {
+  const md = fs.readFileSync(path.join(ROOT, 'docs', file), 'utf-8');
+  const heading = md.split('\n').find(l => /^## .*\(MCP\)$/.test(l)) || '';
+  const pasted = (() => { try { return JSON.parse(md.match(/```json\n([\s\S]*?)```/)?.[1]); } catch { return null; } })();
+  check(`${file}: the text to paste for the Claude app is valid`, pasted?.mcpServers?.handry?.command === MCP_NODE && pasted.mcpServers.handry.args?.[0] === MCP_SERVER);
+  check(`${file}: the Claude Code command uses the same paths`, md.includes(`claude mcp add --scope user handry -- ${MCP_NODE} ${MCP_SERVER}`));
+  const section = inChild(`const { markdownToHtml } = await import('./core/guide.js'); console.log(JSON.stringify(markdownToHtml(${JSON.stringify(heading)})));`);
+  check(`${file}: the link to the section works in the app`, md.includes(`(${anchor})`) && section.html?.includes(`id="${anchor.slice(1)}"`), heading);
+}
+
 const guide = inChild(`const { markdownToHtml } = await import('./core/guide.js'); console.log(JSON.stringify(markdownToHtml('a <b> \`x\`\\n\\n[y](javascript:alert(1))')));`);
 check('the guide page shows text as text', guide.html?.includes('&lt;b&gt;') && !guide.html?.includes('href="javascript'));
 
