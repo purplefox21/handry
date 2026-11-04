@@ -79,7 +79,20 @@ export function stableNodePath() {
   return ['/opt/homebrew/bin/node', '/usr/local/bin/node'].find(p => mine && real(p) === mine) || process.execPath;
 }
 
+/** The small Swift programs the server runs (reading and clicking in apps, the question card). Built with the app, so that the server never stops for a compile while someone waits for it. */
+export const HELPERS = [['jevis-ax', path.join('hands', 'ax-helper', 'main.swift')], ['handry-dialog', path.join('guard', 'dialog', 'main.swift')]];
+
+export function buildHelpers(dir = path.join(ROOT, 'bin')) {
+  fs.mkdirSync(dir, { recursive: true });
+  for (const [name, source] of HELPERS) {
+    const out = path.join(dir, name), src = path.join(ROOT, source);
+    if (fs.existsSync(out) && fs.statSync(out).mtimeMs >= fs.statSync(src).mtimeMs) continue;
+    execFileSync('swiftc', ['-O', '-o', out, src], { stdio: 'pipe' });
+  }
+}
+
 export function buildApp() {
+  buildHelpers();
   fs.rmSync(APP_PATH, { recursive: true, force: true });
   fs.mkdirSync(path.join(APP_PATH, 'Contents', 'MacOS'), { recursive: true });
   fs.mkdirSync(path.join(APP_PATH, 'Contents', 'Resources'), { recursive: true });

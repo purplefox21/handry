@@ -196,11 +196,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         }
         loadWhenReady()
         // First launch, or something the app needs is missing: the permissions window.
+        permissions.restart = { [weak self] in self?.relaunch() }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            guard let self else { return }
-            if !UserDefaults.standard.bool(forKey: "permissionsShown") || self.permissions.missingNeeded {
-                UserDefaults.standard.set(true, forKey: "permissionsShown")
-                self.permissions.show()
+            self?.permissions.checkNeeded { missing in
+                guard let self else { return }
+                if !UserDefaults.standard.bool(forKey: "permissionsShown") || missing {
+                    UserDefaults.standard.set(true, forKey: "permissionsShown")
+                    self.permissions.show()
+                }
             }
         }
     }
@@ -238,7 +241,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         startServer { [weak self] ok in
             guard let self else { return }
             if ok {
-                folderAsked("Desktop")
+                if holdsProject("Desktop") { folderAsked("Desktop") }
                 self.webView.load(URLRequest(url: URL(string: URL_BASE)!))
                 self.barWeb.load(URLRequest(url: URL(string: URL_BASE + "bar.html")!))
             } else {
@@ -1159,6 +1162,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
 struct JEVISApp {
     static func main() {
         let args = CommandLine.arguments
+        if args.contains("--check-permissions") { printPermissionsAndExit() }
+        if let i = args.firstIndex(of: "--test-permissions"), i + 1 < args.count,
+           let o = args.firstIndex(of: "--out"), o + 1 < args.count {
+            runPermissionsTest(bundleId: args[i + 1], output: args[o + 1])
+            RunLoop.main.run()
+            return
+        }
+        if let i = args.firstIndex(of: "--render-permissions"), i + 1 < args.count {
+            renderPermissions(to: args[i + 1], onDemand: args.contains("--on-demand"))
+            RunLoop.main.run()
+            return
+        }
         // Handry --test-listener in.wav --out out.json [--active]: runs a recording
         // through the listener (uses Handry's own speech permission), then quits.
         if let i = args.firstIndex(of: "--test-listener"), i + 1 < args.count,
