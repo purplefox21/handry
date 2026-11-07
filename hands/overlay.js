@@ -148,10 +148,11 @@ export function clear(ids) {
   write(gone ? shown().filter(s => !gone.has(s.id)) : []);
 }
 
-/** Is Handry.app running (it draws the layer)? */
+/** Is Handry.app running (it draws the layer)? -a: when the bar asked, Handry.app is one of this process's
+ *  parents, and pgrep leaves its own parents out unless told otherwise. */
 export function appRunning() {
   try {
-    execFileSync('pgrep', ['-f', `${APP_NAME}.app/Contents/MacOS/`], { stdio: 'ignore' });
+    execFileSync('pgrep', ['-a', '-f', `${APP_NAME}.app/Contents/MacOS/`], { stdio: 'ignore' });
     return true;
   } catch {
     return false;

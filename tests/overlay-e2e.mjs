@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import http from 'node:http';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'handry-overlay-'));
 fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({ browser: { cdpPort: 9491, profileDir: path.join(home, 'chrome-profile') } }));
@@ -50,6 +51,17 @@ const server = http.createServer((_, res) => { res.setHeader('content-type', 'te
 await new Promise(r => server.listen(0, '127.0.0.1', r));
 
 try {
+  // A request from the bar runs under Handry.app (app › server › brain › tools); pgrep hides a process's own parents.
+  await check('Handry.app counts as open when it is one of the parents', () => {
+    const fake = path.join(home, 'Handry.app', 'Contents', 'MacOS');
+    fs.mkdirSync(fake, { recursive: true });
+    const parent = path.join(fake, 'Handry');
+    const module = new URL('../hands/overlay.js', import.meta.url).href;
+    fs.writeFileSync(parent, `#!/bin/sh\n"${process.execPath}" --input-type=module -e "const m = await import('${module}'); console.log(m.appRunning())"\n`, { mode: 0o755 });
+    const out = execFileSync(parent, { encoding: 'utf-8' }).trim();
+    return { ok: out === 'true', note: out };
+  });
+
   await check('Renk zemine göre seçiliyor (turuncuya mavi, beyaza mor, koyuya sarı)', () => {
     const name = hex => Object.entries(overlay.PALETTE).find(([, v]) => v === hex)?.[0];
     const got = [[255, 149, 0], [250, 250, 250], [30, 30, 30]].map(bg => name(overlay.bestColor(bg)));

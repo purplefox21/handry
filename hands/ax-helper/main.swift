@@ -73,6 +73,12 @@ let ATTRS = ["AXRole", "AXSubrole", "AXTitle", "AXDescription", "AXValue", "AXHe
              "AXEnabled", "AXFocused", "AXPosition", "AXSize", "AXChildren", "AXSelected", "AXPlaceholderValue"]
 
 /// All interesting attributes of an element in one IPC round trip.
+/// Some apps report a place or size that is not a number (NaN, infinite) or absurdly large (System Settings
+/// on macOS 26 does); turning one into an Int would crash the helper, so such values count as missing.
+func sane(_ v: CGFloat) -> Bool { v.isFinite && abs(v) < 1_000_000 }
+/// A whole number of points, for anything that may still be odd.
+func whole(_ v: CGFloat) -> Int { sane(v) ? Int(v) : 0 }
+
 func fetch(_ el: AXUIElement) -> [String: Any] {
     var raw: CFArray?
     guard AXUIElementCopyMultipleAttributeValues(el, ATTRS as CFArray, AXCopyMultipleAttributeOptions(rawValue: 0), &raw) == .success,
@@ -85,11 +91,11 @@ func fetch(_ el: AXUIElement) -> [String: Any] {
             case .cgPoint:
                 var p = CGPoint.zero
                 AXValueGetValue(axValue, .cgPoint, &p)
-                out[ATTRS[i]] = p
+                if sane(p.x), sane(p.y) { out[ATTRS[i]] = p }
             case .cgSize:
                 var s = CGSize.zero
                 AXValueGetValue(axValue, .cgSize, &s)
-                out[ATTRS[i]] = s
+                if sane(s.width), sane(s.height) { out[ATTRS[i]] = s }
             default:
                 continue // .axError: the element has no such attribute
             }
@@ -206,10 +212,10 @@ func readTree(app: NSRunningApplication, menus: Bool, maxItems: Int, budget: Dou
         let namelessWebCell = chromium && (role == "AXCell" || role == "AXRow") && label == nil && text(a["AXValue"]) == nil
         let pos = a["AXPosition"] as? CGPoint ?? .zero
         let size = a["AXSize"] as? CGSize ?? .zero
-        let key = "\(role)|\(label ?? "")|\(Int(pos.x)),\(Int(pos.y)),\(Int(size.width)),\(Int(size.height))"
+        let key = "\(role)|\(label ?? "")|\(whole(pos.x)),\(whole(pos.y)),\(whole(size.width)),\(whole(size.height))"
         if ACTIONABLE.contains(role), !disabledMenuItem, !namelessWebCell, (sized || isMenuItem), !(sized && seen.contains(key)) {
             if sized { seen.insert(key) }
-            var item: [String: Any] = ["path": path, "role": String(role.dropFirst(2)), "x": Int(pos.x), "y": Int(pos.y), "w": Int(size.width), "h": Int(size.height)]
+            var item: [String: Any] = ["path": path, "role": String(role.dropFirst(2)), "x": whole(pos.x), "y": whole(pos.y), "w": whole(size.width), "h": whole(size.height)]
             if let label { item["name"] = cut(label, 80) }
             if let sub = a["AXSubrole"] as? String { item["subrole"] = String(sub.dropFirst(2)) }
             if let v = text(a["AXValue"]) { item["value"] = cut(v, 80) } else if let n = a["AXValue"] as? NSNumber { item["value"] = n }
@@ -496,7 +502,7 @@ case "press":
         emit(["ok": true, "method": "AXPress"])
     } else if let p = center(el) {
         click(p)
-        emit(["ok": true, "method": "click", "x": Int(p.x), "y": Int(p.y)])
+        emit(["ok": true, "method": "click", "x": whole(p.x), "y": whole(p.y)])
     } else {
         fail("Öğeye basılamadı.", code: "PRESS_FAILED")
     }
@@ -620,7 +626,7 @@ case "displays":
         let uuid = CGDisplayCreateUUIDFromDisplayID(id)?.takeRetainedValue()
         let b = CGDisplayBounds(id) // global points, top-left origin: the same as the pointer's
         return ["id": Int(id), "uuid": uuid.map { CFUUIDCreateString(nil, $0) as String } ?? "", "main": id == mainId,
-                "x": Int(b.origin.x), "y": Int(b.origin.y), "w": Int(b.width), "h": Int(b.height)]
+                "x": whole(b.origin.x), "y": whole(b.origin.y), "w": whole(b.width), "h": whole(b.height)]
     }
     emit(["ok": true, "displays": shown])
 
@@ -665,7 +671,7 @@ case "windows":
         let size = a["AXSize"] as? CGSize ?? .zero
         return ["index": i, "title": text(a["AXTitle"]) ?? "", "focused": focused.map { CFEqual($0, w) } ?? false,
                 "minimized": (attribute(w, "AXMinimized") as? Bool) ?? false,
-                "x": Int(pos.x), "y": Int(pos.y), "w": Int(size.width), "h": Int(size.height)]
+                "x": whole(pos.x), "y": whole(pos.y), "w": whole(size.width), "h": whole(size.height)]
     }])
 
 case "setframe":
@@ -689,7 +695,7 @@ case "setframe":
     let son = fetch(win)
     let p2 = son["AXPosition"] as? CGPoint ?? .zero
     let s2 = son["AXSize"] as? CGSize ?? .zero
-    emit(["ok": true, "title": text(son["AXTitle"]) ?? "", "x": Int(p2.x), "y": Int(p2.y), "w": Int(s2.width), "h": Int(s2.height)])
+    emit(["ok": true, "title": text(son["AXTitle"]) ?? "", "x": whole(p2.x), "y": whole(p2.y), "w": whole(s2.width), "h": whole(s2.height)])
 
 case "minimize":
     // minimize [--title T]: sends one window of the app (the first, or the first whose title contains T) to the Dock.
@@ -764,7 +770,7 @@ case "focused":
 case "screen":
     // The main display in points (the unit clicks use) and its pixel scale.
     let frame = NSScreen.screens.first?.frame ?? .zero
-    emit(["x": Int(frame.origin.x), "y": Int(frame.origin.y), "w": Int(frame.width), "h": Int(frame.height),
+    emit(["x": whole(frame.origin.x), "y": whole(frame.origin.y), "w": whole(frame.width), "h": whole(frame.height),
           "scale": NSScreen.screens.first?.backingScaleFactor ?? 1])
 
 case "activate":
