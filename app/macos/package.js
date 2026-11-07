@@ -165,20 +165,102 @@ function buildBundle(identity) {
   return app;
 }
 
-/** The arrow picture and the icons' places come from dmgbuild, which needs no Finder. Without it: a plain image, the same two icons. */
+const pause = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+/**
+ * The window people drag Handry out of: an arrow picture and the two icons in their places.
+ * Finder sets them itself. Since macOS 26 Finder no longer shows a picture written by other tools
+ * (dmgbuild's still places the icons, the window stays plain), while one Finder sets with the picture
+ * already on the volume also shows on older systems. This needs Finder running and the terminal
+ * allowed to control it (macOS asks once). Without that: dmgbuild; without dmgbuild: a plain image.
+ */
 function makeImage(app) {
   fs.rmSync(DMG, { force: true });
+  const art = path.join(WORK, 'background');
+  try {
+    run('swift', [path.join(ROOT, 'app', 'macos', 'dmg-background.swift'), art], { timeout: 180000 });
+  } catch (err) {
+    say(`  (Ok resmi çizilemedi, düz görüntü: ${String(err.stderr || err.message).slice(0, 160)})`);
+    return plainImage(app);
+  }
+  try {
+    return finderImage(app, art);
+  } catch (err) {
+    say(`  (Finder pencereyi düzenleyemedi, dmgbuild deneniyor; macOS 26'da ok görünmez: ${String(err.stderr || err.message).slice(0, 160)})`);
+  }
+  try {
+    return dmgbuildImage(app, art);
+  } catch (err) {
+    say(`  (Oklu pencere yapılamadı, düz görüntü: ${String(err.stderr || err.message).slice(0, 160)})`);
+  }
+  plainImage(app);
+}
+
+function finderImage(app, art) {
+  const name = APP.name;
+  const volume = `/Volumes/${name}`;
+  if (fs.existsSync(volume)) {
+    // Usually an earlier Handry image left open; anything else with this name is not ours to eject.
+    if (!run('hdiutil', ['info']).toString().split('\n').some(line => line.endsWith(`\t${volume}`))) throw new Error(`${volume} is in use`);
+    run('hdiutil', ['detach', volume, '-force'], { timeout: 60000 });
+  }
+  const rw = path.join(WORK, 'image-rw.dmg');
+  fs.rmSync(rw, { force: true });
+  const megabytes = Math.ceil(Number(run('du', ['-sm', app]).toString().split('\t')[0]) * 1.2) + 40;
+  run('hdiutil', ['create', '-size', `${megabytes}m`, '-fs', 'HFS+', '-volname', name, '-ov', rw], { timeout: 120000 });
+  run('hdiutil', ['attach', rw, '-readwrite', '-noverify', '-noautoopen'], { timeout: 120000 });
+  try {
+    if (!fs.existsSync(volume)) throw new Error(`the image did not mount at ${volume}`);
+    run('ditto', [app, path.join(volume, `${name}.app`)]);
+    fs.symlinkSync('/Applications', path.join(volume, 'Applications'));
+    // The picture has to be on the volume before Finder is told about it; Retina and normal screens in one file.
+    fs.mkdirSync(path.join(volume, '.background'));
+    run('tiffutil', ['-cathidpicheck', `${art}.png`, `${art}@2x.png`, '-out', path.join(volume, '.background', 'background.tiff')]);
+    // The picture goes last: changing the icon size afterwards drops it.
+    run('osascript', ['-e', `
+tell application "Finder"
+  tell disk "${name}"
+    open
+    set current view of container window to icon view
+    set toolbar visible of container window to false
+    set statusbar visible of container window to false
+    set the bounds of container window to {200, 120, 860, 540}
+    set viewOptions to the icon view options of container window
+    set arrangement of viewOptions to not arranged
+    set icon size of viewOptions to 128
+    set text size of viewOptions to 13
+    set position of item "${name}.app" of container window to {165, 190}
+    set position of item "Applications" of container window to {495, 190}
+    set background picture of viewOptions to file ".background:background.tiff"
+    close
+    open
+    update without registering applications
+    delay 2
+    close
+  end tell
+end tell`], { timeout: 90000 });
+    if (!fs.existsSync(path.join(volume, '.DS_Store'))) throw new Error('Finder did not save the window');
+    fs.rmSync(path.join(volume, '.fseventsd'), { recursive: true, force: true });
+    run('sync');
+  } finally {
+    for (let attempt = 0; fs.existsSync(volume) && attempt < 5; attempt++) {
+      try { run('hdiutil', ['detach', volume, ...(attempt === 4 ? ['-force'] : [])], { timeout: 60000 }); } catch { pause(1000); }
+    }
+  }
+  run('hdiutil', ['convert', rw, '-format', 'ULFO', '-o', DMG], { timeout: 600000 });
+  fs.rmSync(rw, { force: true });
+}
+
+/** dmgbuild needs no Finder: the icons get their places, but macOS 26 doesn't show its picture. */
+function dmgbuildImage(app, art) {
   const venv = path.join(ROOT, 'dist', 'dmg-venv');
   const dmgbuild = path.join(venv, 'bin', 'dmgbuild');
-  try {
-    if (!fs.existsSync(dmgbuild)) {
-      run('python3', ['-m', 'venv', venv], { timeout: 120000 });
-      run(path.join(venv, 'bin', 'pip'), ['install', '--quiet', 'dmgbuild==1.6.5'], { timeout: 300000 });
-    }
-    const art = path.join(WORK, 'background');
-    run('swift', [path.join(ROOT, 'app', 'macos', 'dmg-background.swift'), art], { timeout: 180000 });
-    const settings = path.join(WORK, 'dmg-settings.py');
-    fs.writeFileSync(settings, `
+  if (!fs.existsSync(dmgbuild)) {
+    run('python3', ['-m', 'venv', venv], { timeout: 120000 });
+    run(path.join(venv, 'bin', 'pip'), ['install', '--quiet', 'dmgbuild==1.6.5'], { timeout: 300000 });
+  }
+  const settings = path.join(WORK, 'dmg-settings.py');
+  fs.writeFileSync(settings, `
 import os.path
 app = defines['app']
 files = [app]
@@ -196,16 +278,17 @@ icon_size = 128
 text_size = 13
 icon_locations = {os.path.basename(app): (165, 190), 'Applications': (495, 190)}
 `);
-    run(dmgbuild, ['-s', settings, '-D', `app=${app}`, '-D', `art=${art}`, APP.name, DMG], { timeout: 600000 });
-  } catch (err) {
-    say(`  (Oklu pencere yapılamadı, düz görüntü: ${String(err.stderr || err.message).slice(0, 160)})`);
-    const stage = path.join(WORK, 'image');
-    fs.rmSync(stage, { recursive: true, force: true });
-    fs.mkdirSync(stage, { recursive: true });
-    run('ditto', [app, path.join(stage, `${APP.name}.app`)]);
-    fs.symlinkSync('/Applications', path.join(stage, 'Applications'));
-    run('hdiutil', ['create', '-volname', APP.name, '-srcfolder', stage, '-ov', '-format', 'ULFO', DMG], { timeout: 600000 });
-  }
+  run(dmgbuild, ['-s', settings, '-D', `app=${app}`, '-D', `art=${art}`, APP.name, DMG], { timeout: 600000 });
+}
+
+function plainImage(app) {
+  fs.rmSync(DMG, { force: true });
+  const stage = path.join(WORK, 'image');
+  fs.rmSync(stage, { recursive: true, force: true });
+  fs.mkdirSync(stage, { recursive: true });
+  run('ditto', [app, path.join(stage, `${APP.name}.app`)]);
+  fs.symlinkSync('/Applications', path.join(stage, 'Applications'));
+  run('hdiutil', ['create', '-volname', APP.name, '-srcfolder', stage, '-ov', '-format', 'ULFO', DMG], { timeout: 600000 });
 }
 
 const notaryReady = () => spawnSync('xcrun', ['notarytool', 'history', '--keychain-profile', NOTARY_PROFILE], { stdio: 'ignore', timeout: 30000 }).status === 0;

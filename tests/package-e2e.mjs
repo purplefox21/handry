@@ -35,6 +35,9 @@ try {
   const exe = path.join(contents, 'MacOS', APP.name);
 
   check('the image holds the app and a link to Applications', fs.existsSync(app) && fs.readlinkSync(path.join(mount, 'Applications')) === '/Applications');
+  // macOS 26 shows the arrow picture only when Finder set it (app/macos/package.js › finderImage).
+  const finderWindow = fs.existsSync(path.join(mount, '.background', 'background.tiff')) && fs.existsSync(path.join(mount, '.DS_Store')) && fs.readFileSync(path.join(mount, '.DS_Store')).includes('backgroundImageAlias');
+  check('Finder set the window with the arrow picture', finderWindow);
   const verify = spawnSync('codesign', ['--verify', '--deep', '--strict', app], { encoding: 'utf-8' });
   check('its signature is whole', verify.status === 0, verify.stderr.trim().slice(0, 120));
   const entitlements = execFileSync('codesign', ['-d', '--entitlements', '-', '--xml', exe], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
