@@ -32,6 +32,7 @@ To use it from the Claude app or Claude Code too, see [Use it from Claude](#use-
 | `⌥ Space` | Opens the bar from the notch so you can type. Clicking the island on the notch opens it too |
 | `⌥ ⇧ Space` | Hold, talk, let go |
 | "Hey Handry" | Wakes it by voice (turn it on or off in the menu) |
+| `⌥ ⇧ P` | **Pen:** draw on the screen yourself, then ask |
 | `⌥ Esc` | **Emergency stop.** Stops everything. Handry does nothing until you give a new command, for 10 minutes at most |
 | Dock icon | Opens the main window: chats, timers, recipes, settings |
 
@@ -120,6 +121,23 @@ The rules protect you: nothing is deleted for good (it goes to the Trash), nothi
 ## Ask "where?" and it shows you
 
 For questions like `where is the dark mode setting` or `how do I log out of this site`, it draws on your screen without clicking anything: an arrow, a circle, an underline, a box and a short label. Several steps come one after another. The drawing goes as soon as you click or type. While a risky step waits for your OK, the button it is about is circled too.
+
+## The pen: you draw, Claude looks
+
+Circle or underline something and ask "what is this?" or "do I click here?". Claude looks at what you drew and what is under it, and answers.
+
+1. Turn the pen on: `⌥ ⇧ P`, the pen on the left of the island at the notch, menu › **Pen**, or ✏️ in the bar.
+2. Draw with the mouse or trackpad. Your lines are lime; Handry's own drawings never use that color. `⌘ Z` takes the last line back, **Clear** at the top takes them all.
+3. Leave with `Esc` or **Done**. The bar opens with "✏️ Drawing attached": type your question or say it with `⌥ ⇧ Space`. The question goes with the drawing.
+4. To ask an open Claude session in VS Code instead of Handry, click "or send to: → session name" in the bar.
+
+- The lines stay on the screen until you clear them or start a new drawing. The ✕ on the tag clears the drawing.
+- With the pen off, the lines don't get in the way: the mouse works as usual.
+- It works on two displays too.
+- The pen doesn't come on while a question card is open.
+- Screenshots are taken only when Claude looks at the drawing, and stay in `~/.jevis/marks`.
+
+> If you opened Claude Code with Handry before this update, the tool that looks at drawings isn't in that session yet. Type `/mcp` there and reconnect handry, or start a new session. A question sent from the bar works either way: the message carries a summary of the drawing and where its pictures are.
 
 ## Timers and watches
 
@@ -228,6 +246,7 @@ If Handry isn't in `/Applications` (it may be in the Applications folder in your
 
 | Where | What |
 |---|---|
+| Menu › Pen | Draw on the screen and ask (`⌥ ⇧ P`) |
 | Menu › Permissions | All macOS permissions in one window |
 | Menu › Start at Login | Handry starts when your Mac starts |
 | Menu › Dil / Language | Turkish, English or your Mac's language |

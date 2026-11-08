@@ -828,6 +828,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             if listener.isActive { listener.finish() } else { startListening(pushToTalk: false) }
         case "stopVoice":
             listener.cancel()
+        case "penClear":
+            pen?.clear()
         case "pen":
             hideBar()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in self?.pen?.start() }

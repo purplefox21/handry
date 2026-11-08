@@ -32,6 +32,7 @@ Claude uygulamasında ya da Claude Code'da da kullanmak istersen: [Claude ile ku
 | `⌥ Space` | Çentikten çubuğu açar, yazarsın. Çentikteki adaya tıklamak da açar |
 | `⌥ ⇧ Space` | Basılı tut, konuş, bırak |
 | "Hey Handry" | Sesle uyandırır (menüden açılıp kapanır) |
+| `⌥ ⇧ P` | **Kalem:** ekrana sen çiz, sonra sor |
 | `⌥ Esc` | **Acil durdurma.** Her şeyi durdurur. Yeni bir komut verene kadar, en fazla 10 dakika, Handry bir şey yapmaz |
 | Dock simgesi | Büyük pencereyi açar: sohbetler, zamanlayıcılar, tarifler, ayarlar |
 
@@ -120,6 +121,23 @@ Kurallar seni korur: hiçbir şey kalıcı silinmez, Çöp Sepeti'ne gider; üst
 ## "Nerede?" diye sor, göstersin
 
 `karanlık mod ayarı nerede`, `bu sitede çıkış nasıl yapılır` gibi sorularda hiçbir şeye tıklamadan ekrana çizer: ok, daire, alt çizgi, kutu ve kısa bir etiket. Birkaç adım varsa sırayla gösterir. Sen tıklayınca ya da yazınca çizim kaybolur. Riskli bir adım onayını beklerken de ilgili düğmenin çevresine daire çizer.
+
+## Kalem: sen çiz, Claude baksın
+
+Bir yeri daire içine alıp ya da altını çizip "bu ne?", "buraya mı basayım?" diye sorabilirsin. Claude çizdiğin yere ve altında ne olduğuna bakarak cevap verir.
+
+1. Kalemi aç: `⌥ ⇧ P`, çentikteki adanın solundaki kalem, menü › **Kalem** ya da çubuktaki ✏️.
+2. Fareyle ya da trackpad'le çiz. Çizgilerin fosforlu yeşil olur; Handry'nin kendi çizimleri hiç bu renkte olmaz. `⌘ Z` son çizgiyi geri alır, üstteki **Temizle** hepsini siler.
+3. `Esc` ya da **Bitti** ile çık. Çubuk "✏️ Çizim ekli" etiketiyle açılır: sorunu yaz ya da `⌥ ⇧ Space` ile söyle. Soru çizimle birlikte gider.
+4. Soruyu Handry yerine VS Code'daki açık bir Claude oturumuna sormak istersen, çubukta "ya da gönder: → oturum adı" düğmesine bas.
+
+- Çizgiler sen silene ya da yeni bir çizime başlayana kadar ekranda kalır. Etiketteki ✕ çizimi siler.
+- Kalem kapalıyken çizgiler tıklamaları engellemez, fare normal çalışır.
+- İki ekranda da çalışır.
+- Bir onay kartı açıkken kalem açılmaz.
+- Ekran görüntüsü sadece Claude çizime bakarken alınır, `~/.jevis/marks` klasöründe kalır.
+
+> Claude Code'da Handry'yi bu güncellemeden önce açtıysan çizime bakan araç o oturumda yoktur. Oturumda `/mcp` yazıp handry'yi yeniden bağla ya da yeni bir oturum aç. Çubuktan gönderilen soru yine de çalışır, çünkü mesajda çizimin özeti ve resimlerin yolu var.
 
 ## Zamanlayıcı ve nöbet
 
@@ -228,6 +246,7 @@ Handry `/Applications`'ta değilse (örneğin ev klasöründeki Uygulamalar'days
 
 | Nerede | Ne |
 |---|---|
+| Menü › Kalem | Ekrana çizip sormak (`⌥ ⇧ P`) |
 | Menü › İzinler | Bütün macOS izinleri tek pencerede |
 | Menü › Mac Açılınca Başlat | Bilgisayar açılınca Handry de başlar |
 | Menü › Dil / Language | Türkçe, İngilizce ya da Mac'in dili |

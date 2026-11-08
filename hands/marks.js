@@ -48,10 +48,21 @@ export function questionFor(drawingId) {
   return q && q.drawingId === drawingId ? q : null;
 }
 
-/** What goes to an open Claude Code session when the user sends the question there. */
-export function forwardText(question) {
-  return T(`Kullanıcı ekranda bir yer işaretledi ve soruyor: "${question}". Neyi işaretlediğini görmek için önce ${MCP_NAME} screen_marks aracını çağır; cevap verirken gerekirse screen_draw ile onun çiziminin yanına ok ya da etiket koy.`,
-    `The user marked something on the screen and asks: "${question}". Call the ${MCP_NAME} screen_marks tool first to see what they marked; when you answer, you can put an arrow or a label next to their drawing with screen_draw.`);
+/**
+ * What goes to an open Claude Code session when the user sends the question there. With what was found under
+ * the lines (r from inspect) it carries that too, and where the pictures are, so a session whose Handry tools
+ * were loaded before screen_marks existed can still see the drawing (Claude Code reads image files).
+ */
+export function forwardText(question, r) {
+  const head = T(`Kullanıcı ekranda bir yer işaretledi ve soruyor: "${question}".`, `The user marked something on the screen and asks: "${question}".`);
+  if (!r) {
+    return `${head} ${T(`Neyi işaretlediğini görmek için önce ${MCP_NAME} screen_marks aracını çağır; cevap verirken gerekirse screen_draw ile onun çiziminin yanına ok ya da etiket koy.`,
+      `Call the ${MCP_NAME} screen_marks tool first to see what they marked; when you answer, you can put an arrow or a label next to their drawing with screen_draw.`)}`;
+  }
+  const kinds = KIND();
+  const found = r.marks.slice(0, 4).map(m => `${m.n}. ${kinds[m.kind]}: ${m.window ? `${m.window.app}${m.window.title ? ` — "${m.window.title}"` : ''}` : '?'}${m.control ? `, ${m.control.role}${m.control.name ? ` "${m.control.name}"` : ''}` : ''}`).join('; ');
+  const pictures = [...r.areas.flatMap(a => [a.marked.file, a.clean?.file]), ...r.closeUps.map(c => c.file)].filter(Boolean);
+  return `${head} ${T(`Altında bulunanlar: ${found}.`, `What is under the lines: ${found}.`)} ${T(`Resimler (Read ile aç): ${pictures.join(', ')} (ilki çizgili, sonra çizgisiz, sonra yakınlar).`, `Pictures (open them with Read): ${pictures.join(', ')} (first with the lines, then without, then close-ups).`)} ${T(`${MCP_NAME} screen_marks aracın varsa en güncelini o verir; cevap verirken screen_draw ile çiziminin yanına ok ya da etiket koyabilirsin.`, `If you have the ${MCP_NAME} screen_marks tool, it gives the latest; when you answer, you can put an arrow or a label next to their drawing with screen_draw.`)}`;
 }
 
 const box = points => {
@@ -262,8 +273,9 @@ export async function targets() {
 export async function forward(session, question) {
   if (!current()) throw new JevisError('NO_DRAWING', T('Ekranda çizim yok.', 'There is no drawing on the screen.'));
   setQuestion(question, `claude:${session}`);
+  const r = await inspect().catch(() => null);
   const { sendToSession } = await import('./vscode-claude.js');
-  return sendToSession({ session, text: forwardText(question) });
+  return sendToSession({ session, text: forwardText(question, r) });
 }
 
 export const noDrawing = () => T(`Ekranda kullanıcının çizimi yok. Kullanıcı ${APP_NAME} › Kalem (⌥⇧P), çentikteki kalem ya da çubuktaki ✏️ ile çizebilir.`,

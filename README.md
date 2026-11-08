@@ -53,6 +53,9 @@ Handry started as a way to stop filling in App Store Connect by hand (pricing, t
 - Lines appear on your screen without clicking anything: an arrow out of the camera notch, a circle, an underline, a box, with a short label. The color is picked to stand out from what is under it. Several places come one after another ("1. first here", "2. then here"), and they go as soon as you click or type.
 - While a risky step waits for your OK, the button it is about is circled.
 
+**Or you draw, and it looks**
+- Turn on the pen (⌥⇧P, the pen at the notch, or ✏️ in the bar), circle or underline something, and ask "what is this?". Your lines are lime; Claude gets them with what is under each (app, window, control), the screen with and without your lines, and a close-up (`screen_marks`). The question can also go to a Claude Code session open in VS Code.
+
 **From your phone**
 - Text yourself "Handry, turn the volume down" by iMessage: Handry does it and texts back the answer. "Handry, ekranı göster" sends a screenshot. Only your own conversation counts, only messages that start with the name, only new ones; risky steps still ask you (on the phone, with a code).
 
@@ -161,7 +164,7 @@ Measured on my Mac:
 
 ## Tests
 
-`tests/` has 37 end-to-end scripts that run against real Chrome, real Mac apps and the real Jev. Most use a throwaway Handry folder and their own Chrome profile, so your setup isn't touched; the comment at the top of each file says what it opens or changes. Most spend a few Jev calls, and `app-e2e` uses a little of your Claude subscription.
+`tests/` has 38 end-to-end scripts that run against real Chrome, real Mac apps and the real Jev. Most use a throwaway Handry folder and their own Chrome profile, so your setup isn't touched; the comment at the top of each file says what it opens or changes. Most spend a few Jev calls, and `app-e2e` uses a little of your Claude subscription.
 
 ```bash
 node tests/mcp-smoke.mjs              # the MCP server and a form, end to end (uses the Handry Chrome window)
@@ -172,6 +175,7 @@ node tests/nojev-e2e.mjs              # without Jev: fast-path rules on unseen c
 node tests/remote-approve-e2e.mjs     # approving from the phone (stand-in Messages database, nothing is sent)
 node tests/phone-e2e.mjs              # commands from the phone by iMessage, screenshots to the phone (nothing is sent)
 node tests/spaces-e2e.mjs             # desktops (Spaces) on the real screen; puts everything back
+node tests/marks-e2e.mjs              # the pen: marks from lines, what is under them (Calculator's 7), the question to the brain
 node tests/overlay-e2e.mjs            # drawing on the screen: places checked against the accessibility tree and by pixels
 node tests/vscode-claude-e2e.mjs      # Claude Code in VS Code: finding sessions, "done" reports (--live opens a real Claude tab)
 ```

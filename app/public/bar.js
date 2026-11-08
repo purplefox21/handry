@@ -127,7 +127,8 @@ async function forwardPen(target) {
     answer.textContent = err.message;
   }
 }
-penChip.addEventListener('click', () => setPen(false));
+// ✕: the drawing goes (off the screen too), not just off the question.
+penChip.addEventListener('click', () => { native({ type: 'penClear' }); setPen(false); input.focus(); });
 
 // ---------------------------------------------------------------------------
 // Timers: "⏰ 2" when some wait; a click lists them (✕ asks once more). A
