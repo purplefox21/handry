@@ -15,7 +15,11 @@
       <div class="mark" id="mark" aria-hidden="true">
         <i></i><i></i><i></i><i></i><i></i>
       </div>
+      <button class="chip pen-chip" id="penChip" type="button" title="Soru çizimle birlikte gider · ✕ ile çıkar" data-en-title="The question goes with the drawing · ✕ takes it off" hidden><span data-en="✏️ Drawing attached">✏️ Çizim ekli</span> <b aria-hidden="true">✕</b></button>
       <input id="input" type="text" autocomplete="off" spellcheck="false" aria-label="Komut" placeholder="{{APP_DAT}} söyle…" data-en-aria-label="Command" data-en-placeholder="Tell {{APP}}…">
+      <button class="icon-btn" id="penBtn" type="button" title="Kalem: ekrana çiz, sonra sor (⌥⇧P)" aria-label="Kalem" data-en-title="Pen: draw on the screen, then ask (⌥⇧P)" data-en-aria-label="Pen">
+        <svg viewBox="0 0 24 24"><path d="M16.5 3.5l4 4L8 20H4v-4z"/><line x1="13.5" y1="6.5" x2="17.5" y2="10.5"/></svg>
+      </button>
       <button class="icon-btn" id="micBtn" type="button" title="Konuş (⌥⇧Space basılı tut)" aria-label="Konuş" data-en-title="Talk (hold ⌥⇧Space)" data-en-aria-label="Talk">
         <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
       </button>
@@ -25,6 +29,7 @@
         <svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
       </button>
     </div>
+    <div class="pen-targets" id="penTargets" hidden></div>
     <div class="countdown" id="countdown"></div>
     <div class="timers" id="timersPanel" hidden>
       <div class="alarm" id="alarm" hidden>

@@ -19,7 +19,7 @@ export const INSTALLED = path.join(os.homedir(), 'Applications', `${APP.name}.ap
 export const OLD_INSTALLED = ['Handry.app', 'Foxie.app', 'Inaro.app'].filter(n => n !== `${APP.name}.app`).map(n => path.join(os.homedir(), 'Applications', n));
 export const BUNDLE_ID = 'studio.purpfox.foxie';
 
-export const APP_SOURCES = ['Handry.swift', 'Listener.swift', 'Fox.swift', 'Permissions.swift', 'Overlay.swift'].map(f => path.join(ROOT, 'app', 'macos', f));
+export const APP_SOURCES = ['Handry.swift', 'Listener.swift', 'Fox.swift', 'Permissions.swift', 'Overlay.swift', 'Pen.swift'].map(f => path.join(ROOT, 'app', 'macos', f));
 export const APP_FRAMEWORKS = ['AppKit', 'WebKit', 'Carbon', 'AVFoundation', 'Speech', 'CoreAudio', 'ServiceManagement'].flatMap(f => ['-framework', f]);
 
 /** What macOS shows in its permission questions, in the language Handry speaks now. */

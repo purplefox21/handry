@@ -71,6 +71,63 @@ api('/api/brains').then(r => r.json()).then(d => { adoptDefaultModel(d.claudeCod
 
 $('expandBtn').addEventListener('click', () => native({ type: 'openMain' }));
 $('micBtn').addEventListener('click', () => native({ type: 'mic' }));
+$('penBtn').addEventListener('click', () => native({ type: 'pen' }));
+
+// ---------------------------------------------------------------------------
+// The pen: a question asked here goes with the user's drawing (Handry.app opens the bar after they drew).
+// It can also go on to a Claude Code session open in VS Code.
+// ---------------------------------------------------------------------------
+
+const penChip = $('penChip');
+const restPlaceholder = () => (pen.on ? T('Çizdiğin yer hakkında sor…', 'Ask about what you drew…') : SAY_TO);
+const penTargets = $('penTargets');
+const pen = { on: false };
+function setPen(on) {
+  pen.on = Boolean(on);
+  penChip.hidden = !pen.on;
+  input.placeholder = restPlaceholder();
+  penTargets.hidden = true;
+  penTargets.replaceChildren();
+  if (pen.on) showPenTargets();
+}
+async function showPenTargets() {
+  try {
+    const { targets = [] } = await (await api('/api/marks')).json();
+    if (!pen.on || !targets.length) return;
+    const label = document.createElement('span');
+    label.textContent = T('ya da gönder:', 'or send to:');
+    penTargets.append(label, ...targets.slice(0, 3).map(t => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip';
+      b.textContent = `→ ${t.name} (Claude)`;
+      b.title = T(`Soruyu çizimle birlikte VS Code'daki "${t.name}" oturumuna yaz`, `Write the question with the drawing to the "${t.name}" session in VS Code`);
+      b.addEventListener('click', () => forwardPen(t));
+      return b;
+    }));
+    penTargets.hidden = false;
+  } catch {}
+}
+async function forwardPen(target) {
+  const text = input.value.trim();
+  if (!text) { input.focus(); input.placeholder = T('Önce sorunu yaz…', 'Write your question first…'); return; }
+  clearPanel();
+  panel.hidden = false;
+  answer.hidden = false;
+  try {
+    const res = await api('/api/marks/forward', { method: 'POST', body: JSON.stringify({ session: target.id || target.name, text }) });
+    const out = await res.json();
+    if (!res.ok) throw new Error(out.error);
+    answer.textContent = T(`Gönderildi: "${out.session}" oturumu çizimine bakıp cevap verecek.`, `Sent: the "${out.session}" session will look at your drawing and answer.`);
+    input.value = '';
+    setPen(false);
+    scheduleHide(6000);
+  } catch (err) {
+    answer.classList.add('error');
+    answer.textContent = err.message;
+  }
+}
+penChip.addEventListener('click', () => setPen(false));
 
 // ---------------------------------------------------------------------------
 // Timers: "⏰ 2" when some wait; a click lists them (✕ asks once more). A
@@ -214,6 +271,7 @@ function handle(ev) {
 }
 
 function finish(ev) {
+  if (pen.on) setPen(false); // one question per drawing; draw again for the next one
   run.active = false;
   run.finishedAt = Date.now();
   now.hidden = true;
@@ -265,6 +323,7 @@ async function submit(text, { fromVoice = false } = {}) {
   if (run.active) return;
   clearTimeout(hideTimer);
   clearPanel();
+  penTargets.hidden = true;
   input.value = text;
   input.select();
   Object.assign(run, { active: true, tools: 0, fromVoice });
@@ -277,6 +336,7 @@ async function submit(text, { fromVoice = false } = {}) {
     await runStream({
       text,
       brain,
+      ...(pen.on ? { marks: true } : {}),
       fast: store.get('fast', true),
       source: run.fromVoice ? 'voice' : 'bar',
       ...(brain === 'claude-code' ? { model: currentModel(), effort: store.get('effort', undefined) } : {})
@@ -320,7 +380,7 @@ function cancelCountdown() {
 async function voiceFinished({ text, file, wake }) {
   voice.listening = false;
   setState(run.active ? 'busy' : 'idle');
-  input.placeholder = SAY_TO;
+  input.placeholder = restPlaceholder();
   const heard = String(text || '').trim();
   if (!heard && !file) { input.value = ''; return; }
   input.value = heard;
@@ -356,6 +416,8 @@ async function voiceFinished({ text, file, wake }) {
 // ---------------------------------------------------------------------------
 
 window.jevisBar = {
+  // Handry.app: the user just drew (or talks after drawing): the next question goes with the drawing.
+  pen(on) { setPen(on); },
   show(mode = 'type') {
     clearTimeout(hideTimer);
     if (!run.active && Date.now() - run.finishedAt > 60000) { clearPanel(); input.value = ''; }
@@ -387,12 +449,12 @@ window.jevisBar = {
         break;
       case 'cancel':
         voice.listening = false;
-        input.placeholder = SAY_TO;
+        input.placeholder = restPlaceholder();
         setState(run.active ? 'busy' : 'idle');
         break;
       case 'error':
         voice.listening = false;
-        input.placeholder = SAY_TO;
+        input.placeholder = restPlaceholder();
         setState(run.active ? 'busy' : 'idle');
         panel.hidden = false;
         answer.hidden = false;

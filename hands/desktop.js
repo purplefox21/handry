@@ -395,6 +395,30 @@ export function shotToScreen(x, y) {
   return { x: Math.round(area.x + (x * area.w) / shot.image.w), y: Math.round(area.y + (y * area.h) / shot.image.h) };
 }
 
+/** The window under a screen point (global points), skipping Handry's own layers (the pen, the drawings, the bar). */
+export async function windowAt(x, y) {
+  return ax('under', Math.round(x), Math.round(y), '--skip', APP_NAME);
+}
+
+/** The control of app `pid` at a screen point, asked of that app only (a layer on top doesn't get in the way). */
+export async function controlAt(x, y, pid) {
+  await ensureTrusted();
+  return ax('hitin', Math.round(x), Math.round(y), '--pid', pid);
+}
+
+/** A PNG of a rect of the screen (global points) at the display's pixels; without: an app left out (by name). */
+export async function capture(rect, file, { without } = {}) {
+  try {
+    return await ax('capture', rect.x, rect.y, rect.w, rect.h, '--out', file, ...(without ? ['--without', without] : []));
+  } catch (err) {
+    if (err.code === 'CAPTURE') {
+      const { screenRecording } = await ax('trusted').catch(() => ({}));
+      if (screenRecording === false) throw new JevisError('NO_PERMISSION', T(`Ekran Kaydı izni yok. Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi Kaydı bölümünde ${APP_NAME} uygulamasını (ya da onu çalıştıran Terminal / VS Code'u) aç.`, `No Screen Recording permission. In System Settings › Privacy & Security › Screen & System Audio Recording, turn on ${APP_NAME} (or the Terminal / VS Code that runs it).`));
+    }
+    throw err;
+  }
+}
+
 /** Where a control of an app's window is on the screen (for screen_draw); the app comes to the front first. */
 export async function frameOf(target, { app } = {}) {
   await ensureTrusted();

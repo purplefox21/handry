@@ -25,6 +25,7 @@ import { listRecipes, loadRecipe, saveFromRun, deleteRecipe } from '../core/reci
 import { APP_NAME } from '../core/brand.js';
 import { startPhoneCommands } from '../core/phone.js';
 import { screenshot } from '../hands/desktop.js';
+import * as marks from '../hands/marks.js';
 import { T, lang, languageSetting, macLanguage, setLanguage } from '../core/i18n.js';
 
 const PORT = Number(process.env.PORT) || config().server.port || 4263;
@@ -93,7 +94,7 @@ const remember = entry => { HISTORY.push(entry); if (HISTORY.length > 50) HISTOR
 
 async function handleRun(req, res) {
   if (activeRun) return sendJson(res, 409, { error: T(`${APP_NAME} şu an başka bir işi yapıyor. Bitmesini bekle ya da DURDUR'a bas.`, `${APP_NAME} is busy with another task. Wait for it to finish or press STOP.`) });
-  const { text, brain: brainId = config().brain.default, fast = true, model, effort, source = 'window', chatId } = JSON.parse((await readBody(req)).toString() || '{}');
+  const { text, brain: brainId = config().brain.default, fast = true, model, effort, source = 'window', chatId, marks: withMarks = false } = JSON.parse((await readBody(req)).toString() || '{}');
   if (!text?.trim()) return sendJson(res, 400, { error: T('Boş komut.', 'The command is empty.') });
 
   res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -103,7 +104,7 @@ async function handleRun(req, res) {
   const entry = { at: Date.now(), source, text, tools: 0 };
   const onEvent = ev => { if (ev.type === 'tool') entry.tools++; send(ev); };
   try {
-    const done = await runCommand({ text, brainId, fast, model, effort, onEvent, signal: controller.signal, chatId, source });
+    const done = await runCommand({ text, brainId, fast, model, effort, onEvent, signal: controller.signal, chatId, source, marks: withMarks });
     Object.assign(entry, { id: done.runId, answer: done.text, ms: done.ms, fast: done.fast, learnedReplay: done.learnedReplay, recipe: done.recipe, brain: done.brain, model: done.model, stopped: done.stopped, learned: done.learned });
     send(done);
   } catch (err) {
@@ -242,6 +243,21 @@ const ROUTES = {
     }
   },
   // Timers and watches: the list (with what Handry saw last) and cancelling one or all.
+  // The pen: the user's drawing, and the Claude Code sessions a question about it can be sent on to.
+  'GET /api/marks': async (req, res) => {
+    const d = marks.current();
+    sendJson(res, 200, { drawing: d ? { id: d.id, at: d.at, active: Boolean(d.active), lines: d.strokes.length } : null, targets: d ? await marks.targets().catch(() => []) : [] });
+  },
+  'POST /api/marks/forward': async (req, res) => {
+    const { session, text } = JSON.parse((await readBody(req)).toString() || '{}');
+    if (!session || !String(text || '').trim()) return sendJson(res, 400, { error: T('Oturum ve soru gerekli.', 'A session and a question are needed.') });
+    try {
+      const r = await marks.forward(session, text);
+      sendJson(res, 200, { ok: true, session: r.session?.name || session });
+    } catch (err) {
+      sendJson(res, 400, { error: err.message });
+    }
+  },
   'GET /api/timers': (req, res) => sendJson(res, 200, { now: Date.now(), jobs: sortedJobs().map(jobView) }),
   'POST /api/timers/cancel': async (req, res) => {
     const { id, all } = JSON.parse((await readBody(req)).toString() || '{}');

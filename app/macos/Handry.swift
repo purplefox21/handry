@@ -169,6 +169,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     var flashUntil = Date.distantPast // the ⛔ after an emergency stop stays a moment
     var fox: FoxPet?
     var overlay: Overlay?
+    var pen: Pen?
+    var penItems: [NSMenuItem] = []
     let permissions = PermissionsWindow()
     var activitySeen: Double = 0
     var window: NSWindow!
@@ -204,6 +206,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         makeFox()
         overlay = Overlay()
         overlay?.onNotchClick = { [weak self] in self?.notchClicked() }
+        overlay?.onPenClick = { [weak self] in self?.togglePen() }
+        pen = Pen()
+        pen?.onChange = { [weak self] on in
+            self?.overlay?.penOn = on
+            self?.penItems.forEach { $0.state = on ? .on : .off }
+        }
+        pen?.onFinish = { [weak self] _ in self?.askAboutDrawing() }
         watchActivity()
         // Not over a full-screen app (a game): the bar would take its keyboard.
         if !NSScreen.screens.contains(where: { s in visibleWindows().contains { $0.frame.equalTo(s.frame) && $0.pid == NSWorkspace.shared.frontmostApplication?.processIdentifier } }) {
@@ -281,6 +290,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         appMenu.addItem(.separator())
         appMenu.addItem(item(L("\(APP_NAME) Çubuğu   ⌥Space", "\(APP_NAME) Bar   ⌥Space"), #selector(toggleBar)))
         appMenu.addItem(item(L("Büyük Pencere", "\(APP_NAME) Window"), #selector(openWindow)))
+        appMenu.addItem(penItem())
         appMenu.addItem(wakeItem())
         appMenu.addItem(.separator())
         appMenu.addItem(item(L("Rehber", "Guide"), #selector(openGuide)))
@@ -342,6 +352,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         menu.addItem(item(L("Büyük Pencere", "\(APP_NAME) Window"), #selector(openWindow)))
         menu.addItem(wakeItem())
         menu.addItem(item(L("Bas-Konuş   ⌥⇧Space (basılı tut)", "Push to Talk   ⌥⇧Space (hold)"), #selector(toggleBar)))
+        menu.addItem(penItem())
         menu.addItem(item(L("⛔ Acil Durdur   ⌥Esc", "⛔ Emergency Stop   ⌥Esc"), #selector(emergencyStop)))
         menu.addItem(.separator())
         menu.addItem(foxMenuItem())
@@ -817,6 +828,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             if listener.isActive { listener.finish() } else { startListening(pushToTalk: false) }
         case "stopVoice":
             listener.cancel()
+        case "pen":
+            hideBar()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in self?.pen?.start() }
         default:
             break
         }
@@ -951,6 +965,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         register(1, keyCode: UInt32(kVK_Space), modifiers: optionKey)
         register(2, keyCode: UInt32(kVK_Space), modifiers: optionKey | shiftKey)
         register(3, keyCode: UInt32(kVK_Escape), modifiers: optionKey)
+        register(4, keyCode: UInt32(kVK_ANSI_P), modifiers: optionKey | shiftKey)
     }
 
     func register(_ id: UInt32, keyCode: UInt32, modifiers: Int) {
@@ -962,7 +977,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     func hotKey(_ id: UInt32, pressed: Bool) {
         switch (id, pressed) {
         case (1, true): toggleBar()
-        case (2, true): startListening(pushToTalk: true)
+        case (2, true):
+            // talking right after drawing: the spoken question goes with the drawing
+            let drew = pen?.isOn == true && (pen?.lines ?? 0) > 0
+            pen?.finish(ask: false)
+            startListening(pushToTalk: true)
+            if drew { barWeb.evaluateJavaScript("window.jevisBar && window.jevisBar.pen(true)") }
+        case (4, true): togglePen()
         case (2, false): listener.finish()
         case (3, true): emergencyStop()
         default: break
@@ -982,8 +1003,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         webView.evaluateJavaScript(click)
         barWeb.evaluateJavaScript(click)
         listener.cancel()
+        pen?.finish(ask: false)
         statusItem.button?.title = " ⛔"
         flashUntil = Date().addingTimeInterval(3)
+    }
+
+    // MARK: The pen (app/macos/Pen.swift)
+
+    func penItem() -> NSMenuItem {
+        let i = item(L("Kalem   ⌥⇧P", "Pen   ⌥⇧P"), #selector(togglePen))
+        i.image = NSImage(systemSymbolName: "pencil.tip", accessibilityDescription: L("Kalem", "Pen"))
+        i.state = pen?.isOn == true ? .on : .off
+        penItems.append(i)
+        return i
+    }
+
+    /// The pen on (the bar goes, so the user can draw everywhere), or off (then the bar asks about the drawing).
+    @objc func togglePen() {
+        guard let pen else { return }
+        if pen.isOn { pen.finish(); return }
+        if bar.isVisible { hideBar() }
+        pen.start()
+    }
+
+    /// The user drew something and is done: the bar opens with the drawing attached to the next question.
+    func askAboutDrawing() {
+        showBar(mode: "type")
+        barWeb.evaluateJavaScript("window.jevisBar && window.jevisBar.pen(true)")
     }
 
     @objc func openInBrowser() {

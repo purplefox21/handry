@@ -207,3 +207,10 @@ body.standalone .bar { max-width: 640px; margin: 0 auto; background: var(--card)
 .timer-x.sure { color: #fff; background: var(--red); }
 .timer-row.linked .timer-row-text { cursor: pointer; }
 .timer-row.linked:hover .timer-row-title { color: var(--text-2); }
+
+/* The pen: the question goes with the user's drawing. Their lines are lime (#C6FF00), so is this. */
+.pen-chip { flex: none; color: #1a2400; background: #c6ff00; font-weight: 600; }
+.pen-chip b { margin-left: 2px; font-weight: 700; opacity: 0.6; }
+.pen-chip:hover { color: #1a2400; background: #d8ff4d; }
+.pen-targets { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 10px 54px; font-size: 11.5px; color: var(--text-2); align-items: center; }
+.pen-targets .chip { height: 22px; }

@@ -13,7 +13,9 @@
 // still while Handry rests. No colored lights (they look like the camera's):
 // the wave moves while it works, the hand waves when Handry waits for the
 // user, hops once when it is done, shakes on an error. Menu › the island:
-// always there, only while Handry works, or never. A click on it opens the bar.
+// always there, only while Handry works, or never. A click on it opens the bar;
+// a click on the pen in its left wing (shown while Handry rests) turns the pen on
+// (app/macos/Pen.swift), and the pen is lime while it is on.
 import Cocoa
 import QuartzCore
 
@@ -69,11 +71,29 @@ private func whiteHand(size: CGFloat) -> CALayer {
     return hand
 }
 
+/// The pen in the island's left wing (an SF Symbol), white; lime while the pen is on.
+private func penIcon(size: CGFloat) -> CALayer {
+    let pen = CALayer()
+    pen.bounds = CGRect(x: 0, y: 0, width: size, height: size)
+    pen.backgroundColor = NSColor.white.cgColor
+    if let image = NSImage(systemSymbolName: "pencil.tip", accessibilityDescription: nil),
+       let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+        let mask = CALayer()
+        mask.frame = pen.bounds
+        mask.contents = cg
+        mask.contentsGravity = .resizeAspect
+        pen.mask = mask
+    } else {
+        pen.bounds = CGRect(x: 0, y: 0, width: 5, height: 5)
+        pen.cornerRadius = 2.5
+    }
+    return pen
+}
+
 /// The island on one screen. Closed, it is exactly the notch (so it can't be seen) and then fades out.
 /// Out, it hangs a little lower than the notch, so it is seen coming out of it. Working, it has a wing on
-/// each side: a small wave on the left, Handry's hand on the right. Resting on a notch only a narrow wing
-/// with the hand is out, on the right, so less of the app's menus is covered (a screen without a notch has
-/// room in the middle of its menu bar, so there both wings stay out, faint).
+/// each side: a small wave on the left, Handry's hand on the right. Resting, narrow wings: the pen on the
+/// left, the hand on the right, both faint (a screen without a notch keeps the wider wings).
 private final class Island {
     enum Mood { case resting, working, waiting, done, failed }
     private enum Form { case closed, hand, full }
@@ -83,7 +103,11 @@ private final class Island {
     let root = CALayer()
     private let shape = CAShapeLayer()
     private let hand: CALayer
+    private let pen: CALayer
     private let wave = CAReplicatorLayer()
+    /// The pen is on: the island's pen is lime and stays out instead of the wave.
+    var penOn = false
+    private var mood = Mood.resting
     let notchWidth: CGFloat
     let height: CGFloat       // out: a little lower than the notch, so it is seen coming out of it
     let closedHeight: CGFloat // closed: the notch itself
@@ -97,6 +121,7 @@ private final class Island {
         closedHeight = notch.height > 0 ? notch.height : 22
         height = notch.height > 0 ? notch.height + 9 : max(s.frame.maxY - s.visibleFrame.maxY, 22) + 6
         hand = whiteHand(size: 12)
+        pen = penIcon(size: 12)
         let core = notch.width > 0 ? notch.width : 8
         maxWidth = core + 2 * Island.wing + 2 * Island.ear
         mid = notch.mid
@@ -113,6 +138,9 @@ private final class Island {
         hand.position = handPlace(.full)
         hand.opacity = 0
         root.addSublayer(hand)
+        pen.position = penPlace(.full)
+        pen.opacity = 0
+        root.addSublayer(pen)
         let bar = CALayer()
         bar.frame = CGRect(x: 0, y: 0, width: 2.4, height: 10)
         bar.backgroundColor = NSColor.white.cgColor
@@ -134,7 +162,7 @@ private final class Island {
         let left: CGFloat, right: CGFloat, h: CGFloat
         switch form {
         case .closed: (left, right, h) = (core / 2, core / 2, closedHeight)
-        case .hand: (left, right, h) = (core / 2, core / 2 + Island.restWing, height)
+        case .hand: (left, right, h) = (core / 2 + Island.restWing, core / 2 + Island.restWing, height)
         case .full: (left, right, h) = (core / 2 + Island.wing, core / 2 + Island.wing, height)
         }
         let p = islandPath(width: left + right + 2 * Island.ear, height: h, ear: Island.ear, radius: min(14, h / 2))
@@ -149,6 +177,22 @@ private final class Island {
         return CGPoint(x: mid + (notchWidth > 0 ? notchWidth : 8) / 2 + wing / 2, y: top - height / 2 - size * 0.35)
     }
 
+    /// Where the pen goes: in the middle of the left wing.
+    private func penPlace(_ form: Form) -> CGPoint {
+        let wing = form == .hand ? Island.restWing : Island.wing
+        return CGPoint(x: mid - (notchWidth > 0 ? notchWidth : 8) / 2 - wing / 2, y: top - height / 2)
+    }
+
+    /// The pen shows (instead of the wave) while Handry rests, and while the pen is on.
+    private var showsPen: Bool { mood == .resting || penOn }
+
+    /// A click there (from the screen's bottom-left) is on the pen.
+    func penHit(_ p: CGPoint) -> Bool {
+        guard form != .closed, showsPen else { return false }
+        let c = penPlace(form)
+        return CGRect(x: c.x - 17, y: top - height, width: 34, height: height).contains(p)
+    }
+
     /// Where a click opens (or closes) the bar, from the screen's bottom-left: what can be seen of the island.
     /// With the bar open over a notch, the notch itself (the bar's empty top), so a click there closes it.
     func clickRect(barOpen: Bool) -> CGRect {
@@ -156,7 +200,7 @@ private final class Island {
         if barOpen && notchWidth > 0 { return CGRect(x: mid - core / 2, y: top - closedHeight, width: core, height: closedHeight) }
         switch form {
         case .closed: return .zero
-        case .hand: return CGRect(x: mid - core / 2, y: top - height, width: core + Island.restWing + Island.ear, height: height)
+        case .hand: return CGRect(x: mid - core / 2 - Island.restWing - Island.ear, y: top - height, width: core + 2 * Island.restWing + 2 * Island.ear, height: height)
         case .full: return CGRect(x: mid - maxWidth / 2, y: top - height, width: maxWidth, height: height)
         }
     }
@@ -209,8 +253,9 @@ private final class Island {
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
         let was = form
+        self.mood = mood
         let next: Form = !open ? .closed : (mood == .resting && notchWidth > 0) ? .hand : .full
-        let waving = mood == .working
+        let waving = mood == .working && !penOn
         let bar = wave.sublayers?.first
         if waving, bar?.animation(forKey: "wave") == nil {
             let a = CABasicAnimation(keyPath: "transform.scale.y")
@@ -228,7 +273,9 @@ private final class Island {
             let delay = was == .closed ? 0.18 : 0
             move(mood, delay: delay + 0.12)
             fade(hand, to: mood == .resting ? 0.5 : 0.92, delay: delay)
-            fade(wave, to: next == .full ? (waving ? 0.9 : 0.35) : 0, delay: next == .full && was != .full ? 0.18 : 0, duration: next == .full ? 0.18 : 0.1)
+            fade(wave, to: next == .full && !showsPen ? (waving ? 0.9 : 0.35) : 0, delay: next == .full && was != .full ? 0.18 : 0, duration: next == .full ? 0.18 : 0.1)
+            pen.backgroundColor = (penOn ? PEN_COLOR : NSColor.white).cgColor
+            fade(pen, to: showsPen ? (penOn ? 1 : 0.5) : 0, delay: delay)
         }
         guard next != was else { return }
         form = next
@@ -241,6 +288,7 @@ private final class Island {
             hand.position = handPlace(next)
             hand.add(slide, forKey: "slide")
         }
+        if next != .closed { pen.position = penPlace(next) }
         let grow = CASpringAnimation(keyPath: "path")
         grow.fromValue = shape.presentation()?.path ?? shape.path
         grow.toValue = path(next)
@@ -259,6 +307,7 @@ private final class Island {
             grow.duration = 0.3
             fade(hand, to: 0, duration: 0.12)
             fade(wave, to: 0, duration: 0.12)
+            fade(pen, to: 0, duration: 0.12)
             // the notch hides the closed island; then it goes for good (a screen without a notch fades it at once)
             fade(shape, to: 0, delay: notchWidth > 0 ? 0.3 : 0, duration: notchWidth > 0 ? 0.01 : 0.25)
         }
@@ -276,10 +325,10 @@ private final class NotchPanel: NSPanel {
 
 /// The notch itself (on a screen without one, the middle of the top edge): a click there opens or closes the bar.
 private final class NotchTarget: NSView {
-    var onClick: () -> Void = {}
+    var onClick: (CGPoint) -> Void = { _ in }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func mouseDown(with event: NSEvent) {
-        onClick()
+        onClick(NSEvent.mouseLocation)
         // give the keyboard back: an invisible panel must not keep it
         DispatchQueue.main.async { [weak w = window] in
             guard let w, w.isKeyWindow else { return }
@@ -292,6 +341,17 @@ private final class NotchTarget: NSView {
 final class Overlay {
     /// A click on the notch.
     var onNotchClick: () -> Void = {}
+    /// A click on the pen in the island's left wing.
+    var onPenClick: () -> Void = {}
+    /// The pen is on (app/macos/Pen.swift): the island's pen is lime.
+    var penOn = false {
+        didSet {
+            guard penOn != oldValue else { return }
+            for s in screens { s.island.penOn = penOn }
+            dotState = ""
+            readActivity()
+        }
+    }
     private var islandShown = false
     /// Handry's bar is open (on a screen without a notch it covers the island's place, so that click is off).
     var barOpen = false { didSet { updateTargets() } }
@@ -396,6 +456,7 @@ final class Overlay {
             panel.contentView = view
             panel.setFrame(screen.frame, display: false)
             let island = Island(screen: screen)
+            island.penOn = penOn
             view.layer?.addSublayer(island.root)
             panel.orderFrontRegardless()
             // the click target: see-through, as big as what can be seen of the island (updateTargets)
@@ -408,7 +469,7 @@ final class Overlay {
             target.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
             let catcher = NotchTarget(frame: NSRect(x: 0, y: 0, width: 1, height: 1))
             catcher.autoresizingMask = [.width, .height]
-            catcher.onClick = { [weak self] in self?.onNotchClick() }
+            catcher.onClick = { [weak self] p in self?.clicked(at: p) }
             target.contentView = catcher
             target.orderFrontRegardless()
             screens.append(Screen(panel: panel, screen: screen, island: island, dotCenter: Overlay.dotPlace(screen), target: target))
@@ -416,6 +477,16 @@ final class Overlay {
         dotState = ""
         dotMode = ""
         readActivity()
+    }
+
+    /// A click on the island (global point, bottom-left): the pen in its left wing, or the bar.
+    private func clicked(at p: CGPoint) {
+        if let s = screens.first(where: { $0.screen.frame.contains(p) }),
+           s.island.penHit(CGPoint(x: p.x - s.screen.frame.minX, y: p.y - s.screen.frame.minY)) {
+            onPenClick()
+        } else {
+            onNotchClick()
+        }
     }
 
     private func modDate(_ path: String) -> Date? {

@@ -14,6 +14,7 @@ import * as files from '../hands/files.js';
 import * as apps from '../hands/apps.js';
 import * as codes from '../hands/codes.js';
 import * as overlay from '../hands/overlay.js';
+import * as marks from '../hands/marks.js';
 import { sendIMessage, sendIMessageFile } from '../guard/notify.js';
 import * as jev from './jev.js';
 import { config } from './config.js';
@@ -132,6 +133,7 @@ Teaching ${APP_NAME}: after finishing a task the user may want again, call ${MCP
 Logins: before work on sites that need one, call browser_sessions with those sites so the user can log in to all of them first. When a page asks for a login, the user is alerted (sound, notification, ${APP_NAME} bar, an iMessage after a minute); call wait_for_user with leave_url or until_text so the work goes on by itself once they are done.
 Speed vs. human input: the mouse and keyboard are fast and plain by default. When a site blocks automation (Google "This browser or app may not be secure", "Couldn't sign you in", a bot or CAPTCHA wall, "unusual traffic"; tool results warn you when a page looks like that), call human_mode on: true (gliding mouse, key-by-key typing; slower) and retry; before a Google or Apple sign-in you may switch it on up front. Turn it off again when done. If it is on and the site still blocks (Google sign-in above all), call login_window: it opens the profile as a plain Chrome with nothing attached, the user signs in by hand once, the login stays in the profile.
 Showing instead of doing: screen_draw draws an arrow, a circle, an underline or a box (with a short label) around a thing on the screen without clicking it, when the user asks where something is or how to do it, or to point at a mistake; for several places use steps (one after another, numbered), never many drawings at once.
+The user's pen: the user can draw on the screen themselves (${APP_NAME} › ${T('Kalem', 'Pen')}, ⌥⇧P). When they talk about what they drew or marked, or point with words (${T('"çizdiğim", "işaretlediğim yer", "burası ne", "şu ne", "buraya mı basayım"', '"what I drew", "what I marked", "what is this", "this here", "do I click here"')}), call screen_marks first: it gives their lines with what is under each (app, window, control), the screen with and without the lines, and close-ups. Answer about what is under their lines; to point back, use screen_draw with x and y in the pixels of screen_marks' first picture.
 Phone: the user may be away and texting from the phone (commands that start with the name come in by iMessage and your answer goes back there); phone_send sends text or a screenshot to their own phone when they ask to see something there.
 Codes by SMS or e-mail: when a site says it sent a code, call verification_code (source sms = Messages on this Mac, gmail = the Gmail inbox in the Chrome); give target to have it typed into the field. Do not open the user's Messages or mail to look for codes yourself. CAPTCHAs: call browser_solve_captcha first — it tries 2captcha.com (if CAPTCHA_KEY is set) then Claude Vision; only call wait_for_user if it reports failure.
 Forms: fill many fields with one browser_fill call instead of one browser_type/browser_select per field.
@@ -637,6 +639,23 @@ export const TOOLS = [
     run: async ({ text: value, target, app, press_enter }) => {
       const r = await desktop.type(target, value, { app, submit: Boolean(press_enter) });
       return text(desktop.formatOutcome(r), r);
+    }
+  },
+  {
+    name: 'screen_marks',
+    description: `The user's own drawing on the screen (${APP_NAME}'s pen: they circle, underline or point at something and ask "what is this?", "do I click here?"). Returns each mark (circle, underline, line/arrow, dot, scribble) with where it is (screen points and picture pixels), the app and window under it and the control there (from the accessibility tree), the question they asked with it, and pictures: the screen (or the one window all marks are in) with their lines, the same place without them, and a close-up of each mark. The user's lines are ${marks.PEN_COLOR}; ${APP_NAME}'s own drawings never use that color. Call it first whenever the user refers to what they drew or marked. After it, screen_draw and desktop_click_at take x/y in the pixels of its first picture. previous: 1 = the drawing before the last one (from what was saved; no new pictures).`,
+    inputSchema: obj({ previous: { type: 'number' } }),
+    run: async ({ previous }) => {
+      if (previous) {
+        const info = marks.previous(Number(previous));
+        const pictures = info.areas.flatMap(a => [a.marked, a.clean]).filter(f => f && fs.existsSync(f));
+        return { content: [{ type: 'text', text: JSON.stringify(info, null, 2) }, ...pictures.slice(0, 4).map(f => ({ type: 'image', data: fs.readFileSync(f).toString('base64'), mimeType: 'image/jpeg' }))] };
+      }
+      const r = await marks.inspect();
+      if (!r) return text(marks.noDrawing(), { marks: 0 });
+      const images = [...r.areas.flatMap(a => [a.marked, a.clean]).filter(Boolean), ...r.closeUps]
+        .map(img => ({ type: 'image', data: fs.readFileSync(img.file).toString('base64'), mimeType: 'image/jpeg' }));
+      return { content: [{ type: 'text', text: marks.describe(r) }, ...images], meta: { logSummary: `${r.marks.length} ${T('işaret', 'marks')}${r.question ? ` — "${r.question.text}"` : ''}: ${r.marks.map(m => `${m.kind} ${m.window?.app || '?'}${m.control?.name ? ` › ${m.control.name}` : ''}`).join('; ')}` } };
     }
   },
   {
@@ -1222,7 +1241,7 @@ for (const old of ['jevis', 'inaro']) {
 const TIME_LIMIT = {
   browser_read: 60e3, browser_screenshot: 60e3, browser_verify: 60e3, browser_table: 60e3, browser_tabs: 30e3, browser_scroll: 30e3,
   browser_open: 90e3, browser_wait: 90e3, desktop_read: 60e3, desktop_screenshot: 60e3, desktop_windows: 30e3, desktop_apps: 30e3,
-  screen_draw: 60e3
+  screen_draw: 60e3, screen_marks: 60e3
 };
 function withLimit(promise, ms, name) {
   let timer;

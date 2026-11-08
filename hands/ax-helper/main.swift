@@ -13,11 +13,14 @@
 //   jevis-ax activate [--app|--pid]
 //   jevis-ax windows [--app|--pid] | raise <index> [--app|--pid] | screen | hit <x> <y>
 //   jevis-ax automation <bundleId>
+//   jevis-ax under <x> <y> [--skip NAME] | hitin <x> <y> --pid N | capture <x> <y> <w> <h> --out FILE [--without NAME]
 //
 // Paths: "w.3.1" = child 3, then child 1 of the focused window; "m.2.0" = menu bar.
 import Cocoa
 import ApplicationServices
 import AVFoundation
+import ScreenCaptureKit
+import ImageIO
 
 // MARK: - Output and arguments
 
@@ -776,6 +779,98 @@ case "screen":
 case "activate":
     let app = targetApp(pid: pidOpt, name: appOpt)
     emit(["ok": app.activate(options: [.activateAllWindows]), "app": app.localizedName ?? ""])
+
+case "under":
+    // under <x> <y> [--skip NAME]: the window under a screen point (global points, top-left), the front one first;
+    // windows of the app named NAME (Handry's own layers) are skipped. Titles need Screen Recording.
+    let skip = option("--skip")
+    guard args.count >= 2, let x = Double(args[0]), let y = Double(args[1]) else { fail("Kullanım: under <x> <y> [--skip NAME]", code: "BAD_ARGS") }
+    let info = (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]) ?? []
+    let point = CGPoint(x: x, y: y)
+    // Ordinary windows (layer 0) first; then anything else that isn't Handry (the menu bar, the Dock).
+    let candidates = info.filter { ($0[kCGWindowOwnerName as String] as? String) != skip && (($0[kCGWindowAlpha as String] as? Double) ?? 1) > 0.05 }
+    let hitWindow = { (w: [String: Any]) -> Bool in
+        let b = w[kCGWindowBounds as String] as? [String: Any] ?? [:]
+        let r = CGRect(x: (b["X"] as? NSNumber)?.doubleValue ?? 0, y: (b["Y"] as? NSNumber)?.doubleValue ?? 0,
+                       width: (b["Width"] as? NSNumber)?.doubleValue ?? 0, height: (b["Height"] as? NSNumber)?.doubleValue ?? 0)
+        return r.contains(point) && r.width > 4 && r.height > 4
+    }
+    guard let w = candidates.first(where: { ($0[kCGWindowLayer as String] as? Int) == 0 && hitWindow($0) }) ?? candidates.first(where: hitWindow) else {
+        emit(["found": false]); break
+    }
+    let b = w[kCGWindowBounds as String] as? [String: Any] ?? [:]
+    let owner = w[kCGWindowOwnerPID as String] as? Int ?? 0
+    emit(["found": true, "id": w[kCGWindowNumber as String] as? Int ?? 0, "pid": owner, "app": w[kCGWindowOwnerName as String] as? String ?? "",
+          "bundleId": NSRunningApplication(processIdentifier: pid_t(owner))?.bundleIdentifier ?? "",
+          "title": w[kCGWindowName as String] as? String ?? "", "layer": w[kCGWindowLayer as String] as? Int ?? 0,
+          "x": (b["X"] as? NSNumber)?.intValue ?? 0, "y": (b["Y"] as? NSNumber)?.intValue ?? 0,
+          "w": (b["Width"] as? NSNumber)?.intValue ?? 0, "h": (b["Height"] as? NSNumber)?.intValue ?? 0])
+
+case "hitin":
+    // hitin <x> <y> --pid N: the control of app N at a screen point, asked of that app only, so a layer of
+    // another app on top (Handry's pen) doesn't get in the way. A text inside a button names the button.
+    guard args.count >= 2, let x = Double(args[0]), let y = Double(args[1]), let pidText = pidOpt, let pid = pid_t(pidText) else {
+        fail("Kullanım: hitin <x> <y> --pid N", code: "BAD_ARGS")
+    }
+    var found: AXUIElement?
+    guard AXUIElementCopyElementAtPosition(AXUIElementCreateApplication(pid), Float(x), Float(y), &found) == .success, var el = found else {
+        emit(["found": false]); break
+    }
+    var candidate: AXUIElement? = el
+    for _ in 0..<5 {
+        guard let c = candidate else { break }
+        if ACTIONABLE.contains(attribute(c, "AXRole") as? String ?? "") { el = c; break }
+        candidate = attribute(c, "AXParent").map { $0 as! AXUIElement }
+    }
+    let a = fetch(el)
+    let pos = a["AXPosition"] as? CGPoint, size = a["AXSize"] as? CGSize
+    var out: [String: Any] = ["found": true, "role": String((a["AXRole"] as? String ?? "").dropFirst(2)), "name": cut(labelOf(el), 80)]
+    if let sub = a["AXSubrole"] as? String { out["subrole"] = String(sub.dropFirst(2)) }
+    if let v = text(a["AXValue"]) { out["value"] = cut(v, 80) }
+    if let help = text(a["AXHelp"]) { out["help"] = cut(help, 120) }
+    if let pos, let size { out["frame"] = ["x": whole(pos.x), "y": whole(pos.y), "w": whole(size.width), "h": whole(size.height)] }
+    emit(out)
+
+case "capture":
+    // capture <x> <y> <w> <h> --out FILE [--without NAME]: a PNG of that part of the screen (global points, one
+    // display) at the display's pixels; --without leaves out the windows of the app named NAME, so what is under
+    // Handry's own layers can be seen. Needs Screen Recording and macOS 14.
+    let out = option("--out")
+    let without = option("--without")
+    guard args.count >= 4, let out, let x = Double(args[0]), let y = Double(args[1]), let w = Double(args[2]), let h = Double(args[3]), w > 0, h > 0 else {
+        fail("Kullanım: capture <x> <y> <w> <h> --out FILE [--without NAME]", code: "BAD_ARGS")
+    }
+    guard #available(macOS 14.0, *) else { fail("Bu macOS'ta ekran yakalama yok (macOS 14 gerekir).", code: "UNSUPPORTED") }
+    var problem: String? = "zaman aşımı"
+    var size = CGSize.zero
+    let done = DispatchSemaphore(value: 0)
+    SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: true) { content, error in
+        guard let content else { problem = error?.localizedDescription ?? "ekran içeriği alınamadı"; done.signal(); return }
+        let rect = CGRect(x: x, y: y, width: w, height: h)
+        guard let display = content.displays.first(where: { $0.frame.contains(CGPoint(x: rect.midX, y: rect.midY)) }) ?? content.displays.first else {
+            problem = "ekran bulunamadı"; done.signal(); return
+        }
+        let left = content.applications.filter { $0.applicationName == without }
+        let filter = SCContentFilter(display: display, excludingApplications: left, exceptingWindows: [])
+        let config = SCStreamConfiguration()
+        let local = rect.intersection(display.frame).offsetBy(dx: -display.frame.minX, dy: -display.frame.minY)
+        let scale = CGFloat(filter.pointPixelScale)
+        config.sourceRect = local
+        config.width = max(1, Int(local.width * scale))
+        config.height = max(1, Int(local.height * scale))
+        config.showsCursor = false
+        SCScreenshotManager.captureImage(contentFilter: filter, configuration: config) { image, error in
+            defer { done.signal() }
+            guard let image else { problem = error?.localizedDescription ?? "görüntü alınamadı"; return }
+            guard let dest = CGImageDestinationCreateWithURL(URL(fileURLWithPath: out) as CFURL, "public.png" as CFString, 1, nil) else { problem = "dosya yazılamadı"; return }
+            CGImageDestinationAddImage(dest, image, nil)
+            problem = CGImageDestinationFinalize(dest) ? nil : "dosya yazılamadı"
+            size = CGSize(width: image.width, height: image.height)
+        }
+    }
+    _ = done.wait(timeout: .now() + 10)
+    if let problem { fail("Ekran yakalanamadı: \(problem)", code: "CAPTURE") }
+    emit(["ok": true, "file": out, "w": Int(size.width), "h": Int(size.height)])
 
 default:
     emit(["commands": ["trusted", "apps", "frontmost", "tree", "press", "focus", "setvalue", "type", "key", "click", "scroll", "activate"]])

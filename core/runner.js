@@ -10,6 +10,7 @@ import { clearStop } from '../guard/stop.js';
 import { setActivity } from './activity.js';
 import { currentChat, newChat, addUser, addAnswer, brainTurn, brainDone, stepText, NEW_CHAT } from './chats.js';
 import * as desktop from '../hands/desktop.js';
+import * as marks from '../hands/marks.js';
 import { APP_NAME } from './brand.js';
 import { T } from './i18n.js';
 
@@ -90,7 +91,7 @@ const sources = () => T(
  * chat: false keeps the command out of the chats (tests, jevis_do from other
  * Claude sessions). chatId picks a chat; otherwise the current one is used.
  */
-export async function runCommand({ text, brainId = config().brain.default, sessionId, fast = true, model, effort, onEvent = () => {}, signal, brainOverride, chatId, switchChat = true, source, chat: useChat = process.env.JEVIS_NO_CHAT !== '1' }) {
+export async function runCommand({ text, brainId = config().brain.default, sessionId, fast = true, model, effort, onEvent = () => {}, signal, brainOverride, chatId, switchChat = true, source, marks: withMarks = false, chat: useChat = process.env.JEVIS_NO_CHAT !== '1' }) {
   const started = Date.now();
   const runId = `run-${Date.now().toString(36)}`;
   const finish = (out, extra = {}) => ({ type: 'done', runId, ms: Date.now() - started, ...out, ...extra });
@@ -120,8 +121,14 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
     addAnswer(chat, { text: done.text || '', via, steps, ms: done.ms, runId, model: done.model, ok: !done.stopped });
     return { ...done, chat: { id: chat.id, title: chat.title } };
   };
+  // A question about the user's drawing (the pen): it goes to the brain, which looks at the drawing first.
+  const drawing = withMarks ? marks.current() : null;
+  if (drawing) {
+    marks.setQuestion(text, source || 'bar', drawing.id);
+    fast = false;
+  }
   try {
-    const recipe = recipeCall(text);
+    const recipe = drawing ? null : recipeCall(text);
     if (recipe) {
       const out = await runRecipeWithHandoff({ ...recipe, brain: getBrain(brainId), onEvent: emit, signal, model, effort });
       return record(finish(out, { recipe: recipe.name, brain: brainId, stopped: Boolean(out.stopped) }), 'recipe');
@@ -155,7 +162,8 @@ export async function runCommand({ text, brainId = config().brain.default, sessi
     setActivity('thinking');
     // The chat's own session, told what happened without it and what is on screen now.
     const key = `${brain.id}|${usedModel || model || ''}`;
-    const turn = chat ? brainTurn(chat, text, { key, screen: await screenNow() }) : { message: text, sessionId, fresh: !sessionId };
+    const asked = drawing ? `${text}\n\n${T('[Kullanıcı ekranda bir yer çizdi/işaretledi ve bunu onun hakkında soruyor: önce screen_marks çağır.]', '[The user drew on / marked something on the screen and asks this about it: call screen_marks first.]')}` : text;
+    const turn = chat ? brainTurn(chat, asked, { key, screen: await screenNow() }) : { message: asked, sessionId, fresh: !sessionId };
     const out = await brain.run({ text: withNow(turn.message), sessionId: turn.sessionId, onEvent: emit, signal, model, effort });
     if (chat) brainDone(chat, { sessionId: out.sessionId, key, fresh: turn.fresh });
     // Next time the same task (with other details) runs without the brain.
