@@ -144,10 +144,10 @@ Circle or underline something and ask "what is this?" or "do I click here?". Cla
 The camera guesses where on the screen you are looking. For now it only shows the spot with a see-through circle; scrolling as you read and "open that" come later.
 
 1. Menu › **Eye Tracking**. The first time, macOS asks for the camera; allowing it is up to you.
-2. The first time, a calibration: green dots come one after another; look at each with your eyes only, keeping your head still. It takes about 20 seconds; `Esc` cancels.
-3. Then a soft blue circle with a short trail follows where you look. How far off it is shows on the screen.
+2. The first time, a calibration (about 35 seconds; `Esc` cancels): first look at 9 green dots with your eyes only, keeping your head still. Then, at 3 dots, keep your eyes on the dot and move your head slowly: left and right, up and down, a little closer and back. This part is what keeps it right when you move your head.
+3. Then a soft blue circle with a short trail follows where you look. How far off it is shows on the screen. Close your eyes and it says "Eyes closed"; look away and it says "You aren't looking at the screen", and the circle goes.
 
-- To set it up again: menu › **Calibrate Eyes**. Do it again on another display, or when your head is in a very different place.
+- To set it up again: menu › **Calibrate Eyes**. Do it again on another display.
 - The camera picture never leaves the Mac and isn't saved. The camera's green light is on while eye tracking runs.
 - With a webcam, expect it to be off by 1-2 cm; more near the edges.
 

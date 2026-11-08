@@ -1,11 +1,17 @@
 // Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry
 // Eye tracking. This page covers one screen in a see-through panel of Handry.app (app/macos/Gaze.swift). It
-// opens the camera, finds the face, the eyelids and the irises with MediaPipe's face model (on this Mac; no
-// picture leaves it), and maps both eyes and the head's pose to a point of the screen:
-//   calibrate: nine points one after another; the user looks at each while it shrinks. A ridge regression is
-//              fitted, then four more points measure how far off it is. Saved in ~/.jevis/gaze/calibration.json.
-//   track:     a soft dot with a short trail shows where the user looks (smoothed with a One Euro filter).
-// Webcam gaze is good to about a button's size (1-1.5°), worse near the edges and when the head moves a lot.
+// opens the camera and, with MediaPipe's face model (on this Mac; no picture leaves it), finds the head's place
+// and turn (its transformation matrix, in cm), where each iris sits in its eye, and the eye blendshapes (blink,
+// look in/out/up/down). Where the user looks follows the geometry: the gaze leaves the head at its place and
+// goes in the head's direction plus the eye's own turn; how far it lands sideways grows with the distance to the
+// screen. So the model's features are the head's place, and the head and eye angles times the distance, which
+// keeps working when the head moves, turns, comes closer or goes back.
+//   calibrate: nine points looked at with the head still, then three looked at while the head moves slowly
+//              (so moving and turning the head are learned too); a ridge regression; four points measure how
+//              far off it is. Saved in ~/.jevis/gaze/calibration.json.
+//   track:     a soft dot with a short trail where the user looks (One Euro filter); "eyes closed" and "not
+//              looking at the screen" (no face, a turned-away head, or a gaze off the screen) hide it.
+// Webcam gaze is good to about a button's size (1-1.5°), worse near the edges.
 import { FaceLandmarker, FilesetResolver } from '/vendor/mediapipe/vision_bundle.mjs';
 
 const mode = new URLSearchParams(location.search).get('mode') || 'track';
@@ -45,7 +51,7 @@ async function open() {
   const files = await FilesetResolver.forVisionTasks('/vendor/mediapipe/wasm');
   const options = gpu => ({
     baseOptions: { modelAssetPath: '/vendor/models/face_landmarker.task', delegate: gpu ? 'GPU' : 'CPU' },
-    runningMode: 'VIDEO', numFaces: 1, outputFacialTransformationMatrixes: true
+    runningMode: 'VIDEO', numFaces: 1, outputFacialTransformationMatrixes: true, outputFaceBlendshapes: true
   });
   try { landmarker = await FaceLandmarker.createFromOptions(files, options(true)); } catch { landmarker = await FaceLandmarker.createFromOptions(files, options(false)); }
   tell('');
@@ -65,18 +71,35 @@ function eye(lm, iris, a, b, top, bottom) {
   return [along, across, open];
 }
 
-/** What the gaze is told from: both irises in their eyes, how open the eyes are, the head's turn and place. */
+/**
+ * What the gaze is told from, for one camera frame: the head's place (cm) and turn (radians), each iris in its
+ * eye, and the eye blendshapes. null without a face.
+ */
 function features(result) {
   const lm = result.faceLandmarks?.[0];
   if (!lm) return null;
   const L = eye(lm, 468, 33, 133, 159, 145);
   const R = eye(lm, 473, 362, 263, 386, 374);
   const m = result.facialTransformationMatrixes?.[0]?.data;
-  let yaw = 0, pitch = 0, tx = 0, ty = 0, tz = 0;
-  if (m) { yaw = Math.atan2(m[8], m[10]); pitch = Math.asin(Math.max(-1, Math.min(1, -m[9]))); tx = m[12] / 10; ty = m[13] / 10; tz = m[14] / 10; }
-  const open = (L[2] + R[2]) / 2;
-  if (open < 0.12) return null; // a blink
-  return [L[0], L[1], R[0], R[1], open, yaw, pitch, tx, ty, tz];
+  const shapes = Object.fromEntries((result.faceBlendshapes?.[0]?.categories || []).map(c => [c.categoryName, c.score]));
+  const b = name => shapes[name] || 0;
+  let yaw = 0, pitch = 0, roll = 0, tx = 0, ty = 0, tz = -50;
+  if (m) {
+    // column-major 4×4: the rotation in m[0..10], the place in m[12..14]
+    yaw = Math.atan2(m[8], m[10]);
+    pitch = Math.asin(Math.max(-1, Math.min(1, -m[9])));
+    roll = Math.atan2(m[1], m[5]);
+    tx = m[12]; ty = m[13]; tz = m[14];
+  }
+  return {
+    tx, ty, d: Math.max(15, Math.abs(tz)), yaw, pitch, roll,
+    // the irises: along the eye (centred on 0) and across it
+    ex: (L[0] + R[0]) / 2 - 0.5, ey: (L[1] + R[1]) / 2, open: (L[2] + R[2]) / 2,
+    // the model's own reading of the eyes' turn
+    lookH: (b('eyeLookOutLeft') - b('eyeLookInLeft') + b('eyeLookInRight') - b('eyeLookOutRight')) / 2,
+    lookV: (b('eyeLookUpLeft') + b('eyeLookUpRight') - b('eyeLookDownLeft') - b('eyeLookDownRight')) / 2,
+    blink: (b('eyeBlinkLeft') + b('eyeBlinkRight')) / 2
+  };
 }
 
 let lastVideoTime = -1;
@@ -86,7 +109,9 @@ function loop() {
     lastVideoTime = video.currentTime;
     const result = landmarker.detectForVideo(video, performance.now());
     const f = features(result);
-    if (f) latest = { features: f, at: performance.now() };
+    const now = performance.now();
+    if (f) latest = { features: f, at: now };
+    else if (latest && now - latest.at > 400) latest = { features: null, at: now }; // the face is gone
   }
   requestAnimationFrame(loop);
 }
@@ -95,9 +120,15 @@ function loop() {
 // The model: ridge regression from the features (and a few squares) to x and y on this screen
 // ---------------------------------------------------------------------------
 
+const VERSION = 2;
+/**
+ * The features, as the geometry has them: the head's place, and every angle (the head's, the eye's) times the
+ * distance to the screen (an angle moves the point on the screen the more, the farther the head is).
+ */
 function expand(f) {
-  const [lx, ly, rx, ry] = f;
-  return [...f, lx * lx, ly * ly, rx * rx, ry * ry, lx * ly, rx * ry, f[5] * f[5], f[6] * f[6]];
+  const { tx, ty, d, yaw, pitch, roll, ex, ey, open, lookH, lookV } = f;
+  return [tx, ty, d, d * Math.tan(yaw), d * Math.tan(pitch), d * ex, d * ey, d * lookH, d * lookV, d * (open - 0.3), d * roll,
+    d * ex * Math.abs(ex), d * lookV * Math.abs(lookV)];
 }
 
 function solve(A, b) {
@@ -118,7 +149,7 @@ function solve(A, b) {
   return M.map((row, i) => row[n] / (row[i] || 1e-12));
 }
 
-function fitModel(samples, lambda = 0.02) {
+function fitModel(samples, lambda = 0.01) {
   const X = samples.map(s => expand(s.features));
   const d = X[0].length;
   const mean = Array.from({ length: d }, (_, j) => X.reduce((a, x) => a + x[j], 0) / X.length);
@@ -127,7 +158,7 @@ function fitModel(samples, lambda = 0.02) {
   const k = d + 1;
   const XtX = Array.from({ length: k }, (_, i) => Array.from({ length: k }, (_, j) => Z.reduce((a, z) => a + z[i] * z[j], 0) + (i === j && i > 0 ? lambda * Z.length : 0)));
   const weights = ['x', 'y'].map(axis => solve(XtX, Array.from({ length: k }, (_, i) => Z.reduce((a, z, n) => a + z[i] * samples[n][axis], 0))));
-  return { mean, std, weights, width: W(), height: H() };
+  return { version: VERSION, mean, std, weights, width: W(), height: H() };
 }
 
 function predict(model, f) {
@@ -155,36 +186,46 @@ function target(x, y, t) {
   ctx.fill();
 }
 
-/** Shows a point, waits until the eyes are on it, then collects what the camera sees. */
-async function collect(x, y, { settle = 650, hold = 900 } = {}) {
+/** Shows a point, waits until the eyes are on it, then collects what the camera sees (open eyes only). */
+async function collect(x, y, { settle = 650, hold = 900, shrink = true } = {}) {
   const got = [];
   const started = performance.now();
   let lastAt = 0;
   while (performance.now() - started < settle + hold) {
     const t = (performance.now() - started) / (settle + hold);
-    target(x, y, t);
-    if (performance.now() - started > settle && latest && latest.at !== lastAt) { lastAt = latest.at; got.push({ features: latest.features, x, y }); }
+    target(x, y, shrink ? t : 0.55 + 0.1 * Math.sin(t * 20));
+    const f = latest?.features;
+    if (performance.now() - started > settle && f && latest.at !== lastAt && f.blink < 0.45) { lastAt = latest.at; got.push({ features: f, x, y }); }
     await new Promise(r => requestAnimationFrame(r));
   }
   return got;
 }
 
+async function countdown(main, seconds = 3) {
+  for (let i = seconds; i > 0; i--) { tell(main, T(`${i}…  (Esc: vazgeç)`, `${i}…  (Esc: cancel)`)); await sleep(900); }
+  tell('');
+}
+
 async function calibrate() {
   document.body.classList.add('calibrating');
-  for (let i = 3; i > 0; i--) {
-    tell(T('Başını rahat tut, sadece gözlerinle yeşil noktaya bak.', 'Keep your head still and follow the green dot with your eyes only.'), T(`${i}…  (Esc: vazgeç)`, `${i}…  (Esc: cancel)`));
-    await sleep(900);
-  }
-  tell('');
+  await countdown(T('Başını rahat tut, sadece gözlerinle yeşil noktaya bak.', 'Keep your head still and follow the green dot with your eyes only.'));
   const m = 0.08;
   const xs = [m, 0.5, 1 - m], ys = [m, 0.5, 1 - m];
   const points = ys.flatMap(y => xs.map(x => [x * W(), y * H()]));
   points.sort(() => Math.random() - 0.5);
   let samples = [];
   for (const [x, y] of points) samples = samples.concat(await collect(x, y));
-  if (samples.length < 60) throw new Error(T('Yüzün yeterince görülemedi. Işığı ve kameranın açısını kontrol et.', "Your face wasn't seen well enough. Check the light and the camera's angle."));
+  // the same points from other places of the head: this is what makes moving the head work
+  await countdown(T('Şimdi gözünü noktadan ayırma ve başını yavaşça oynat: sağa sola, aşağı yukarı, biraz öne ve geriye.', 'Now keep your eyes on the dot and move your head slowly: left and right, up and down, a little closer and back.'), 3);
+  for (const [x, y] of [[0.5, 0.5], [0.2, 0.3], [0.8, 0.7]]) {
+    tell(T('Gözün noktada, başın yavaşça hareket ediyor…', 'Eyes on the dot, head moving slowly…'));
+    samples = samples.concat(await collect(x * W(), y * H(), { settle: 500, hold: 4200, shrink: false }));
+  }
+  tell('');
+  if (samples.length < 120) throw new Error(T('Yüzün yeterince görülemedi. Işığı ve kameranın açısını kontrol et.', "Your face wasn't seen well enough. Check the light and the camera's angle."));
   const model = fitModel(samples);
   // four points it wasn't fitted on: how far off is it?
+  await countdown(T('Son dört nokta: başını rahat bırak, noktalara bak.', 'Four last points: relax your head and look at the dots.'), 2);
   const checks = [[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7]].map(([x, y]) => [x * W(), y * H()]);
   const errors = [];
   for (const [x, y] of checks) {
@@ -222,43 +263,64 @@ function oneEuro({ minCutoff = 1.2, beta = 0.004, dCutoff = 1 } = {}) {
   };
 }
 
+/** Where the user is: looking at a point, eyes closed, or not looking at the screen. */
+function stateOf(f, p) {
+  if (!f) return 'away';
+  if (f.blink > 0.5) return 'closed';
+  const margin = 0.15;
+  if (Math.abs(f.yaw) > 0.75 || Math.abs(f.pitch) > 0.6) return 'away';
+  if (p.x < -margin * W() || p.x > (1 + margin) * W() || p.y < -margin * H() || p.y > (1 + margin) * H()) return 'away';
+  return 'looking';
+}
+
 function follow(model) {
   const fx = oneEuro(), fy = oneEuro();
   const trail = [];
-  let lastAt = 0, seenAt = performance.now();
+  let lastAt = 0, state = 'looking', stateSince = performance.now(), told = '';
   const shown = performance.now();
   const draw = () => {
     if (!stream) return;
     const now = performance.now();
     if (latest && latest.at !== lastAt) {
       lastAt = latest.at;
-      seenAt = now;
-      const p = predict(model, latest.features);
-      const x = Math.max(0, Math.min(W(), fx(p.x, now))), y = Math.max(0, Math.min(H(), fy(p.y, now)));
-      trail.push({ x, y, at: now });
+      const f = latest.features;
+      const p = f ? predict(model, f) : null;
+      const next = stateOf(f, p);
+      if (next !== state) { state = next; stateSince = now; native({ type: 'state', state }); }
+      if (state === 'looking') {
+        const x = Math.max(0, Math.min(W(), fx(p.x, now))), y = Math.max(0, Math.min(H(), fy(p.y, now)));
+        trail.push({ x, y, at: now });
+      }
     }
     while (trail.length && now - trail[0].at > 700) trail.shift();
     ctx.clearRect(0, 0, W(), H());
-    const lost = now - seenAt > 900;
-    trail.forEach((p, i) => {
-      const k = (i + 1) / trail.length;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 6 + 10 * k, 0, 2 * Math.PI);
-      ctx.fillStyle = `rgba(90, 200, 255, ${(lost ? 0.04 : 0.1) * k})`;
-      ctx.fill();
-    });
-    const head = trail[trail.length - 1];
-    if (head) {
-      ctx.beginPath();
-      ctx.arc(head.x, head.y, 30, 0, 2 * Math.PI);
-      ctx.fillStyle = `rgba(90, 200, 255, ${lost ? 0.06 : 0.18})`;
-      ctx.fill();
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = `rgba(160, 225, 255, ${lost ? 0.15 : 0.55})`;
-      ctx.stroke();
+    // a short gap (a blink) keeps the last place; a longer one hides the dot
+    const hidden = state !== 'looking' && now - stateSince > 250;
+    if (!hidden) {
+      trail.forEach((p, i) => {
+        const k = (i + 1) / trail.length;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 6 + 10 * k, 0, 2 * Math.PI);
+        ctx.fillStyle = `rgba(90, 200, 255, ${0.1 * k})`;
+        ctx.fill();
+      });
+      const head = trail[trail.length - 1];
+      if (head) {
+        ctx.beginPath();
+        ctx.arc(head.x, head.y, 30, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(90, 200, 255, 0.18)';
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(160, 225, 255, 0.55)';
+        ctx.stroke();
+      }
+    } else {
+      trail.length = 0;
     }
-    if (now - shown < 5000) tell(T('Göz takibi açık', 'Eye tracking is on'), T(`Ortalama sapma ~${model.error} nokta · kapatmak için menü › Göz Takibi`, `Off by ~${model.error} points on average · menu › Eye Tracking to turn it off`));
-    else if (say.innerHTML) tell('');
+    const message = hidden && now - stateSince > 400
+      ? (state === 'closed' ? T('👁 Gözler kapalı', '👁 Eyes closed') : T('👁 Ekrana bakmıyorsun', "👁 You aren't looking at the screen"))
+      : now - shown < 5000 ? `${T('Göz takibi açık', 'Eye tracking is on')}|${T(`Ortalama sapma ~${model.error} nokta · kapatmak için menü › Göz Takibi`, `Off by ~${model.error} points on average · menu › Eye Tracking to turn it off`)}` : '';
+    if (message !== told) { told = message; const [a, b2 = ''] = message.split('|'); tell(a, b2); }
     requestAnimationFrame(draw);
   };
   draw();
@@ -270,7 +332,8 @@ function follow(model) {
     let model = null;
     if (mode !== 'calibrate') {
       model = (await (await api('/api/gaze/calibration')).json()).calibration;
-      if (model && (Math.abs(model.width - W()) > 4 || Math.abs(model.height - H()) > 4)) model = null; // made on another screen
+      // made on another screen, or by the earlier model that didn't follow the head
+      if (model && (model.version !== VERSION || Math.abs(model.width - W()) > 4 || Math.abs(model.height - H()) > 4)) model = null;
     }
     if (!model) {
       native({ type: 'calibrating' });

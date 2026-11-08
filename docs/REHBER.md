@@ -144,10 +144,10 @@ Bir yeri daire içine alıp ya da altını çizip "bu ne?", "buraya mı basayım
 Kamera ekranın neresine baktığını tahmin eder. Şimdilik sadece baktığın yeri saydam bir daireyle gösterir; ilerde okurken kaydırma ve "şunu aç" gelecek.
 
 1. Menü › **Göz Takibi**. İlk seferde macOS kamera izni sorar, izin vermek senin kararın.
-2. İlk açılışta kalibrasyon: ekranda sırayla yeşil noktalar çıkar, başını oynatmadan sadece gözlerinle bak. Yaklaşık 20 saniye sürer, `Esc` vazgeçer.
-3. Sonra baktığın yeri mavi saydam bir daire ve kısa bir iz takip eder. Ne kadar saptığı ekranda yazar.
+2. İlk açılışta kalibrasyon (yaklaşık 35 saniye, `Esc` vazgeçer): önce 9 yeşil noktaya başını oynatmadan sadece gözlerinle bak. Sonra 3 noktada gözünü noktadan ayırmadan başını yavaşça oynat: sağa sola, aşağı yukarı, biraz öne ve geriye. Bu bölüm başını oynattığında da doğru çalışmasını sağlar.
+3. Sonra baktığın yeri mavi saydam bir daire ve kısa bir iz takip eder. Ne kadar saptığı ekranda yazar. Gözlerini kapatınca "Gözler kapalı", ekrana bakmayınca "Ekrana bakmıyorsun" yazar ve daire kaybolur.
 
-- Yeniden ayar için menü › **Gözü Kalibre Et**. Başka bir ekranda ya da başın çok yer değiştirdiyse yeniden kalibre et.
+- Yeniden ayar için menü › **Gözü Kalibre Et**. Başka bir ekranda yeniden kalibre et.
 - Kamera görüntüsü Mac'ten çıkmaz, kaydedilmez. Göz takibi açıkken kameranın yeşil ışığı yanar.
 - Web kamerasıyla beklenen sapma 1-2 cm; ekranın kenarlarında daha fazla.
 
