@@ -101,7 +101,7 @@ function sign(target, identity, entitlementValues, identifier) {
   run('codesign', [...args, target]);
 }
 
-const APP_RIGHTS = ['com.apple.security.automation.apple-events', 'com.apple.security.device.audio-input'];
+const APP_RIGHTS = ['com.apple.security.automation.apple-events', 'com.apple.security.device.audio-input', 'com.apple.security.device.camera'];
 const NODE_RIGHTS = ['com.apple.security.cs.allow-jit', 'com.apple.security.cs.allow-unsigned-executable-memory'];
 
 function buildBundle(identity) {

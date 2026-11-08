@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<!-- Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry -->
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title data-en="{{APP}} eye tracking">{{APP}} göz takibi</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; cursor: none; }
+    body.calibrating { background: rgba(8, 8, 14, 0.82); }
+    canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+    video { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .say { position: fixed; left: 50%; top: 18%; transform: translateX(-50%); max-width: 70vw; padding: 14px 22px; border-radius: 16px;
+      font: 500 17px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; color: #fff; text-align: center; background: rgba(0, 0, 0, 0.55); }
+    .say:empty { display: none; }
+    .say small { display: block; margin-top: 4px; font-size: 13px; color: rgba(255, 255, 255, 0.6); }
+  </style>
+</head>
+<body>
+  <video id="video" playsinline muted></video>
+  <canvas id="canvas"></canvas>
+  <div class="say" id="say"></div>
+  <script src="common.js"></script>
+  <script type="module" src="gaze.js"></script>
+</body>
+</html>

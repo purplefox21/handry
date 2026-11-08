@@ -40,6 +40,8 @@ const SESSION_TOKEN = crypto.randomBytes(24).toString('hex');
 const ALLOWED_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`]);
 
 const MIME_TYPES = {
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.wasm': 'application/wasm',
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -48,6 +50,37 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon'
 };
+
+const readJsonFile = file => { try { return JSON.parse(fs.readFileSync(file, 'utf-8')); } catch { return null; } };
+
+/** A file under dir (never outside it). */
+function serveFile(res, dir, name) {
+  const file = path.resolve(dir, name);
+  if (!file.startsWith(path.resolve(dir) + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('404 Not Found');
+  }
+  res.writeHead(200, { 'Content-Type': MIME_TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'max-age=86400' });
+  fs.createReadStream(file).pipe(res);
+}
+
+const FACE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+let faceModelLoading = null;
+/** MediaPipe's face model (with the irises), downloaded once from Google's model store. */
+function faceModel() {
+  const file = path.join(homeDir('models'), 'face_landmarker.task');
+  if (fs.existsSync(file) && fs.statSync(file).size > 1e6) return Promise.resolve(file);
+  faceModelLoading ||= (async () => {
+    const r = await fetch(FACE_MODEL_URL, { signal: AbortSignal.timeout(60000) });
+    if (!r.ok) throw new Error(T(`Yüz modeli indirilemedi (${r.status}).`, `The face model could not be downloaded (${r.status}).`));
+    const data = Buffer.from(await r.arrayBuffer());
+    if (data.length < 1e6) throw new Error(T('Yüz modeli eksik indi.', 'The face model came down incomplete.'));
+    fs.writeFileSync(`${file}.tmp`, data);
+    fs.renameSync(`${file}.tmp`, file);
+    return file;
+  })().finally(() => { faceModelLoading = null; });
+  return faceModelLoading;
+}
 
 // Rejects DNS-rebinding hosts and requests coming from other origins.
 function isTrustedRequest(req) {
@@ -243,6 +276,13 @@ const ROUTES = {
     }
   },
   // Timers and watches: the list (with what Handry saw last) and cancelling one or all.
+  // Eye tracking: the user's calibration (what maps the eyes to the screen), kept between runs.
+  'GET /api/gaze/calibration': (req, res) => sendJson(res, 200, { calibration: readJsonFile(path.join(homeDir('gaze'), 'calibration.json')) }),
+  'POST /api/gaze/calibration': async (req, res) => {
+    const body = JSON.parse((await readBody(req)).toString() || '{}');
+    fs.writeFileSync(path.join(homeDir('gaze'), 'calibration.json'), JSON.stringify({ ...body, at: Date.now() }));
+    sendJson(res, 200, { ok: true });
+  },
   // The pen: the user's drawing, and the Claude Code sessions a question about it can be sent on to.
   'GET /api/marks': async (req, res) => {
     const d = marks.current();
@@ -312,6 +352,13 @@ const server = http.createServer(async (req, res) => {
       else res.end();
     }
     return;
+  }
+
+  // Eye tracking (app/public/gaze.html): MediaPipe's files from node_modules, and its face model, which is
+  // fetched from Google once (~3.7 MB) and kept in ~/.jevis/models. Nothing from the camera leaves the Mac.
+  if (urlPath.startsWith('/vendor/mediapipe/')) return serveFile(res, path.join(ROOT, 'node_modules', '@mediapipe', 'tasks-vision'), urlPath.slice('/vendor/mediapipe/'.length));
+  if (urlPath === '/vendor/models/face_landmarker.task') {
+    try { return serveFile(res, homeDir('models'), path.basename(await faceModel())); } catch (err) { res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end(err.message); }
   }
 
   if (urlPath === '/guide') {

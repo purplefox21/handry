@@ -171,6 +171,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
     var overlay: Overlay?
     var pen: Pen?
     var penItems: [NSMenuItem] = []
+    let gaze = Gaze()
+    var gazeItems: [NSMenuItem] = []
     let permissions = PermissionsWindow()
     var activitySeen: Double = 0
     var window: NSWindow!
@@ -213,6 +215,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
             self?.penItems.forEach { $0.state = on ? .on : .off }
         }
         pen?.onFinish = { [weak self] _ in self?.askAboutDrawing() }
+        gaze.uiDelegate = self
+        gaze.onChange = { [weak self] on in self?.gazeItems.forEach { $0.state = on ? .on : .off } }
         watchActivity()
         // Not over a full-screen app (a game): the bar would take its keyboard.
         if !NSScreen.screens.contains(where: { s in visibleWindows().contains { $0.frame.equalTo(s.frame) && $0.pid == NSWorkspace.shared.frontmostApplication?.processIdentifier } }) {
@@ -291,6 +295,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         appMenu.addItem(item(L("\(APP_NAME) Çubuğu   ⌥Space", "\(APP_NAME) Bar   ⌥Space"), #selector(toggleBar)))
         appMenu.addItem(item(L("Büyük Pencere", "\(APP_NAME) Window"), #selector(openWindow)))
         appMenu.addItem(penItem())
+        appMenu.addItem(gazeItem())
+        appMenu.addItem(item(L("Gözü Kalibre Et", "Calibrate Eyes"), #selector(calibrateGaze)))
         appMenu.addItem(wakeItem())
         appMenu.addItem(.separator())
         appMenu.addItem(item(L("Rehber", "Guide"), #selector(openGuide)))
@@ -353,6 +359,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         menu.addItem(wakeItem())
         menu.addItem(item(L("Bas-Konuş   ⌥⇧Space (basılı tut)", "Push to Talk   ⌥⇧Space (hold)"), #selector(toggleBar)))
         menu.addItem(penItem())
+        menu.addItem(gazeItem())
+        menu.addItem(item(L("Gözü Kalibre Et", "Calibrate Eyes"), #selector(calibrateGaze)))
         menu.addItem(item(L("⛔ Acil Durdur   ⌥Esc", "⛔ Emergency Stop   ⌥Esc"), #selector(emergencyStop)))
         menu.addItem(.separator())
         menu.addItem(foxMenuItem())
@@ -1006,6 +1014,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         barWeb.evaluateJavaScript(click)
         listener.cancel()
         pen?.finish(ask: false)
+        gaze.stop()
         statusItem.button?.title = " ⛔"
         flashUntil = Date().addingTimeInterval(3)
     }
@@ -1027,6 +1036,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, NSWindow
         if bar.isVisible { hideBar() }
         pen.start()
     }
+
+    // MARK: Eye tracking (app/macos/Gaze.swift)
+
+    func gazeItem() -> NSMenuItem {
+        let i = item(L("Göz Takibi", "Eye Tracking"), #selector(toggleGaze))
+        i.image = NSImage(systemSymbolName: "eye", accessibilityDescription: L("Göz Takibi", "Eye Tracking"))
+        i.state = gaze.isOn ? .on : .off
+        gazeItems.append(i)
+        return i
+    }
+
+    @objc func toggleGaze() { gaze.toggle() }
+
+    @objc func calibrateGaze() { gaze.start(calibrate: true) }
 
     /// The user drew something and is done: the bar opens with the drawing attached to the next question.
     func askAboutDrawing() {

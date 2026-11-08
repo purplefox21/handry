@@ -19,7 +19,7 @@ export const INSTALLED = path.join(os.homedir(), 'Applications', `${APP.name}.ap
 export const OLD_INSTALLED = ['Handry.app', 'Foxie.app', 'Inaro.app'].filter(n => n !== `${APP.name}.app`).map(n => path.join(os.homedir(), 'Applications', n));
 export const BUNDLE_ID = 'studio.purpfox.foxie';
 
-export const APP_SOURCES = ['Handry.swift', 'Listener.swift', 'Fox.swift', 'Permissions.swift', 'Overlay.swift', 'Pen.swift'].map(f => path.join(ROOT, 'app', 'macos', f));
+export const APP_SOURCES = ['Handry.swift', 'Listener.swift', 'Fox.swift', 'Permissions.swift', 'Overlay.swift', 'Pen.swift', 'Gaze.swift'].map(f => path.join(ROOT, 'app', 'macos', f));
 export const APP_FRAMEWORKS = ['AppKit', 'WebKit', 'Carbon', 'AVFoundation', 'Speech', 'CoreAudio', 'ServiceManagement'].flatMap(f => ['-framework', f]);
 
 /** What macOS shows in its permission questions, in the language Handry speaks now. */
@@ -28,6 +28,8 @@ export const usageStrings = () => ({
     `${APP.name} uses the microphone to hear your voice commands.`),
   NSSpeechRecognitionUsageDescription: T(`${APP.name} konuştukça söylediklerini yazmak ve "${WAKE_LABEL}" demeni duymak için bu Mac'te konuşma tanıma kullanır.`,
     `${APP.name} uses speech recognition on this Mac to write down what you say as you speak and to hear you say "${WAKE_LABEL}".`),
+  NSCameraUsageDescription: T(`${APP.name} göz takibi açıkken nereye baktığını bulmak için kamerayı kullanır; görüntü bu Mac'ten çıkmaz.`,
+    `${APP.name} uses the camera while eye tracking is on, to find where you look; the picture never leaves this Mac.`),
   NSAppleEventsUsageDescription: T(`${APP.name}, senin isteğinle uygulamaları (Spotify, Müzik, Notlar, Anımsatıcılar, Takvim, Mesajlar, sistem ayarları) kontrol etmek için Apple Events kullanır.`,
     `${APP.name} uses Apple Events to control apps when you ask (Spotify, Music, Notes, Reminders, Calendar, Messages, system settings).`)
 });

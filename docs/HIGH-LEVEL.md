@@ -26,7 +26,7 @@ Ekranda kendimizi görürüz. Yanımıza bir toz küresi (parçacıklardan bir k
 
 ## Sıra (kullanıcının önerisi, 2026-11-08)
 
-1. Göz kalibrasyonu ve ekranda baktığın yerin saydam izi: gerçekten anlıyor mu, görerek denenir.
+1. Göz kalibrasyonu ve ekranda baktığın yerin saydam izi: gerçekten anlıyor mu, görerek denenir. (2026-11-08: ilk hali yapıldı, menü › Göz Takibi; MediaPipe.)
 2. Ses ile birleştirmek.
 3. El hareketleri.
 4. Bağlama göre hareket öğretme.
