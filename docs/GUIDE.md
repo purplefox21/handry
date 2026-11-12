@@ -139,17 +139,27 @@ Circle or underline something and ask "what is this?" or "do I click here?". Cla
 
 > If you opened Claude Code with Handry before this update, the tool that looks at drawings isn't in that session yet. Type `/mcp` there and reconnect handry, or start a new session. A question sent from the bar works either way: the message carries a summary of the drawing and where its pictures are.
 
-## Eye tracking (experimental)
+## Hand gestures (experimental)
 
-The camera guesses where on the screen you are looking. For now it only shows the spot with a see-through circle; scrolling as you read and "open that" come later.
+Use the mouse with your hand in the air. The camera sees 21 points of your hand and Handry moves the mouse.
 
-1. Menu › **Eye Tracking**. The first time, macOS asks for the camera; allowing it is up to you.
-2. The first time, a calibration (about 35 seconds; `Esc` cancels): first look at 9 green dots with your eyes only, keeping your head still. Then, at 3 dots, keep your eyes on the dot and move your head slowly: left and right, up and down, a little closer and back. This part is what keeps it right when you move your head.
-3. Then a soft blue circle with a short trail follows where you look. How far off it is shows on the screen. Close your eyes and it says "Eyes closed"; look away and it says "You aren't looking at the screen", and the circle goes.
+1. Menu › **Hand Gestures**. The first time, macOS asks for the camera; allowing it is up to you. Moving the mouse also needs Handry's Accessibility permission (menu › Permissions…).
+2. A small window opens in the bottom right corner: your camera picture with your hand's skeleton. The dashed box is the screen; move your hand inside it.
+3. Gestures:
 
-- To set it up again: menu › **Calibrate Eyes**. Do it again on another display.
-- The camera picture never leaves the Mac and isn't saved. The camera's green light is on while eye tracking runs.
-- With a webcam, expect it to be off by 1-2 cm; more near the edges.
+| Gesture | What it does |
+|---|---|
+| ☝️ Index finger out, the others closed | The pointer follows your hand |
+| 🤏 Thumb and index finger together | Click; twice quickly: double click |
+| 🤏 Together, then move your hand | Drag; part the fingers to let go |
+| ✌️ Two fingers (index and middle) | Scroll: raise your hand from where you started to scroll up, lower it to scroll down; farther is faster |
+| ✋ Open palm or ✊ fist | Nothing; the pointer stays where it is |
+
+- Point first to click: bring the pointer with ☝️, then 🤏. Fingers touching while you do something else don't click.
+- Lower your hand (far outside the box) and Handry leaves the mouse alone; hands on the keyboard in the camera's view do nothing.
+- While Handry waits for you to confirm something, your hand doesn't click (so nothing says "Yes" by accident).
+- To turn it off: menu › **Hand Gestures**, or `⌥Esc`.
+- The camera picture never leaves the Mac and isn't saved. The camera's green light is on while the window is open. The hand model is downloaded once, the first time (8 MB).
 
 ## Timers and watches
 

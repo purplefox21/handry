@@ -26,9 +26,9 @@ Ekranda kendimizi görürüz. Yanımıza bir toz küresi (parçacıklardan bir k
 
 ## Sıra (kullanıcının önerisi, 2026-11-08)
 
-1. Göz kalibrasyonu ve ekranda baktığın yerin saydam izi: gerçekten anlıyor mu, görerek denenir. (2026-11-08: ilk hali yapıldı, menü › Göz Takibi; MediaPipe.)
+1. Göz kalibrasyonu ve ekranda baktığın yerin saydam izi: gerçekten anlıyor mu, görerek denenir. (2026-11-08: MediaPipe ile denendi, iyi çalışmadı. 2026-11-09: karar Beam Eye Tracker, ücretli olduğu için sonra. 2026-11-12: kendi sürümümüz koddan kaldırıldı; eski hali git geçmişinde.)
 2. Ses ile birleştirmek.
-3. El hareketleri.
+3. El hareketleri. (2026-11-09: ilk hali yapıldı, menü › El Hareketleri; MediaPipe Gesture Recognizer: ☝️ imleç, 🤏 tıklama/sürükleme, ✌️ kaydırma.)
 4. Bağlama göre hareket öğretme.
 5. AR ayna.
 

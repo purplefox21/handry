@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!-- Handry · © 2026 Berat Olekli (purplefox) · github.com/purplefox21/handry -->
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title data-en="{{APP}} hand gestures">{{APP}} el hareketleri</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; cursor: default; user-select: none; }
+    .box { position: fixed; inset: 0; border-radius: 14px; overflow: hidden; background: rgba(12, 12, 18, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.14); }
+    canvas { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% - 30px); }
+    video { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .status { position: absolute; left: 8px; right: 8px; bottom: 0; height: 30px; display: flex; align-items: center;
+      justify-content: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font: 600 12.5px/1 -apple-system, BlinkMacSystemFont, sans-serif; color: #fff; }
+    .status small { font-weight: 500; color: rgba(255, 255, 255, 0.55); overflow: hidden; text-overflow: ellipsis; }
+    .status.warn { color: #ffcf5c; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <canvas id="canvas"></canvas>
+    <div class="status" id="status"></div>
+  </div>
+  <video id="video" playsinline muted></video>
+  <script src="common.js"></script>
+  <script type="module" src="hands.js?v=1"></script>
+</body>
+</html>

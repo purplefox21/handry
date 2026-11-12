@@ -56,6 +56,9 @@ Handry started as a way to stop filling in App Store Connect by hand (pricing, t
 **Or you draw, and it looks**
 - Turn on the pen (⌥⇧P, the pen at the notch, or ✏️ in the bar), circle or underline something, and ask "what is this?". Your lines are lime; Claude gets them with what is under each (app, window, control), the screen with and without your lines, and a close-up (`screen_marks`). The question can also go to a Claude Code session open in VS Code.
 
+**Or with your hand in the air (experimental)**
+- Menu › Hand Gestures: the camera follows your hand (MediaPipe, on the Mac; the picture never leaves it). Point with your index finger to move the pointer, pinch thumb and index to click, double click or drag, two fingers up or down to scroll; an open palm or a fist does nothing. A small window in the corner shows your hand's skeleton.
+
 **From your phone**
 - Text yourself "Handry, turn the volume down" by iMessage: Handry does it and texts back the answer. "Handry, ekranı göster" sends a screenshot. Only your own conversation counts, only messages that start with the name, only new ones; risky steps still ask you (on the phone, with a code).
 

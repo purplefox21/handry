@@ -64,22 +64,27 @@ function serveFile(res, dir, name) {
   fs.createReadStream(file).pipe(res);
 }
 
-const FACE_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
-let faceModelLoading = null;
-/** MediaPipe's face model (with the irises), downloaded once from Google's model store. */
-function faceModel() {
-  const file = path.join(homeDir('models'), 'face_landmarker.task');
+// MediaPipe's models, downloaded once from Google's model store and kept in ~/.jevis/models: the hand and its
+// gestures for hand gestures.
+const MODEL_STORE = 'https://storage.googleapis.com/mediapipe-models';
+const MODELS = {
+  'gesture_recognizer.task': { url: `${MODEL_STORE}/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task`, tr: 'El modeli', en: 'The hand model' }
+};
+const modelLoading = {};
+function mediapipeModel(name) {
+  const model = MODELS[name];
+  const file = path.join(homeDir('models'), name);
   if (fs.existsSync(file) && fs.statSync(file).size > 1e6) return Promise.resolve(file);
-  faceModelLoading ||= (async () => {
-    const r = await fetch(FACE_MODEL_URL, { signal: AbortSignal.timeout(60000) });
-    if (!r.ok) throw new Error(T(`Yüz modeli indirilemedi (${r.status}).`, `The face model could not be downloaded (${r.status}).`));
+  modelLoading[name] ||= (async () => {
+    const r = await fetch(model.url, { signal: AbortSignal.timeout(60000) });
+    if (!r.ok) throw new Error(T(`${model.tr} indirilemedi (${r.status}).`, `${model.en} could not be downloaded (${r.status}).`));
     const data = Buffer.from(await r.arrayBuffer());
-    if (data.length < 1e6) throw new Error(T('Yüz modeli eksik indi.', 'The face model came down incomplete.'));
+    if (data.length < 1e6) throw new Error(T(`${model.tr} eksik indi.`, `${model.en} came down incomplete.`));
     fs.writeFileSync(`${file}.tmp`, data);
     fs.renameSync(`${file}.tmp`, file);
     return file;
-  })().finally(() => { faceModelLoading = null; });
-  return faceModelLoading;
+  })().finally(() => { delete modelLoading[name]; });
+  return modelLoading[name];
 }
 
 // Rejects DNS-rebinding hosts and requests coming from other origins.
@@ -276,13 +281,6 @@ const ROUTES = {
     }
   },
   // Timers and watches: the list (with what Handry saw last) and cancelling one or all.
-  // Eye tracking: the user's calibration (what maps the eyes to the screen), kept between runs.
-  'GET /api/gaze/calibration': (req, res) => sendJson(res, 200, { calibration: readJsonFile(path.join(homeDir('gaze'), 'calibration.json')) }),
-  'POST /api/gaze/calibration': async (req, res) => {
-    const body = JSON.parse((await readBody(req)).toString() || '{}');
-    fs.writeFileSync(path.join(homeDir('gaze'), 'calibration.json'), JSON.stringify({ ...body, at: Date.now() }));
-    sendJson(res, 200, { ok: true });
-  },
   // The pen: the user's drawing, and the Claude Code sessions a question about it can be sent on to.
   'GET /api/marks': async (req, res) => {
     const d = marks.current();
@@ -354,11 +352,12 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Eye tracking (app/public/gaze.html): MediaPipe's files from node_modules, and its face model, which is
-  // fetched from Google once (~3.7 MB) and kept in ~/.jevis/models. Nothing from the camera leaves the Mac.
+  // Hand gestures (app/public/hands.html): MediaPipe's files from node_modules, and its hand model, fetched from
+  // Google once (8 MB) and kept in ~/.jevis/models. Nothing from the camera leaves the Mac.
   if (urlPath.startsWith('/vendor/mediapipe/')) return serveFile(res, path.join(ROOT, 'node_modules', '@mediapipe', 'tasks-vision'), urlPath.slice('/vendor/mediapipe/'.length));
-  if (urlPath === '/vendor/models/face_landmarker.task') {
-    try { return serveFile(res, homeDir('models'), path.basename(await faceModel())); } catch (err) { res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end(err.message); }
+  const modelName = urlPath.startsWith('/vendor/models/') ? urlPath.slice('/vendor/models/'.length) : null;
+  if (modelName && Object.hasOwn(MODELS, modelName)) {
+    try { return serveFile(res, homeDir('models'), path.basename(await mediapipeModel(modelName))); } catch (err) { res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end(err.message); }
   }
 
   if (urlPath === '/guide') {

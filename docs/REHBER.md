@@ -139,17 +139,27 @@ Bir yeri daire içine alıp ya da altını çizip "bu ne?", "buraya mı basayım
 
 > Claude Code'da Handry'yi bu güncellemeden önce açtıysan çizime bakan araç o oturumda yoktur. Oturumda `/mcp` yazıp handry'yi yeniden bağla ya da yeni bir oturum aç. Çubuktan gönderilen soru yine de çalışır, çünkü mesajda çizimin özeti ve resimlerin yolu var.
 
-## Göz takibi (deneysel)
+## El hareketleri (deneysel)
 
-Kamera ekranın neresine baktığını tahmin eder. Şimdilik sadece baktığın yeri saydam bir daireyle gösterir; ilerde okurken kaydırma ve "şunu aç" gelecek.
+Fareyi havada elinle kullanırsın. Kamera elinin 21 noktasını görür, Handry fareyi ona göre oynatır.
 
-1. Menü › **Göz Takibi**. İlk seferde macOS kamera izni sorar, izin vermek senin kararın.
-2. İlk açılışta kalibrasyon (yaklaşık 35 saniye, `Esc` vazgeçer): önce 9 yeşil noktaya başını oynatmadan sadece gözlerinle bak. Sonra 3 noktada gözünü noktadan ayırmadan başını yavaşça oynat: sağa sola, aşağı yukarı, biraz öne ve geriye. Bu bölüm başını oynattığında da doğru çalışmasını sağlar.
-3. Sonra baktığın yeri mavi saydam bir daire ve kısa bir iz takip eder. Ne kadar saptığı ekranda yazar. Gözlerini kapatınca "Gözler kapalı", ekrana bakmayınca "Ekrana bakmıyorsun" yazar ve daire kaybolur.
+1. Menü › **El Hareketleri**. İlk seferde macOS kamera izni sorar, izin vermek senin kararın. Fareyi oynatmak için Handry'nin Erişilebilirlik izni de gerekir (menü › İzinler…).
+2. Ekranın sağ altında küçük bir pencere açılır: kamera görüntün ve elinin iskeleti. Kesik çizgili kutu ekranın kendisi; elini o kutunun içinde gezdirirsin.
+3. Hareketler:
 
-- Yeniden ayar için menü › **Gözü Kalibre Et**. Başka bir ekranda yeniden kalibre et.
-- Kamera görüntüsü Mac'ten çıkmaz, kaydedilmez. Göz takibi açıkken kameranın yeşil ışığı yanar.
-- Web kamerasıyla beklenen sapma 1-2 cm; ekranın kenarlarında daha fazla.
+| Hareket | Ne yapar |
+|---|---|
+| ☝️ İşaret parmağı uzun, diğerleri kapalı | İmleç elini takip eder |
+| 🤏 Baş parmakla işaret parmağını birleştir | Tıklama; iki kez hızlıca: çift tıklama |
+| 🤏 Birleştirip elini oynat | Sürükleme; parmakları ayırınca bırakır |
+| ✌️ İki parmak (işaret ve orta) | Kaydırma: elini başladığın yerden yukarı kaldır, yukarı kaydırır; aşağı indir, aşağı kaydırır; uzaklaştıkça hızlanır |
+| ✋ Açık avuç ya da ✊ yumruk | Hiçbir şey; imleç olduğu yerde kalır |
+
+- Tıklamak için önce işaret et: ☝️ ile imleci götür, sonra 🤏. Başka bir şey yaparken parmakların birleşirse tıklamaz.
+- Elini indirince (kutunun çok dışına çıkınca) Handry fareye dokunmaz; klavyede yazarken ellerin kameraya girse de bir şey olmaz.
+- Handry senden onay beklerken el tıklamaz (yanlışlıkla "Evet" olmasın).
+- Kapatmak için menü › **El Hareketleri** ya da `⌥Esc`.
+- Kamera görüntüsü Mac'ten çıkmaz, kaydedilmez. Pencere açıkken kameranın yeşil ışığı yanar. El modeli ilk seferde bir kez indirilir (8 MB).
 
 ## Zamanlayıcı ve nöbet
 
